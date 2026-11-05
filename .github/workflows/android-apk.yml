@@ -37,6 +37,33 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Validate HTML and embedded JavaScript
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          import re
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          class Check(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.ids = []
+              def handle_starttag(self, tag, attrs):
+                  for key, value in attrs:
+                      if key == "id" and value:
+                          self.ids.append(value)
+          parser = Check()
+          parser.feed(source)
+          duplicates = sorted({x for x in parser.ids if parser.ids.count(x) > 1})
+          if duplicates:
+              raise SystemExit("Duplicate HTML IDs: " + ", ".join(duplicates))
+          scripts = re.findall(r"<script(?![^>]*\\bsrc=)[^>]*>(.*?)</script>", source, re.S | re.I)
+          if not scripts:
+              raise SystemExit("No embedded application script found")
+          Path("/tmp/gensolar-inline.js").write_text("\\n".join(scripts), encoding="utf-8")
+          print(f"HTML parsed; {len(parser.ids)} unique IDs; {len(scripts)} embedded script(s)")
+          PY
+          node --check /tmp/gensolar-inline.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
