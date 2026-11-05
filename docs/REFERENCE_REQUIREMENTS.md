@@ -1,69 +1,60 @@
-# Reference comparison and selected requirements
+# GenSolar Pro Engineering — Full EPC scope and validation plan
 
-Reviewed repositories (read-only):
-- `VEERA0007/gensolar-pro` (`main`)
-- `VEERA0007/Roka-One` (`main`)
+## Product goal
 
-Both repositories contain the GenSolar Pro Android application under `gensolar-android-project/gensolar-android`. Roka-One is the more recent and expanded source baseline. The new `GenSolar-Pro-Engineering` app is not a fork or full copy of either repository. It takes only the engineering requirements relevant to a separate offline-first engineering tool.
+A complete solar engineering workspace, not a collection of disconnected forms. One project model must drive survey, maps, roof geometry, PV layout, shading, CAD, 3D, electrical design, procurement, construction, BOM/BOQ and DPR. A change to a shared input must invalidate and recalculate every dependent result.
 
-## Comparison
+## Required workspaces
 
-| Area | gensolar-pro | Roka-One | Decision for Engineering app |
-|---|---|---|---|
-| Solar estimator | Residential/commercial/industrial estimate inputs, tariff/yield and savings assumptions | Retains estimator and expands shared platform plan | Keep only engineering-side sizing inputs and assumptions; do not rebuild sales estimator first |
-| Basic site engineering | Site name, state, coordinates, capacity, module details, tilt/azimuth, resource fields, checklist and project stages | Retains site workspace and adds EPC engineering path | Include site/project records, roof zones, survey inputs and engineering checklist |
-| PV/electrical sizing | Panel count, preliminary generation and DC/AC inputs | Roadmap identifies PV, inverter, battery, cable and protection calculations | Include as separate, testable calculation modules with assumptions and source notes |
-| EPC workflow | Limited project stages | EPC tabs for site, layout, drawing, electrical, BOM and documents; engineering/procurement/construction stages | Adopt an engineering project workflow; exclude CRM/lead sales pipeline |
-| Auto layout | Basic area/capacity estimates | Test script checks Auto Design, panel count, SVG concept layout and preliminary BOM/cable schedule | Include 2D roof layout and BOM in phases; mark output conceptual until engineering checks exist |
-| CAD/site drawing | Not evidenced in the inspected feature summary | Test script covers DXF LINE parsing, PDF reference underlay and DWG conversion guidance | Include DXF first; PDF as reference underlay; DWG requires external conversion to DXF |
-| 3D | Not evidenced in inspected feature summary | Test script checks conceptual 3D building/PV model | Later phase only; label conceptual, not structural/BIM-grade |
-| DPR/PDF | Quote/PDF output | Test script checks separate DPR tab, editable BOM/workflow and multi-page print-to-PDF output | Include engineering DPR and PDF export after design/BOM data model stabilizes |
-| CRM/auth/roles | OTP, customer/rep/manager, Firestore lead flows | More extensive CRM, role model and cross-platform notes | Exclude from initial Engineering app; no login or cloud dependency |
-| Cross-platform | Android focus | Web/PWA, iOS Simulator and Windows wrapper/CI roadmap | Android first; consider other platforms only after core engineering is stable |
-| Notifications/cloud | Firebase and lead sync | In-app notifications; cross-device push remains future work | Exclude from offline-first v0.x; optional sync later |
+1. Project control: multiple projects, revisions, dates, customer/site details, audit trail, local backup and restore.
+2. Geospatial site: GPS capture, latitude/longitude pins, map layers, elevation, site boundary, multiple buildings/roof zones, north reference, survey photos and source/date metadata.
+3. Roof survey: RCC, metal sheet, sloped, elevated canopy and ground mount; polygons, lengths, widths, levels, parapets, setbacks, walkways, obstacles, drains, skylights, access and exclusion zones.
+4. PV module and equipment catalogue: manufacturer/model/datasheet, dimensions, Wp, Voc, Vmp, Isc, Imp, temperature coefficients, bifacial parameters, inverter MPPT windows/current/voltage limits, batteries, cables and protection devices.
+5. Automatic and manual PV layout: portrait/landscape, orientation, tilt, row pitch, sun clearance, module spacing, setbacks, obstacles, fire paths, roof zones, multiple structures, panel count, DC kWp, usable area and area balance.
+6. Solar resource and yield: sourced GHI/DNI/DHI/GTI, weather record, plane-of-array assumptions, PR, losses, monthly/annual yield, specific yield and CUF.
+7. Shade engine: date/time/location sun position, sun-path chart, obstacle geometry, horizon profile, 3D shadow casting, per-module/string shading, time-series shade map and loss assumptions. Clearly label the accuracy level of each model.
+8. CAD and drawings: editable layers/entities, DXF import/export, PDF/image underlays, drawing scale and units, dimensioning, snapping, selection/editing, roof plan, module plan, cable routing, elevations, sections, SLD and fabrication sheets. DWG/SKP import requires a verified converter/library; do not claim unsupported formats are editable.
+9. 3D engineering: navigable model of buildings, roof zones, modules, mounting rails, supports, obstructions and cable routes; 2D/3D synchronization; sections/elevations and drawing sheets.
+10. Structural and wind: site wind basis, terrain/topography/height/roof zones, applicable IS 875 Part 3 workflow, load combinations, member sizing, connection/foundation checks and review status. No automatic PASS when required inputs or engineering verification are missing.
+11. Electrical: string sizing, cold Voc, hot Vmp, MPPT current, DC/AC ratio, inverter allocation, cable ampacity and voltage drop, protection coordination, earthing, lightning, transformer/HT interface and SLD.
+12. Procurement and construction: BOQ, BOM, rates, vendor RFQs/comparisons, purchase orders, delivery, site activities, inspections, testing, commissioning and handover.
+13. Documents: engineering calculation report, drawing register, BOM/BOQ, DPR, SLD, PDF print/export, revision/date/sign-off and customer acceptance.
+14. Quality: units, assumptions, data provenance, calculation version, warnings, test cases, input validation, offline behavior and performance.
 
-## Selected requirements
+## Shared data contract
 
-### Include in this new app
-1. Offline-first Android app with package `com.gensolar.engineering`.
-2. Project and site records stored on device; later migrate to Room database with schema migrations.
-3. Roof survey: dimensions, roof zones, obstacles, setbacks, photos/notes and orientation.
-4. PV module catalogue and configurable module dimensions/wattage.
-5. Preliminary module count, roof area, row/column arrangement, tilt/azimuth and DC/AC ratio.
-6. Inverter, battery, cable, protection and basic electrical design calculators, each isolated and unit-tested.
-7. 2D roof layout with DXF import/export where feasible; PDF drawings may be attached as reference underlays.
-8. Preliminary BOM/BOQ, project costing inputs and editable engineering schedules.
-9. Engineering DPR with project summary, design inputs, assumptions, calculations, layout, BOM and review/approval sections.
-10. PDF generation and local file sharing/printing.
-11. Validation states: INCOMPLETE / REVIEW / READY FOR ENGINEER REVIEW. Never imply structural or statutory approval automatically.
+- Project is the root record; all workspaces read/write the same versioned project.
+- Each roof zone has stable ID, geometry, elevation, type, exclusions and coordinate reference.
+- Each module/inverter/equipment item references a catalogue record and datasheet revision.
+- Calculations are pure functions where practical. Results store inputs, units, assumptions, engine version and timestamp.
+- Input edits mark dependent outputs stale and trigger recalculation; no stale result may appear as current.
+- Duplicate fields bound to the same key must stay synchronized.
+- Exported documents and drawings must use the same project revision and calculation snapshot.
 
-### Exclude from initial scope
-- Customer login, Firebase OTP, user roles, CRM leads, sales assignments and follow-up reminders.
-- Cloud database, cross-device sync, push notifications and automatic online tariff/resource claims.
-- Sales dashboards, marketing website, iOS and Windows packaging.
-- Production structural certification, stamped drawings or automatic approval.
+## Accuracy and safety gates
 
-## Implementation sequence
+- A map pin is not a roof survey. Satellite imagery must not be treated as structural evidence.
+- Weather values must be attributed to a named source and retrieval/report date.
+- Shadow estimates must distinguish a simplified sun/shadow screen from validated 3D ray-tracing and electrical mismatch analysis.
+- Preliminary structural or electrical estimates must not be presented as approved fabrication/construction designs.
+- A result can be PASS only when all mandatory inputs, standards checks and engineering review steps are satisfied. Otherwise show REVIEW / INCOMPLETE.
+- Do not insert arbitrary media or binary files to inflate APK size. Size follows actual features, offline assets and native dependencies; optimize delivery and keep the APK verifiable.
 
-- **0.1 foundation:** native Android shell, offline roof-area calculator, local settings and GitHub Actions debug APK.
-- **0.2 project data:** Room database, project list, site/roof zones, survey checklist and export/import backup.
-- **0.3 PV layout:** module catalogue, portrait/landscape placement, clearances, walkways, obstacles and editable 2D layout.
-- **0.4 electrical:** inverter selection, string sizing, DC/AC checks, cable/protection schedules and battery sizing where applicable.
-- **0.5 CAD and 3D:** DXF parser/import, PDF underlay, SVG layout export, conceptual 3D preview. DWG conversion is not native in the first CAD milestone.
-- **0.6 documents:** BOM/BOQ, cost sheet, multi-page engineering DPR, PDF export and print QA.
-- **0.7 engineering QA:** unit tests, reference cases, boundary checks, assumptions/source dates and qualified engineer review.
-- **Later:** optional cloud sync, authentication and cross-platform packaging only if separately approved.
+## Verification gates
 
-## Evidence and limitations
+1. Java/Gradle compile and APK existence.
+2. JavaScript syntax check for every embedded/external script.
+3. HTML parse and required element-ID uniqueness checks.
+4. Shared-data tests: edit one field and verify all duplicate fields and dependent results update.
+5. Geometry tests: rectangular, irregular, multi-zone, obstacles, setbacks, walkways, portrait/landscape and no-fit cases.
+6. Solar tests: known-date sun-position fixtures, sunrise/sunset and polar/invalid coordinate cases.
+7. Electrical tests: cold Voc, MPPT bounds, current limits, invalid inputs and cable drop.
+8. CAD tests: DXF LINE/LWPOLYLINE/CIRCLE, units, scale, invalid files and export round-trip.
+9. Android tests: file picker, GPS permission, offline launch, local persistence, PDF printing and rotation/relaunch.
+10. DPR/BOM tests: one revision snapshot, consistent quantities, rates, totals, units and source references.
 
-The Roka-One repository's `tests/gensolar-webview-smoke.mjs` contains checks for the DPR workflow, EPC tabs, Auto Design, SVG concept layout, preliminary BOM/cable schedule, DXF line parsing, PDF underlay and DWG conversion messaging. These are test definitions in the repository; they are not a claim that those checks were executed during this review or that the resulting tools are production-grade CAD. The Roka-One roadmap itself describes remaining work and calls for engineering review.
+## Current implementation status (2026-11-06)
 
-The inspected `gensolar-pro` feature summary documents the basic engineering/site-design workspace and explicitly treats solar resource values as user-entered and outputs as preliminary. That conservative boundary is retained.
-
-## Source separation and security
-
-- Keep both reference repositories unchanged.
-- Do not copy Firebase configuration, Google service files, signing keystores, API keys, user data or release updater code.
-- Do not reuse the `com.gensolar.pro` package ID.
-- Port only individual calculation logic/assets after reviewing and testing them.
-- Keep formulas in pure Java modules with unit tests and clear assumptions.
+- Implemented in the current starter: project workspace, roof input fields, preliminary rectangular PV layout, concept DXF export, limited DXF entity parsing, project JSON import/export, BOM/BOQ estimate, basic electrical/battery/cable screens, GPS coordinate inputs, map embed/pin, device GPS permission flow, solar-resource input fields, simplified single-obstacle sun/shadow estimate, DPR preview and Android print integration.
+- Still required for the full product: true editable multi-layer CAD, DWG/SKP conversion, polygon/irregular roof editing, robust multi-roof 3D modelling, ray-traced shade and module mismatch/loss simulation, detailed structural engineering/fabrication release, validated weather/resource integration, full SLD/protection coordination, robust database/revision management, and comprehensive automated/instrumented tests.
+- The current application is a foundation and must not be represented as a finished professional CAD/shading package until those gates pass.
