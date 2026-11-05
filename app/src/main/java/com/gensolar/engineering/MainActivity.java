@@ -1,135 +1,66 @@
 package com.gensolar.engineering;
 
 import android.app.Activity;
-import android.content.SharedPreferences;
+import android.content.*;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.view.*;
 import android.view.inputmethod.InputMethodManager;
-import android.content.Context;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
-import android.widget.Toast;
-import java.util.Locale;
+import android.widget.*;
+import java.util.*;
 
 public class MainActivity extends Activity {
+    private final int ink=0xFF142B3A, muted=0xFF6C7D89, green=0xFF087F5B, bg=0xFFF4F7F8, white=0xFFFFFFFF, line=0xFFE1E8EB;
     private SharedPreferences prefs;
-    private EditText capacity, watts, length, width, gap, columns, factor;
-    private TextView output;
+    private LinearLayout root, body, nav;
+    private String page="Overview";
+    private final Map<String,EditText> fields=new LinkedHashMap<>();
+    private TextView result;
+    private final String[] tabs={"Overview","Project","PV Design","Electrical","BOM & DPR"};
 
-    @Override public void onCreate(Bundle state) {
-        super.onCreate(state);
-        prefs = getSharedPreferences("engineering_draft", MODE_PRIVATE);
-        buildScreen();
+    @Override public void onCreate(Bundle b){super.onCreate(b); prefs=getSharedPreferences("engineering_workspace",MODE_PRIVATE); getWindow().setStatusBarColor(0xFF102A24); getWindow().setNavigationBarColor(0xFF102A24); showApp();}
+    private int d(float n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
+    private GradientDrawable shape(int color,int stroke,int radius){GradientDrawable x=new GradientDrawable();x.setColor(color);x.setCornerRadius(d(radius));if(stroke!=0)x.setStroke(d(1),stroke);return x;}
+    private TextView label(String s,int size,int color,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(color);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
+    private LinearLayout column(){LinearLayout l=new LinearLayout(this);l.setOrientation(1);return l;}
+    private LinearLayout row(){LinearLayout l=new LinearLayout(this);l.setOrientation(0);l.setGravity(Gravity.CENTER_VERTICAL);return l;}
+    private LinearLayout.LayoutParams lp(int w,int h){return new LinearLayout.LayoutParams(w<0?w:d(w),h<0?h:d(h));}
+    private void pad(View v,int a){v.setPadding(d(a),d(a),d(a),d(a));}
+    private void showApp(){
+        root=column();root.setBackgroundColor(bg);
+        LinearLayout header=column();header.setPadding(d(20),d(14),d(20),d(12));header.setBackgroundColor(white);
+        LinearLayout brand=row();TextView logo=label("GEN",17,green,true);brand.addView(logo);TextView logo2=label("SOLAR  /  ENGINEERING",12,ink,true);LinearLayout.LayoutParams q=lp(-2,-2);q.leftMargin=d(7);brand.addView(logo2,q);brand.addView(new View(this),new LinearLayout.LayoutParams(0,1,1));TextView offline=label("● OFFLINE READY",10,green,true);brand.addView(offline);header.addView(brand);
+        TextView heading=label(page,25,ink,true);LinearLayout.LayoutParams hp=lp(-1,-2);hp.topMargin=d(14);header.addView(heading,hp);
+        TextView sub=label("Engineering workspace  •  Local project data",12,muted,false);header.addView(sub);
+        root.addView(header);
+        HorizontalScrollView hsv=new HorizontalScrollView(this);hsv.setHorizontalScrollBarEnabled(false);nav=row();nav.setPadding(d(12),d(10),d(12),d(10));for(String t:tabs){TextView b=label(t,12,t.equals(page)?white:muted,true);b.setGravity(Gravity.CENTER);b.setPadding(d(15),d(10),d(15),d(10));b.setBackground(shape(t.equals(page)?green:white,t.equals(page)?green:line,22));LinearLayout.LayoutParams p=lp(-2,-2);p.rightMargin=d(7);nav.addView(b,p);b.setOnClickListener(v->{page=t;showApp();});}hsv.addView(nav);root.addView(hsv);
+        ScrollView scroll=new ScrollView(this);body=column();body.setPadding(d(16),d(6),d(16),d(28));scroll.addView(body);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
+        fields.clear();result=null;
+        switch(page){case "Overview":overview();break;case "Project":project();break;case "PV Design":pv();break;case "Electrical":electrical();break;default:documents();}
     }
-
-    private void buildScreen() {
-        int pad = dp(18);
-        LinearLayout page = new LinearLayout(this);
-        page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(pad, pad, pad, pad);
-        page.setBackgroundColor(0xFFF3F6F8);
-
-        TextView brand = text("GENSOLAR PRO", 13, 0xFF087F5B, true);
-        page.addView(brand);
-        TextView title = text("Engineering workspace", 26, 0xFF12202C, true);
-        page.addView(title);
-        TextView intro = text("Offline-first starter · Rooftop area estimator", 14, 0xFF586979, false);
-        page.addView(intro);
-
-        ScrollView scroll = new ScrollView(this);
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(0, dp(16), 0, dp(20));
-
-        capacity = field(content, "Target system capacity (kW)", "10");
-        watts = field(content, "Panel wattage (330–700 W)", "550");
-        length = field(content, "Panel length (mm)", "2278");
-        width = field(content, "Panel width (mm)", "1134");
-        gap = field(content, "Provisional module gap (mm; enter approved value)", "0");
-        columns = field(content, "Panels per row", "10");
-        factor = field(content, "Planning area factor (1.0 or higher; provisional)", "1.0");
-
-        Button calculate = new Button(this);
-        calculate.setText("CALCULATE ROOFTOP AREA");
-        calculate.setOnClickListener(v -> calculate());
-        content.addView(calculate, matchWrap());
-
-        output = text("Enter project inputs and calculate. Values are saved on this device.", 15, 0xFF12202C, false);
-        output.setPadding(dp(14), dp(14), dp(14), dp(14));
-        content.addView(output, matchWrap());
-
-        TextView note = text("Engineering notice: this starter performs preliminary geometric estimates only. It does not calculate code-compliant wind loads, structural member sizes, anchors, foundations or construction approvals.", 12, 0xFF8A4B08, false);
-        note.setPadding(dp(12), dp(12), dp(12), dp(12));
-        content.addView(note, matchWrap());
-
-        scroll.addView(content);
-        page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        setContentView(page);
-        restore();
+    private void card(String title,String desc,String value){LinearLayout c=column();c.setPadding(d(16),d(15),d(16),d(15));c.setBackground(shape(white,line,16));TextView a=label(title,14,ink,true);c.addView(a);TextView b=label(desc,12,muted,false);LinearLayout.LayoutParams p=lp(-1,-2);p.topMargin=d(5);c.addView(b,p);if(value!=null){TextView z=label(value,22,green,true);p=lp(-1,-2);p.topMargin=d(12);c.addView(z,p);}LinearLayout.LayoutParams cp=lp(-1,-2);cp.bottomMargin=d(10);body.addView(c,cp);}
+    private void section(String s){TextView t=label(s.toUpperCase(Locale.US),11,green,true);t.setPadding(d(3),d(13),d(3),d(8));body.addView(t);}
+    private void overview(){
+        LinearLayout hero=column();hero.setPadding(d(18),d(19),d(18),d(19));hero.setBackground(shape(0xFF103C34,0,18));hero.addView(label("DESIGN WITH CONFIDENCE",11,0xFF9FE2C7,true));TextView h=label("Solar engineering,\nfrom survey to DPR.",25,white,true);LinearLayout.LayoutParams p=lp(-1,-2);p.topMargin=d(9);hero.addView(h,p);TextView s=label("Offline-first tools for rooftop PV planning, electrical sizing and project documentation.",13,0xFFD2E8E1,false);p=lp(-1,-2);p.topMargin=d(8);hero.addView(s,p);p=lp(-1,-2);p.bottomMargin=d(12);body.addView(hero,p);
+        section("Workspace");card("Project & site survey","Project details, location, roof type, dimensions, obstacles and survey notes.",prefs.getString("project_name","No project selected"));card("PV system design","Module catalogue, panel count, roof fit, layout rows, DC capacity and inverter ratio.","Open PV Design");card("Electrical engineering","Inverter/string checks, battery sizing, cable voltage drop and protection schedule.","Open Electrical");card("BOM, BOQ & DPR","Equipment schedule, editable quantities, cost estimate and printable report.","Open Documents");
+        section("Design status");card("Engineering review","All calculated outputs are preliminary until checked by a qualified engineer.","INCOMPLETE / REVIEW / READY");card("Saved locally","Your project inputs and calculations remain on this device. No login or cloud connection required.","OFFLINE");
     }
-
-    private EditText field(LinearLayout parent, String label, String defaultValue) {
-        TextView caption = text(label, 13, 0xFF334455, true);
-        caption.setPadding(0, dp(12), 0, dp(4));
-        parent.addView(caption, matchWrap());
-        EditText edit = new EditText(this);
-        edit.setSingleLine(true);
-        edit.setInputType(8194);
-        edit.setText(prefs.getString(label, defaultValue));
-        edit.setTextSize(16);
-        parent.addView(edit, matchWrap());
-        if (label.startsWith("Target")) capacity = edit;
-        else if (label.startsWith("Panel wattage")) watts = edit;
-        else if (label.startsWith("Panel length")) length = edit;
-        else if (label.startsWith("Panel width")) width = edit;
-        else if (label.startsWith("Provisional")) gap = edit;
-        else if (label.startsWith("Panels per")) columns = edit;
-        else factor = edit;
-        return edit;
-    }
-
-    private void calculate() {
-        try {
-            double kw = number(capacity), w = number(watts), l = number(length), b = number(width);
-            double g = number(gap), f = number(factor);
-            int c = (int) number(columns);
-            RoofAreaCalculator.Result r = RoofAreaCalculator.calculate(kw, w, l, b, g, c, f);
-            String report = String.format(Locale.US,
-                    "RESULTS\n\nPanels required: %d\nInstalled capacity: %.2f kWp\nRows: %d\nLast row panels: %d\n\nPanel surface area: %.2f m² (%.2f sq.ft)\nInter-panel / row gap area: %.2f m² (%.2f sq.ft)\nFabrication footprint: %.2f m² (%.2f sq.ft)\n\nEstimated gross rooftop area: %.2f m²\nEstimated gross rooftop area: %.2f sq.ft\n\nAssumed gap: %.0f mm · Gross factor: %.2f×\n\nThis is a preliminary estimate, not an approved structural or fabrication design.",
-                    r.panelCount, r.installedKwp, r.rows, r.lastRowPanels,
-                    r.panelAreaSqm, r.panelAreaSqm * RoofAreaCalculator.SQFT_PER_SQM,
-                    r.gapAreaSqm, r.gapAreaSqm * RoofAreaCalculator.SQFT_PER_SQM,
-                    r.fabricationAreaSqm, r.fabricationAreaSqm * RoofAreaCalculator.SQFT_PER_SQM,
-                    r.grossRoofAreaSqm, r.grossRoofAreaSqft, g, f);
-            output.setText(report);
-            prefs.edit()
-                    .putString("Target system capacity (kW)", capacity.getText().toString())
-                    .putString("Panel wattage (330–700 W)", watts.getText().toString())
-                    .putString("Panel length (mm)", length.getText().toString())
-                    .putString("Panel width (mm)", width.getText().toString())
-                    .putString("Provisional module gap (mm; enter approved value)", gap.getText().toString())
-                    .putString("Panels per row", columns.getText().toString())
-                    .putString("Planning area factor (1.0 or higher; provisional)", factor.getText().toString())
-                    .putString("last_result", report).apply();
-            ((InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE))
-                    .hideSoftInputFromWindow(capacity.getWindowToken(), 0);
-        } catch (Exception e) {
-            Toast.makeText(this, "Check all input values. " + e.getMessage(), Toast.LENGTH_LONG).show();
-        }
-    }
-
-    private void restore() {
-        String previous = prefs.getString("last_result", null);
-        if (previous != null) output.setText(previous);
-    }
-    private double number(EditText e) { return Double.parseDouble(e.getText().toString().trim()); }
-    private TextView text(String value, int size, int color, boolean bold) {
-        TextView t = new TextView(this); t.setText(value); t.setTextSize(size); t.setTextColor(color);
-        if (bold) t.setTypeface(Typeface.DEFAULT, Typeface.BOLD); return t;
-    }
-    private LinearLayout.LayoutParams matchWrap() { return new LinearLayout.LayoutParams(-1, -2); }
-    private int dp(int value) { return (int) (value * getResources().getDisplayMetrics().density + 0.5f); }
+    private EditText input(String key,String title,String def,String hint){LinearLayout box=column();box.setPadding(d(13),d(10),d(13),d(7));box.setBackground(shape(white,line,12));TextView l=label(title,11,muted,true);box.addView(l);EditText e=new EditText(this);e.setSingleLine(true);e.setTextSize(16);e.setTextColor(ink);e.setHint(hint);e.setPadding(0,d(3),0,d(3));e.setText(prefs.getString(key,def));e.setInputType(8194);box.addView(e,lp(-1,-2));LinearLayout.LayoutParams p=lp(-1,-2);p.bottomMargin=d(9);body.addView(box,p);fields.put(key,e);return e;}
+    private void project(){section("Project identity");input("project_name","PROJECT / CUSTOMER NAME","New rooftop project","Enter project name");input("site_name","SITE NAME","Main facility","Plant / building");input("location","LOCATION / DISTRICT","Hyderabad, Telangana","City, state");input("roof_type","ROOF TYPE","RCC","RCC / metal shed / ground mount");input("capacity","TARGET CAPACITY (kWp)","100","kWp");section("Roof survey");input("roof_length","USABLE ROOF LENGTH (m)","30","metres");input("roof_width","USABLE ROOF WIDTH (m)","20","metres");input("setback","EDGE SETBACK (m)","1","metres");input("obstacles","OBSTACLE / WALKWAY AREA (m²)","20","square metres");input("tilt","MODULE TILT (degrees)","10","degrees");input("azimuth","AZIMUTH (degrees)","180","0 north, 180 south");input("notes","SURVEY NOTES","Roof access and structural review pending","Notes");button("SAVE PROJECT & SURVEY",()->{save();Toast.makeText(this,"Project saved on this device",0).show();});}
+    private void pv(){section("PV module & layout");input("pv_kw","TARGET DC CAPACITY (kWp)","100","kWp");input("module_w","MODULE RATING (W)","550","330–700 W");input("module_l","MODULE LENGTH (mm)","2278","mm");input("module_b","MODULE WIDTH (mm)","1134","mm");input("module_gap","MODULE GAP (mm)","20","Approved design value");input("panels_row","MODULES PER ROW","10","count");input("area_factor","LAYOUT / ACCESS FACTOR","1.15","1.0 or higher");input("usable_area","USABLE ROOF AREA (m²)","500","m²");button("CALCULATE PV LAYOUT & ROOF AREA",()->calcPv());resultBox();}
+    private void electrical(){section("Inverter & string design");input("dc_kw","PV DC CAPACITY (kWp)","100","kWp");input("ac_kw","INVERTER AC CAPACITY (kW)","80","kW");input("voc","MODULE Voc (V)","49.8","Open-circuit voltage");input("vmp","MODULE Vmp (V)","41.8","Operating voltage");input("isc","MODULE Isc (A)","14.0","Short-circuit current");input("temp_coeff","Voc temperature coefficient (%/°C)","-0.28","Use module datasheet");input("min_temp","MINIMUM DESIGN TEMPERATURE (°C)","5","Site design value");input("mppt_min","INVERTER MPPT MIN (V)","200","Datasheet");input("mppt_max","INVERTER MPPT MAX (V)","1000","Datasheet");input("max_dc","MAX DC INPUT (V)","1100","Datasheet");button("CHECK DC/AC & STRING SIZING",()->calcString());section("Battery & cable");input("load_kw","BACKUP LOAD (kW)","3","kW");input("backup_hours","BACKUP DURATION (hours)","5","hours");input("dod","BATTERY DEPTH OF DISCHARGE (%)","80","%");input("eff","SYSTEM EFFICIENCY (%)","90","%");input("cable_current","DESIGN CURRENT (A)","25","A");input("cable_length","ONE-WAY CABLE LENGTH (m)","30","m");input("cable_area","CABLE SIZE (mm²)","6","Copper conductor");input("voltage","SYSTEM VOLTAGE (V)","600","DC / AC nominal");button("CALCULATE BATTERY & CABLE",()->calcBatteryCable());resultBox();}
+    private void documents(){section("Project deliverables");card("Engineering DPR","Project overview, site survey, design basis, PV sizing, electrical checks, assumptions, BOM and review sign-off.","PDF / Print ready");card("BOM & BOQ","Editable equipment quantities and cost inputs for modules, inverters, structures, cables and protection.","Local schedule");input("bom_modules","PV MODULE QUANTITY","182","Nos");input("bom_inverters","INVERTER QUANTITY","1","Nos");input("bom_structure","STRUCTURE QUANTITY","1","Lot");input("bom_cable","DC CABLE LENGTH (m)","300","m");input("bom_ac","AC CABLE LENGTH (m)","100","m");input("bom_cost","ESTIMATED PROJECT COST (₹)","0","INR");button("SAVE BOM & GENERATE DPR SUMMARY",()->{save();String s="GENSOLAR PRO ENGINEERING — PRELIMINARY DPR\n\nProject: "+val("project_name")+"\nSite: "+val("site_name")+"\nLocation: "+val("location")+"\nRoof type: "+val("roof_type")+"\nTarget capacity: "+val("capacity")+" kWp\n\nBOM\nModules: "+val("bom_modules")+"\nInverters: "+val("bom_inverters")+"\nStructure: "+val("bom_structure")+"\nDC cable: "+val("bom_cable")+" m\nAC cable: "+val("bom_ac")+" m\nEstimated cost: ₹"+val("bom_cost")+"\n\nStatus: PRELIMINARY — ENGINEER REVIEW REQUIRED.";showReport("DPR SUMMARY",s);});}
+    private void button(String text,Runnable r){Button b=new Button(this);b.setText(text);b.setTextColor(white);b.setAllCaps(false);b.setBackground(shape(green,0,12));LinearLayout.LayoutParams p=lp(-1,52);p.topMargin=d(5);p.bottomMargin=d(12);body.addView(b,p);b.setOnClickListener(v->{save();hideKeyboard();r.run();});}
+    private void resultBox(){result=label("Your calculation results will appear here. Check all equipment datasheets and site-specific design conditions.",13,ink,false);result.setPadding(d(15),d(15),d(15),d(15));result.setBackground(shape(white,line,14));body.addView(result,lp(-1,-2));}
+    private double n(String key){String s=val(key);if(s.isEmpty())throw new IllegalArgumentException("Missing value: "+key);return Double.parseDouble(s);}
+    private String val(String key){EditText e=fields.get(key);return e!=null?e.getText().toString().trim():prefs.getString(key,"");}
+    private void calcPv(){try{double kw=n("pv_kw"),w=n("module_w"),l=n("module_l"),b=n("module_b"),gap=n("module_gap"),f=n("area_factor"),usable=n("usable_area");int per=(int)n("panels_row");if(kw<=0||w<330||w>700||l<=0||b<=0||gap<0||f<1||per<1||usable<0)throw new IllegalArgumentException("Review capacity, module and layout inputs.");int count=(int)Math.ceil(kw*1000/w),rows=(int)Math.ceil(count/(double)per),last=count-(rows-1)*per;double panelArea=count*l*b/1e6;double footprint=panelArea+(count-rows)*gap*b/1e6+(rows-1)*gap*l*per/1e6;double gross=footprint*f;double installed=count*w/1000;String s=String.format(Locale.US,"PV DESIGN RESULTS\n\nModules required: %d\nInstalled DC capacity: %.2f kWp\nRows: %d  •  Last row: %d modules\nModule surface area: %.2f m²\nPreliminary layout footprint: %.2f m²\nPlanning area incl. factor: %.2f m²\nUsable roof area: %.2f m²\nArea balance: %.2f m²\n\n%s\n\nLayout remains preliminary: roof setbacks, access paths, obstacles, shading, fire access and structural constraints must be verified.",count,installed,rows,last,panelArea,footprint,gross,usable,usable-gross,usable>=gross?"PRELIMINARY AREA FIT":"ROOF AREA SHORTFALL");showResult(s);}catch(Exception e){error(e);}}
+    private void calcString(){try{double dc=n("dc_kw"),ac=n("ac_kw"),voc=n("voc"),vmp=n("vmp"),isc=n("isc"),coef=n("temp_coeff"),t=n("min_temp"),min=n("mppt_min"),max=n("mppt_max"),maxdc=n("max_dc");if(dc<=0||ac<=0||voc<=0||vmp<=0||isc<=0||min>=max||maxdc<=0)throw new IllegalArgumentException("Invalid capacity or datasheet limits.");double ratio=dc/ac;double coldVoc=voc*(1+(coef/100)*(t-25));int maxSeries=(int)Math.floor(Math.min(max,maxdc)/coldVoc);int minSeries=(int)Math.ceil(min/vmp);String s=String.format(Locale.US,"ELECTRICAL CHECK\n\nDC capacity: %.2f kWp\nAC inverter: %.2f kW\nDC/AC ratio: %.2f\nCold-corrected module Voc: %.2f V\nIndicative series range: %d to %d modules/string\nModule Isc: %.2f A\n\n%s\n\nConfirm inverter MPPT current per input, parallel string limits, bifacial gain, temperature coefficient convention, voltage limits and local electrical standards from approved datasheets.",dc,ac,ratio,coldVoc,minSeries,maxSeries,(minSeries<=maxSeries&&maxSeries>0)?"REVIEW STRING RANGE":"NO VALID STRING RANGE — REVIEW INPUTS");showResult(s);}catch(Exception e){error(e);}}
+    private void calcBatteryCable(){try{double load=n("load_kw"),hrs=n("backup_hours"),dod=n("dod")/100,eff=n("eff")/100,current=n("cable_current"),len=n("cable_length"),area=n("cable_area"),v=n("voltage");if(load<=0||hrs<=0||dod<=0||dod>1||eff<=0||eff>1||current<=0||len<0||area<=0||v<=0)throw new IllegalArgumentException("Check battery and cable inputs.");double usable=load*hrs,nominal=usable/(dod*eff);double drop=2*0.0175*len*current/area;double pct=drop/v*100;String s=String.format(Locale.US,"BATTERY & CABLE ESTIMATE\n\nLoad energy: %.2f kWh\nRequired nominal battery: %.2f kWh\nUsable energy target: %.2f kWh\nAssumed DoD: %.0f%%  •  Efficiency: %.0f%%\n\nCable one-way length: %.1f m\nConductor: %.1f mm² copper (assumed resistivity 0.0175 Ω·mm²/m)\nEstimated voltage drop: %.2f V (%.2f%%)\n\n%s\n\nPreliminary only. Verify cable ampacity, installation method, ambient temperature, grouping, fault current, protection coordination and manufacturer limits.",usable,nominal,usable,dod*100,eff*100,len,area,drop,pct,pct<=2?"VOLTAGE DROP WITHIN 2% SCREEN":"REVIEW VOLTAGE DROP");showResult(s);}catch(Exception e){error(e);}}
+    private void showResult(String s){if(result!=null)result.setText(s);else showReport("CALCULATION",s);}
+    private void showReport(String title,String s){new android.app.AlertDialog.Builder(this).setTitle(title).setMessage(s).setPositiveButton("OK",null).setNeutralButton("Share", (a,b)->{Intent i=new Intent(Intent.ACTION_SEND);i.setType("text/plain");i.putExtra(Intent.EXTRA_TEXT,s);startActivity(Intent.createChooser(i,"Share engineering report"));}).show();}
+    private void error(Exception e){Toast.makeText(this,"Check inputs: "+e.getMessage(),Toast.LENGTH_LONG).show();}
+    private void save(){SharedPreferences.Editor ed=prefs.edit();for(Map.Entry<String,EditText>x:fields.entrySet())ed.putString(x.getKey(),x.getValue().getText().toString());ed.apply();}
+    private void hideKeyboard(){try{((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(root.getWindowToken(),0);}catch(Exception ignored){}}
 }
