@@ -57,10 +57,10 @@ jobs:
           duplicates = sorted({x for x in parser.ids if parser.ids.count(x) > 1})
           if duplicates:
               raise SystemExit("Duplicate HTML IDs: " + ", ".join(duplicates))
-          scripts = re.findall(r"<script(?![^>]*\\bsrc=)[^>]*>(.*?)</script>", source, re.S | re.I)
+          scripts = re.findall(r"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", source, re.S | re.I)
           if not scripts:
               raise SystemExit("No embedded application script found")
-          Path("/tmp/gensolar-inline.js").write_text("\\n".join(scripts), encoding="utf-8")
+          Path("/tmp/gensolar-inline.js").write_text("\n".join(scripts), encoding="utf-8")
           print(f"HTML parsed; {len(parser.ids)} unique IDs; {len(scripts)} embedded script(s)")
           PY
           node --check /tmp/gensolar-inline.js
