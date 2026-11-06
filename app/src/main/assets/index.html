@@ -179,7 +179,7 @@ return parts.map((x,i)=>{const v=Number(x);if(!Number.isInteger(v)||v<=0)throw n
 function pvBuildVariableMpptPlan(totalModules,modulesPerStringByMppt,maxStringsByMppt,dcInputsPerMppt=1,maxStringsPerInput=Number.POSITIVE_INFINITY){
 const modules=Number(totalModules),sizes=modulesPerStringByMppt.map(Number),caps=maxStringsByMppt.map(Number),inputs=Number(dcInputsPerMppt),perInput=Number(maxStringsPerInput);
 if(!(Number.isInteger(modules)&&modules>0&&sizes.length>0&&sizes.length===caps.length&&sizes.every(x=>Number.isInteger(x)&&x>0)&&caps.every(x=>Number.isInteger(x)&&x>=0)&&Number.isInteger(inputs)&&inputs>0&&(perInput===Number.POSITIVE_INFINITY||Number.isInteger(perInput)&&perInput>0)))throw new Error('Variable MPPT plan requires positive module/string values, non-negative tracker capacities and valid DC input limits.');
-const channelCaps=caps.map(x=>Math.min(x,inputs*perInput)),reachable=new Array(modules+1).fill(null);reachable[0]=[];
+const channelCaps=caps.map(x=>Math.min(x,inputs*perInput));let reachable=new Array(modules+1).fill(null);reachable[0]=[];
 for(let i=0;i<sizes.length;i++){
 const next=new Array(modules+1).fill(null);
 for(let used=0;used<=modules;used++)if(reachable[used]!==null){
@@ -187,7 +187,7 @@ for(let n=0;n<=channelCaps[i]&&used+n*sizes[i]<=modules;n++){
 const total=used+n*sizes[i],candidate=reachable[used].concat(n);
 if(next[total]===null||candidate.reduce((a,b)=>a+b,0)>next[total].reduce((a,b)=>a+b,0))next[total]=candidate;
 }}
-for(let used=0;used<=modules;used++)if(next[used]!==null)reachable[used]=next[used];
+reachable=next;
 }
 let allocatedModules=modules;while(allocatedModules>0&&reachable[allocatedModules]===null)allocatedModules--;
 const allocation=allocatedModules===0?Array(sizes.length).fill(0):reachable[allocatedModules],records=[];let nextModule=1;
