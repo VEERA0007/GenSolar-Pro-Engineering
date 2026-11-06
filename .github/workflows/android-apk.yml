@@ -144,7 +144,7 @@ jobs:
           assert.equal(pvTemperatureAdjustedVoltage(40, -0.3, 25), 40, "voltage at reference temperature must remain unchanged");
           assert.throws(() => pvTemperatureAdjustedVoltage(0, -0.3, -10), /positive/);
           assert.throws(() => pvTemperatureAdjustedVoltage(40, "invalid", -10), /finite/);
-          assert.throws(() => pvTemperatureAdjustedVoltage(40, -10, -10), /positive and finite/);
+          assert.throws(() => pvTemperatureAdjustedVoltage(40, -10, 100), /positive and finite/);
           console.log("PV temperature-voltage tests passed: cold Voc, cold Vmp, hot Vmp, reference temperature and invalid-input guards");
           JS
           node /tmp/gensolar-temperature-voltage.js
