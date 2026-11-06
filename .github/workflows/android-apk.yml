@@ -394,6 +394,35 @@ jobs:
           console.log("Independent MPPT tracker voltage/current overrides, fallback, invalid override and per-tracker capacity tests passed");
           JS
           node /tmp/gensolar-mppt-trackers.js
+      - name: Test mixed string lengths and per-tracker voltage planning
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvResolveMpptStringLengths(")
+          end = source.index("\nfunction calculateCompatibility()", start)
+          Path("/tmp/gensolar-variable-mppt.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-variable-mppt.js <<'JS'
+          const assert = require("node:assert/strict");
+          assert.deepEqual(pvResolveMpptStringLengths(3,20,"18,19,20"),[18,19,20]);
+          assert.deepEqual(pvResolveMpptStringLengths(2,20,""),[20,20]);
+          assert.throws(()=>pvResolveMpptStringLengths(2,20,"18"),/exactly 2/);
+          assert.throws(()=>pvResolveMpptStringLengths(2,20,"18,0"),/positive whole number/);
+          const exact = pvBuildVariableMpptPlan(96,[20,18],[3,3],1,3);
+          assert.deepEqual(exact.allocation,[3,2]);
+          assert.equal(exact.allocatedModules,96);
+          assert.equal(exact.unallocatedModules,0);
+          assert.deepEqual(exact.records.filter(x=>x.mppt===1).map(x=>x.modulesPerString),[20,20,20]);
+          assert.deepEqual(exact.records.filter(x=>x.mppt===2).map(x=>x.modulesPerString),[18,18]);
+          const limited = pvBuildVariableMpptPlan(100,[20,18],[5,5],2,1);
+          assert.deepEqual(limited.allocation,[2,2]);
+          assert.equal(limited.allocatedModules,76);
+          assert.equal(limited.unallocatedModules,24);
+          assert.throws(()=>pvBuildVariableMpptPlan(100,[20,0],[2,2]),/positive module\/string/);
+          console.log("Mixed MPPT string lengths: exact panel allocation, independent string voltage grouping, connector capacity and invalid inputs passed");
+          JS
+          node /tmp/gensolar-variable-mppt.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
