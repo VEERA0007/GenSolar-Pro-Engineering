@@ -124,6 +124,30 @@ jobs:
           assert.throws(() => buildStringMpptPlan(4, 20, 1.5), /positive integers/);
           console.log("MPPT string allocation: balanced channels, sequential module references, single-string edge case and integer-input guards passed");
           JS
+      - name: Test temperature-adjusted PV string voltages
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvTemperatureAdjustedVoltage(")
+          end = source.index("\\nfunction electrical(", start)
+          Path("/tmp/gensolar-temperature-voltage.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-temperature-voltage.js <<'JS'
+          const assert = require("node:assert/strict");
+          const coldVoc = pvTemperatureAdjustedVoltage(49.5, -0.28, -10);
+          const coldVmp = pvTemperatureAdjustedVoltage(41.5, -0.30, -10);
+          const hotVmp = pvTemperatureAdjustedVoltage(41.5, -0.30, 70);
+          assert.ok(Math.abs(coldVoc - 54.351) < 1e-9, "cold Voc correction must increase voltage below reference temperature");
+          assert.ok(Math.abs(coldVmp - 45.8575) < 1e-9, "cold Vmp correction must increase voltage below reference temperature");
+          assert.ok(Math.abs(hotVmp - 35.8975) < 1e-9, "hot Vmp correction must reduce voltage above reference temperature");
+          assert.equal(pvTemperatureAdjustedVoltage(40, -0.3, 25), 40, "voltage at reference temperature must remain unchanged");
+          assert.throws(() => pvTemperatureAdjustedVoltage(0, -0.3, -10), /positive/);
+          assert.throws(() => pvTemperatureAdjustedVoltage(40, "invalid", -10), /finite/);
+          assert.throws(() => pvTemperatureAdjustedVoltage(40, -10, -10), /positive and finite/);
+          console.log("PV temperature-voltage tests passed: cold Voc, cold Vmp, hot Vmp, reference temperature and invalid-input guards");
+          JS
+          node /tmp/gensolar-temperature-voltage.js
       - name: Test PV polygon geometry and setbacks
         run: |
           python3 - <<'PY'
