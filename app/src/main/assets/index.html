@@ -158,13 +158,13 @@ const mins=parse(minCsv,base[0],'MPPT minimum-voltage overrides'),maxs=parse(max
 return Array.from({length:n},(_,i)=>{if(maxs[i]<=mins[i])throw new Error('MPPT '+(i+1)+' maximum voltage must exceed its minimum voltage.');return{mppt:i+1,minVoltage:mins[i],maxVoltage:maxs[i],maxOperatingCurrent:imps[i],maxShortCircuitCurrent:iscs[i]};});
 }
 function buildStringMpptPlan(totalStrings,modulesPerString,mpptCount,maxStringsPerMppt=Number.POSITIVE_INFINITY,dcInputsPerMppt=1,maxStringsPerInput=Number.POSITIVE_INFINITY){
-const strings=Number(totalStrings),perString=Number(modulesPerString),channels=Number(mpptCount),cap=Number(maxStringsPerMppt),inputs=Number(dcInputsPerMppt),perInput=Number(maxStringsPerInput);
-if(!(Number.isInteger(strings)&&strings>0&&Number.isInteger(perString)&&perString>0&&Number.isInteger(channels)&&channels>0&&(cap===Number.POSITIVE_INFINITY||Number.isInteger(cap)&&cap>=0)&&Number.isInteger(inputs)&&inputs>0&&(perInput===Number.POSITIVE_INFINITY||Number.isInteger(perInput)&&perInput>0)))throw new Error('String count, modules per string and MPPT count must be positive integers; MPPT string capacity must be a non-negative integer; DC input count and strings per input must be positive integers.');
-const channelCapacity=Math.min(cap,inputs*perInput),allocation=Array(channels).fill(0);let remaining=strings;
-for(let i=0;i<channels;i++){const slots=channels-i,balancedTarget=Math.ceil(remaining/slots),assigned=Math.min(balancedTarget,channelCapacity);allocation[i]=assigned;remaining-=assigned;}
+const strings=Number(totalStrings),perString=Number(modulesPerString),channels=Number(mpptCount),inputs=Number(dcInputsPerMppt),perInput=Number(maxStringsPerInput),caps=Array.isArray(maxStringsPerMppt)?maxStringsPerMppt.map(Number):Array(channels).fill(Number(maxStringsPerMppt));
+if(!(Number.isInteger(strings)&&strings>0&&Number.isInteger(perString)&&perString>0&&Number.isInteger(channels)&&channels>0&&caps.length===channels&&caps.every(x=>x===Number.POSITIVE_INFINITY||Number.isInteger(x)&&x>=0)&&Number.isInteger(inputs)&&inputs>0&&(perInput===Number.POSITIVE_INFINITY||Number.isInteger(perInput)&&perInput>0)))throw new Error('String count, modules per string and MPPT count must be positive integers; MPPT string capacity must be a non-negative integer; DC input count and strings per input must be positive integers.');
+const channelCaps=caps.map(x=>Math.min(x,inputs*perInput)),allocation=Array(channels).fill(0);let remaining=strings;
+for(let i=0;i<channels;i++){const slots=channels-i,balancedTarget=Math.ceil(remaining/slots),assigned=Math.min(balancedTarget,channelCaps[i]);allocation[i]=assigned;remaining-=assigned;}
 let nextModule=1;const records=[];
 allocation.forEach((n,i)=>{for(let j=0;j<n;j++){const first=nextModule,last=nextModule+perString-1,input=Math.floor(j/perInput)+1;records.push({string:records.length+1,mppt:i+1,input,modules:perString,firstModule:first,lastModule:last});nextModule=last+1}});
-return{allocation,records,requestedStrings:strings,allocatedStrings:records.length,unallocatedStrings:remaining,maxStringsPerMppt:channelCapacity,dcInputsPerMppt:inputs,maxStringsPerInput:perInput};
+return{allocation,records,requestedStrings:strings,allocatedStrings:records.length,unallocatedStrings:remaining,maxStringsPerMppt:channelCaps,dcInputsPerMppt:inputs,maxStringsPerInput:perInput};
 }
 
 function calculateCompatibility(){
