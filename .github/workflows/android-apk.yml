@@ -124,6 +124,30 @@ jobs:
           assert.throws(() => buildStringMpptPlan(4, 20, 1.5), /positive integers/);
           console.log("MPPT string allocation: balanced channels, sequential module references, single-string edge case and integer-input guards passed");
           JS
+      - name: Test PV polygon geometry and setbacks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function cross(")
+          end = source.index("function pvCircleInsidePolygon(", start)
+          Path("/tmp/gensolar-pv-geometry.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-pv-geometry.js <<'JS'
+          const assert = require("node:assert/strict");
+          const square = [{x:0,y:0},{x:10,y:0},{x:10,y:10},{x:0,y:10}];
+          assert.equal(pvRectFits(2, 2, 2, 2, square, 0.5), true, "interior rectangle with setback should fit");
+          assert.equal(pvRectFits(9, 2, 2, 2, square, 0), false, "rectangle crossing roof boundary must fail");
+          assert.equal(pvRectFits(0.2, 2, 1, 1, square, 0.5), false, "rectangle violating edge setback must fail");
+          assert.equal(pvRectFits(1, 1, 2, 2, square, 0.5), true, "rectangle meeting setback must fit");
+          const concave = [{x:0,y:0},{x:8,y:0},{x:8,y:3},{x:3,y:3},{x:3,y:8},{x:0,y:8}];
+          assert.equal(pvRectFits(1, 4, 1, 1, concave, 0), true, "rectangle in concave polygon arm should fit");
+          assert.equal(pvRectFits(4, 4, 1, 1, concave, 0), false, "rectangle in concave cut-out must fail");
+          assert.equal(segmentsIntersect({x:0,y:0},{x:4,y:4},{x:0,y:4},{x:4,y:0}), true, "crossing segments should intersect");
+          assert.equal(segmentsIntersect({x:0,y:0},{x:4,y:0},{x:2,y:1},{x:2,y:3}), false, "separated segments must not intersect");
+          console.log("PV polygon geometry: interior fit, boundary rejection, setback, concave-zone and segment-intersection tests passed");
+          JS
+          node /tmp/gensolar-pv-geometry.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
