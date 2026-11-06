@@ -437,7 +437,7 @@ jobs:
           const dc = pvCableDesign({mode:"dc",material:"cu",voltage:600,current:25,length:30,area:6,temp:70,limit:2,pf:.9,reactance:.08,baseAmpacity:40,ambientFactor:.9,groupFactor:.8,installationFactor:1});
           assert.ok(Math.abs(dc.drop - (2*30*25*(.017241*(1+.00393*50)/6))) < 1e-9);
           assert.ok(Math.abs(dc.derating-.72)<1e-12);
-          assert.equal(dc.deratedAmpacity,28.8);
+          assert.ok(Math.abs(dc.deratedAmpacity-28.8)<1e-9);
           assert.equal(dc.ampacityPass,true);
           const single = pvCableDesign({mode:"1ph",material:"cu",voltage:230,current:20,length:25,area:4,temp:70,limit:3,pf:.9,reactance:.08,baseAmpacity:32,ambientFactor:1,groupFactor:1,installationFactor:1});
           assert.ok(single.drop>0 && single.reactanceDrop>0);
