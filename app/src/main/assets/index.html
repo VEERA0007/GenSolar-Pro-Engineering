@@ -82,7 +82,7 @@ else if(detail.includes(k))clearCalcGroups(['detail']);
 function resetProjectCalculations(){
 ['wind','structure','loadCombinations','memberCapacity','ltb','sectionClass','connections','foundation','rccFooting','rccDetail','layout','electrical','protection','sldSvg'].forEach(k=>delete state[k]);
 state.roofZones=[];state.dxfEntities=[];state.cadText='';state.cadName='';state.checks={};
-clearCalcGroups(['wind','structure','connections','foundation','rcc','detail']);
+clearCalcGroups(['wind','structure','ltb','sectionClass','connections','foundation','rcc','detail']);
 ['layoutMetrics','layoutDrawing','layoutWarnings','electricalMetrics','electricalSchedule','electricalWarning','protectionMetrics','protectionSchedule','sldPreview','dprPreview'].forEach(id=>{if($(id))$(id).innerHTML=''});
 if($('roofZoneSelect'))$('roofZoneSelect').innerHTML='';
 if($('cadPreview'))$('cadPreview').textContent='No drawing imported.';
