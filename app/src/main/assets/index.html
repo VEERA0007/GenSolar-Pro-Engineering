@@ -157,9 +157,9 @@ $('structureWarning').textContent='PRELIMINARY BEAM SCREEN ONLY. Model assumes a
 
 function copyStructureActionToCombination(target){
 const st=state.structure;if(!st){alert('Calculate the mounting member screen first.');return}
-const value=target==='lcG'?st.deadLine:st.windLine;
+const value=target==='lcG'?st.deadLine:Math.max(-st.windKpa,0)*st.trib;
 document.querySelectorAll('[data-k="'+target+'"]').forEach(el=>{el.value=String(value);el.dispatchEvent(new Event('input',{bubbles:true}))});
-$('loadComboWarning').textContent='Copied '+(target==='lcG'?'mounting dead load':'mounting wind uplift')+' from the current member screen. Review all actions and factors before calculating.';
+$('loadComboWarning').textContent='Copied '+(target==='lcG'?'mounting dead load':'net wind uplift before dead-load combination')+' from the current member screen. Review all actions and factors before calculating.';
 }
 function calculateLoadCombinations(){
 const st=state.structure;if(!st){alert('Calculate wind pressure and the mounting member screen first.');return}
