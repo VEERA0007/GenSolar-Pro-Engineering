@@ -67,7 +67,7 @@ const rcc=['rccPedB','rccPedL','rccDepth','rccFck','rccFy','rccCover','rccBarDia
 const detail=['rccLd','rccExtra','rccDrawingScale'];
 if(wind.includes(k))clearCalcGroups(['wind']);
 else if(structure.includes(k))clearCalcGroups(['structure']);
-else if(loadCombo.includes(k)){delete state.loadCombinations;if($('loadComboMetrics'))$('loadComboMetrics').innerHTML='';if($('loadComboSchedule'))$('loadComboSchedule').innerHTML='';if($('loadComboWarning'))$('loadComboWarning').textContent='Inputs changed. Recalculate combinations before relying on results.';if($('dprPreview'))$('dprPreview').innerHTML='';}
+else if(loadCombo.includes(k)){delete state.loadCombinations;delete state.memberCapacity;['loadComboMetrics','loadComboSchedule','memberCapacityMetrics','memberCapacitySchedule'].forEach(id=>{if($(id))$(id).innerHTML=''});if($('loadComboWarning'))$('loadComboWarning').textContent='Inputs changed. Recalculate combinations before relying on results.';if($('memberCapacityWarning'))$('memberCapacityWarning').textContent='Load combinations changed. Recalculate member resistance after recalculating combinations.';if($('dprPreview'))$('dprPreview').innerHTML='';}
 else if(connections.includes(k))clearCalcGroups(['connections']);
 else if(foundation.includes(k))clearCalcGroups(['foundation']);
 else if(rcc.includes(k))clearCalcGroups(['rcc']);
