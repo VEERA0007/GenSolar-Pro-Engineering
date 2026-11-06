@@ -529,6 +529,40 @@ jobs:
           console.log("Commissioning records: required fields, numeric validation, result control and DPR evidence passed");
           JS
           node /tmp/gensolar-commissioning.js
+      - name: Test customer handover and warranty register
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("const handoverChecklistItems=")
+          end = source.index("\\nfunction reportHtml()", start)
+          Path("/tmp/gensolar-handover.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-handover.js <<'JS'
+          const assert = require("node:assert/strict");
+          const fields = {};
+          for (const [id,value] of Object.entries({hoCustomer:"Factory Ltd",hoSite:"Plant A",hoDate:"2026-11-06",hoInstaller:"EPC Lead",hoCustomerRep:"Plant Manager",hoStatus:"Accepted",hoObservations:"",hoPackage:"DPR-001",warEquipment:"PV module",warMaker:"Module Manufacturer",warSerial:"SN-123",warType:"Product warranty",warStart:"2026-11-06",warEnd:"2046-11-05",warTerms:"Certificate W-1",warEvidence:""})) fields[id]={value};
+          global.$ = id => fields[id] || (fields[id]={value:""});
+          global.state = {handover:{checklist:{}} , warranties:[],attachments:[]};
+          global.makeId = () => "test-id";
+          global.save = () => true;
+          global.alert = msg => { throw new Error(msg); };
+          global.escapeHtml = value => String(value == null ? "" : value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+          global.metric = (a,b) => a+":"+b;
+          assert.throws(() => saveHandover(), /customer representative and mark every handover checklist item complete/);
+          state.handover.checklist = Object.fromEntries(handoverChecklistItems.map((_,i)=>[i,true]));
+          saveHandover();
+          assert.equal(state.handover.status,"Accepted");
+          assert.equal(Object.keys(state.handover.checklist).length,handoverChecklistItems.length);
+          addWarranty();
+          assert.equal(state.warranties.length,1);
+          assert.equal(state.warranties[0].end,"2046-11-05");
+          assert.ok(handoverDprSection().includes("Customer handover and acceptance"));
+          assert.ok(handoverDprSection().includes("Module Manufacturer"));
+          assert.ok(handoverDprSection().includes("2046-11-05"));
+          console.log("Customer handover acceptance gate, checklist, warranty dates and DPR schedule passed");
+          JS
+          node /tmp/gensolar-handover.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
