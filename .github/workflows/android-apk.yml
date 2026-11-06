@@ -96,6 +96,31 @@ jobs:
           console.log("ZIP round-trip, binary/UTF-8 payloads, CRC corruption detection and path traversal rejection passed");
           JS
           node /tmp/gensolar-zip-test.js
+      - name: Test PV string-to-MPPT allocation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function buildStringMpptPlan(")
+          end = source.index("\\nfunction calculateCompatibility()", start)
+          Path("/tmp/gensolar-string-plan.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-string-plan.js <<'JS'
+          const assert = require("node:assert/strict");
+          const plan = buildStringMpptPlan(10, 20, 4);
+          assert.deepEqual(plan.allocation, [3, 3, 2, 2]);
+          assert.equal(plan.records.length, 10);
+          assert.deepEqual(plan.records[0], { string: 1, mppt: 1, modules: 20, firstModule: 1, lastModule: 20 });
+          assert.deepEqual(plan.records[3], { string: 4, mppt: 2, modules: 20, firstModule: 61, lastModule: 80 });
+          assert.deepEqual(plan.records[9], { string: 10, mppt: 4, modules: 20, firstModule: 181, lastModule: 200 });
+          const one = buildStringMpptPlan(1, 12, 4);
+          assert.deepEqual(one.allocation, [1, 0, 0, 0]);
+          assert.deepEqual(one.records[0], { string: 1, mppt: 1, modules: 12, firstModule: 1, lastModule: 12 });
+          assert.throws(() => buildStringMpptPlan(0, 20, 4), /positive integers/);
+          assert.throws(() => buildStringMpptPlan(4, 0, 4), /positive integers/);
+          assert.throws(() => buildStringMpptPlan(4, 20, 0), /positive integers/);
+          console.log("MPPT string allocation: balanced channels, sequential module references, single-string edge case and invalid-input guards passed");
+          JS
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
