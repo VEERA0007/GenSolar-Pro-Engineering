@@ -521,9 +521,9 @@ jobs:
           assert.equal(commissioningRecordIsComplete({...valid,result:"Approved"}), false);
           assert.equal(commissioningRecordIsComplete({...valid,measured:"",result:"Not tested"}), true);
           global.escapeHtml = value => String(value == null ? "" : value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-          global.state = {commissioning:[{...valid,remarks:"Verified at site"}]};
+          global.state = {commissioning:[{...valid,remarks:"Verified at site",action:"Retest after connector replacement",actionOwner:"Site electrician",dueDate:"2026-11-08",actionStatus:"Open",evidenceName:"string-test-photo.jpg"}]};
           const report = commissioningDprSection();
-          for (const expected of ["Commissioning and electrical test register","String open-circuit voltage","720.5 V","Pass","Verified at site","not independent verification"]) assert.ok(report.includes(expected), "Missing commissioning DPR content: "+expected);
+          for (const expected of ["Commissioning and electrical test register","String open-circuit voltage","720.5 V","Pass","Verified at site","Corrective action register","Retest after connector replacement","Site electrician","2026-11-08","Open","string-test-photo.jpg","not independent verification"]) assert.ok(report.includes(expected), "Missing commissioning DPR content: "+expected);
           global.state.commissioning = [];
           assert.ok(commissioningDprSection().includes("No commissioning test records"));
           console.log("Commissioning records: required fields, numeric validation, result control and DPR evidence passed");
