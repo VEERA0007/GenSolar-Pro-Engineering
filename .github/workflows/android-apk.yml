@@ -332,6 +332,42 @@ jobs:
           console.log("MPPT capacity: 1.25× operating-current headroom, Isc limit, bifacial uplift and manual datasheet cap tests passed");
           JS
           node /tmp/gensolar-mppt-current-capacity.js
+      - name: Test MPPT DC input topology and tracker minimums
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvAdjustedModuleCurrent(")
+          first_end = source.index("\nfunction electrical(", start)
+          second_start = source.index("function pvMaxStringsPerMppt(", first_end)
+          end = source.index("\nfunction calculateCompatibility()", second_start)
+          Path("/tmp/gensolar-mppt-topology.js").write_text(source[start:first_end] + "\n" + source[second_start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-mppt-topology.js <<'JS'
+          const assert = require("node:assert/strict");
+          const cap = pvMaxStringsPerMppt(60, 80, 13, 14, 0, 0, 2, 1, 30, 40);
+          assert.equal(cap.operating, 3);
+          assert.equal(cap.shortCircuit, 5);
+          assert.equal(cap.inputOperating, 4);
+          assert.equal(cap.inputShortCircuit, 4);
+          assert.equal(cap.inputCapacity, 2);
+          assert.equal(cap.maximum, 2);
+          const noInputLimit = pvMaxStringsPerMppt(60, 80, 13, 14, 0, 0, 3, 2, 0, 0);
+          assert.equal(noInputLimit.maximum, 4);
+          const plan = buildStringMpptPlan(7, 20, 2, 4, 2, 2);
+          assert.deepEqual(plan.allocation, [4, 3]);
+          assert.deepEqual(plan.records.slice(0, 4).map(x => x.input), [1, 1, 2, 2]);
+          assert.equal(plan.records[4].mppt, 2);
+          assert.equal(plan.records[4].input, 1);
+          assert.equal(plan.unallocatedStrings, 0);
+          const capped = buildStringMpptPlan(9, 20, 2, 3, 2, 1);
+          assert.deepEqual(capped.allocation, [2, 2]);
+          assert.equal(capped.unallocatedStrings, 5);
+          assert.throws(() => pvMaxStringsPerMppt(60, 80, 13, 14, 0, 0, 0, 1), /positive integers/);
+          assert.throws(() => pvMaxStringsPerMppt(60, 80, 13, 14, 0, 0, 2, 1, -1, 0), /non-negative/);
+          console.log("MPPT topology: per-socket current limits, connector capacity, socket mapping and unallocated-string tests passed");
+          JS
+          node /tmp/gensolar-mppt-topology.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
