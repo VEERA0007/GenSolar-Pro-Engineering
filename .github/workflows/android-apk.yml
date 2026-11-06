@@ -563,6 +563,38 @@ jobs:
           console.log("Customer handover acceptance gate, checklist, warranty dates and DPR schedule passed");
           JS
           node /tmp/gensolar-handover.js
+      - name: Test O&M maintenance schedule and DPR
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function refreshMaintenanceEvidenceOptions(")
+          end = source.index("\\nfunction reportHtml()", start)
+          Path("/tmp/gensolar-maintenance.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-maintenance.js <<'JS'
+          const assert = require("node:assert/strict");
+          const fields = {};
+          for (const [id,value] of Object.entries({omEquipment:"PV array",omTask:"Visual inspection",omFrequency:"Quarterly per O&M plan",omOwner:"Site technician",omLastDate:"2026-01-01",omDueDate:"2025-12-01",omStatus:"Planned",omReference:"Approved O&M manual §4",omNotes:"Check module glass and cable routing",omEvidence:""})) fields[id]={value};
+          global.$ = id => fields[id] || (fields[id]={value:"",innerHTML:""});
+          global.state = {maintenance:[],attachments:[]};
+          global.makeId = () => "maintenance-test";
+          global.save = () => true;
+          global.alert = msg => { throw new Error(msg); };
+          global.escapeHtml = value => String(value == null ? "" : value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+          global.metric = (a,b) => a+":"+b;
+          assert.throws(() => addMaintenanceRecord(), /Next due date cannot be earlier/);
+          fields.omDueDate.value = "2026-12-01";
+          addMaintenanceRecord();
+          assert.equal(state.maintenance.length,1);
+          assert.equal(state.maintenance[0].dueDate,"2026-12-01");
+          assert.ok(maintenanceDprSection().includes("Operations and preventive maintenance schedule"));
+          assert.ok(maintenanceDprSection().includes("Quarterly per O&M plan"));
+          assert.ok(maintenanceDprSection().includes("Approved O&M manual"));
+          assert.ok(maintenanceDprSection().includes("2026-12-01"));
+          console.log("O&M schedule: required fields, date order, persistence and DPR output passed");
+          JS
+          node /tmp/gensolar-maintenance.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
