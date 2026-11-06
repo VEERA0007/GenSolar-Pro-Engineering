@@ -279,7 +279,7 @@ jobs:
           from pathlib import Path
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("function buildStringMpptPlan(")
-          end = source.index("\\nfunction calculateCompatibility()", start)
+          end = source.index("\nfunction calculateCompatibility()", start)
           Path("/tmp/gensolar-mppt-capacity.js").write_text(source[start:end], encoding="utf-8")
           PY
           cat >> /tmp/gensolar-mppt-capacity.js <<'JS'
@@ -303,6 +303,33 @@ jobs:
           console.log("MPPT allocation capacity: balanced distribution, per-channel cap, unallocated strings and invalid capacity tests passed");
           JS
           node /tmp/gensolar-mppt-capacity.js
+      - name: Test datasheet-derived MPPT string capacity
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvAdjustedModuleCurrent(")
+          end = source.index("\\nfunction electrical(", start)
+          Path("/tmp/gensolar-mppt-current-capacity.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-mppt-current-capacity.js <<'JS'
+          const assert = require("node:assert/strict");
+          const normal = pvMaxStringsPerMppt(30, 40, 13.2, 14, 0, 0);
+          assert.equal(normal.operating, 1);
+          assert.equal(normal.shortCircuit, 2);
+          assert.equal(normal.maximum, 1);
+          const bifacial = pvMaxStringsPerMppt(40, 40, 13.2, 14, 10, 0);
+          assert.equal(bifacial.operating, 2);
+          assert.equal(bifacial.shortCircuit, 2);
+          assert.equal(bifacial.maximum, 2);
+          const manual = pvMaxStringsPerMppt(60, 100, 13.2, 14, 0, 2);
+          assert.equal(manual.maximum, 2);
+          assert.throws(() => pvMaxStringsPerMppt(0, 40, 13.2, 14), /positive/);
+          assert.throws(() => pvMaxStringsPerMppt(30, 0, 13.2, 14), /positive/);
+          assert.throws(() => pvMaxStringsPerMppt(30, 40, 13.2, 14, 0, 1.5), /non-negative integer/);
+          console.log("MPPT capacity: 1.25× operating-current headroom, Isc limit, bifacial uplift and manual datasheet cap tests passed");
+          JS
+          node /tmp/gensolar-mppt-current-capacity.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
