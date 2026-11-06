@@ -176,6 +176,41 @@ jobs:
           console.log("PV layout validation: valid layout, module overlap, roof boundary and legacy setback tests passed");
           JS
           node /tmp/gensolar-layout-validation.js
+      - name: Test PV obstacle clearance and access corridors
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function parseObstacleCircles(")
+          end = source.index("function pvPointInPoly(", start)
+          Path("/tmp/gensolar-obstacle-corridor.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-obstacle-corridor.js <<'JS'
+          const assert = require("node:assert/strict");
+          const circles = parseObstacleCircles("5,5,1");
+          const rects = parseObstacleRectangles("8,2,2,3");
+          const corridors = parseCorridorRectangles("0,0,1,10;9,0,1,10");
+          assert.equal(circles.length, 1);
+          assert.equal(rects.length, 1);
+          assert.equal(corridors.length, 2);
+          assert.equal(pvRectObstacleClearAll(1,1,2,2, circles, [], 0), true, "module clear of circular obstacle should pass");
+          assert.equal(pvRectObstacleClearAll(4.5,4.5,2,2, circles, [], 0), false, "module intersecting circular obstacle should fail");
+          assert.equal(pvRectObstacleClearAll(5,4,1,1, [], rects, 0), false, "module intersecting rectangular obstacle should fail");
+          assert.equal(pvRectObstacleClearAll(5,4,1,1, [], rects, 0.5), false, "rectangular obstacle clearance must be enforced");
+          assert.equal(pvRectObstacleClearAll(2,2,1,1, [], rects, 0.5), true, "module outside rectangular obstacle clearance should pass");
+          const bounds = {minX:0,minY:0,maxX:10,maxY:10};
+          assert.equal(pvRectInAccessCorridor(0.2,4,1,1,bounds,"left",1), true, "left access corridor must be detected");
+          assert.equal(pvRectInAccessCorridor(8.8,4,1,1,bounds,"right",1), true, "right access corridor must be detected");
+          assert.equal(pvRectInAccessCorridor(4,0.2,1,1,bounds,"top",1), true, "top access corridor must be detected");
+          assert.equal(pvRectInAccessCorridor(4,8.8,1,1,bounds,"bottom",1), true, "bottom access corridor must be detected");
+          assert.equal(pvRectInAccessCorridor(3,3,1,1,bounds,"left",1), false, "module outside corridor must pass");
+          assert.equal(pvRectOverlapsAny(0.5,0.5,1,1,corridors), true, "custom corridor rectangle overlap must be detected");
+          assert.throws(() => parseObstacleCircles("1,2,0"), /positive radius/);
+          assert.throws(() => parseObstacleRectangles("1,2,-3,4"), /positive dimensions/);
+          assert.throws(() => parseCorridorRectangles("1,2,0,4"), /positive dimensions/);
+          console.log("PV obstacle and access-corridor tests passed: circle clearance, rectangle clearance, all four edge corridors, custom corridor overlap and invalid geometry guards");
+          JS
+          node /tmp/gensolar-obstacle-corridor.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
