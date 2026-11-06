@@ -502,6 +502,32 @@ jobs:
           console.log("Electrical DPR report: protection ratings, fault level, earthing, cable voltage drop and missing-data fallbacks passed");
           JS
           node /tmp/gensolar-electrical-report.js
+      - name: Test commissioning register and DPR handover
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function commissioningRecordIsComplete(")
+          end = source.index("\\nfunction reportHtml()", start)
+          Path("/tmp/gensolar-commissioning.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-commissioning.js <<'JS'
+          const assert = require("node:assert/strict");
+          const valid = {category:"DC array",test:"String open-circuit voltage",measured:"720.5",unit:"V",criterion:"Compare with temperature-corrected design Voc",result:"Pass",method:"Isolated string measurement",tester:"Commissioning engineer",date:"2026-11-06"};
+          assert.equal(commissioningRecordIsComplete(valid), true);
+          assert.equal(commissioningRecordIsComplete({...valid,test:""}), false);
+          assert.equal(commissioningRecordIsComplete({...valid,criterion:""}), false);
+          assert.equal(commissioningRecordIsComplete({...valid,measured:"not-a-number"}), false);
+          assert.equal(commissioningRecordIsComplete({...valid,result:"Approved"}), false);
+          assert.equal(commissioningRecordIsComplete({...valid,measured:"",result:"Not tested"}), true);
+          global.state = {commissioning:[{...valid,remarks:"Verified at site"}]};
+          const report = commissioningDprSection();
+          for (const expected of ["Commissioning and electrical test register","String open-circuit voltage","720.5 V","Pass","Verified at site","not independent verification"]) assert.ok(report.includes(expected), "Missing commissioning DPR content: "+expected);
+          global.state.commissioning = [];
+          assert.ok(commissioningDprSection().includes("No commissioning test records"));
+          console.log("Commissioning records: required fields, numeric validation, result control and DPR evidence passed");
+          JS
+          node /tmp/gensolar-commissioning.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
