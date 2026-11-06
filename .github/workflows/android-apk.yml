@@ -273,6 +273,36 @@ jobs:
           console.log("Bifacial current uplift: operating current and Isc multipliers validated, including invalid-input guards");
           JS
           node /tmp/gensolar-bifacial-current.js
+      - name: Test MPPT channel capacity and balanced allocation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function buildStringMpptPlan(")
+          end = source.index("\\nfunction calculateCompatibility()", start)
+          Path("/tmp/gensolar-mppt-capacity.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-mppt-capacity.js <<'JS'
+          const assert = require("node:assert/strict");
+          const normal = buildStringMpptPlan(10, 20, 4, 3);
+          assert.deepEqual(normal.allocation, [3, 3, 2, 2]);
+          assert.equal(normal.allocatedStrings, 10);
+          assert.equal(normal.unallocatedStrings, 0);
+          const limited = buildStringMpptPlan(10, 20, 4, 2);
+          assert.deepEqual(limited.allocation, [2, 2, 2, 2]);
+          assert.equal(limited.allocatedStrings, 8);
+          assert.equal(limited.unallocatedStrings, 2);
+          const noCapacity = buildStringMpptPlan(3, 20, 2, 0);
+          assert.deepEqual(noCapacity.allocation, [0, 0]);
+          assert.equal(noCapacity.unallocatedStrings, 3);
+          const single = buildStringMpptPlan(1, 12, 4, 1);
+          assert.deepEqual(single.allocation, [1, 0, 0, 0]);
+          assert.throws(() => buildStringMpptPlan(4, 20, 2, -1), /non-negative integer/);
+          assert.throws(() => buildStringMpptPlan(4, 20, 2, 1.5), /non-negative integer/);
+          assert.throws(() => buildStringMpptPlan(4, 20, 0, 2), /positive integers/);
+          console.log("MPPT allocation capacity: balanced distribution, per-channel cap, unallocated strings and invalid capacity tests passed");
+          JS
+          node /tmp/gensolar-mppt-capacity.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
