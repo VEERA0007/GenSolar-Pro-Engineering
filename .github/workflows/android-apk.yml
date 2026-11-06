@@ -353,7 +353,7 @@ jobs:
           assert.equal(cap.inputCapacity, 2);
           assert.equal(cap.maximum, 2);
           const noInputLimit = pvMaxStringsPerMppt(60, 80, 13, 14, 0, 0, 3, 2, 0, 0);
-          assert.equal(noInputLimit.maximum, 4);
+          assert.equal(noInputLimit.maximum, 3);
           const plan = buildStringMpptPlan(7, 20, 2, 4, 2, 2);
           assert.deepEqual(plan.allocation, [4, 3]);
           assert.deepEqual(plan.records.slice(0, 4).map(x => x.input), [1, 1, 2, 2]);
