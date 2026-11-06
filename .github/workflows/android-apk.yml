@@ -423,6 +423,34 @@ jobs:
           console.log("Mixed MPPT string lengths: exact panel allocation, independent string voltage grouping, connector capacity and invalid inputs passed");
           JS
           node /tmp/gensolar-variable-mppt.js
+      - name: Test DC and AC cable sizing with derating
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvCableDesign(")
+          end = source.index("\\nfunction cable()", start)
+          Path("/tmp/gensolar-cable-design.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-cable-design.js <<'JS'
+          const assert = require("node:assert/strict");
+          const dc = pvCableDesign({mode:"dc",material:"cu",voltage:600,current:25,length:30,area:6,temp:70,limit:2,pf:.9,reactance:.08,baseAmpacity:40,ambientFactor:.9,groupFactor:.8,installationFactor:1});
+          assert.ok(Math.abs(dc.drop - (2*30*25*(.017241*(1+.00393*50)/6))) < 1e-9);
+          assert.equal(dc.derating,.72);
+          assert.equal(dc.deratedAmpacity,28.8);
+          assert.equal(dc.ampacityPass,true);
+          const single = pvCableDesign({mode:"1ph",material:"cu",voltage:230,current:20,length:25,area:4,temp:70,limit:3,pf:.9,reactance:.08,baseAmpacity:32,ambientFactor:1,groupFactor:1,installationFactor:1});
+          assert.ok(single.drop>0 && single.reactanceDrop>0);
+          const three = pvCableDesign({mode:"3ph",material:"al",voltage:415,current:100,length:50,area:35,temp:90,limit:2,pf:.95,reactance:.1,baseAmpacity:150,ambientFactor:.9,groupFactor:.8,installationFactor:.95});
+          assert.ok(three.drop>0 && three.requiredArea>0);
+          assert.equal(three.ampacityPass, false);
+          assert.throws(()=>pvCableDesign({mode:"bad",material:"cu",voltage:230,current:10,length:10,area:2.5,temp:70,limit:3}),/valid positive values/);
+          assert.throws(()=>pvCableDesign({mode:"dc",material:"cu",voltage:0,current:10,length:10,area:2.5,temp:70,limit:3}),/valid positive values/);
+          assert.throws(()=>pvCableDesign({mode:"3ph",material:"cu",voltage:415,current:10,length:10,area:2.5,temp:70,limit:3,pf:1.2}),/valid positive values/);
+          assert.throws(()=>pvCableDesign({mode:"dc",material:"cu",voltage:600,current:10,length:10,area:2.5,temp:70,limit:3,ambientFactor:0}),/valid positive values/);
+          console.log("Cable engineering: DC loop drop, single/three-phase AC R-X drop, temperature correction, combined derating and invalid-input guards passed");
+          JS
+          node /tmp/gensolar-cable-design.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
