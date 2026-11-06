@@ -102,7 +102,7 @@ jobs:
           from pathlib import Path
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("function buildStringMpptPlan(")
-          end = source.index("\\nfunction calculateCompatibility()", start)
+          end = source.index("\nfunction calculateCompatibility()", start)
           Path("/tmp/gensolar-string-plan.js").write_text(source[start:end], encoding="utf-8")
           PY
           cat >> /tmp/gensolar-string-plan.js <<'JS'
