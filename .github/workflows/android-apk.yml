@@ -520,6 +520,7 @@ jobs:
           assert.equal(commissioningRecordIsComplete({...valid,measured:"not-a-number"}), false);
           assert.equal(commissioningRecordIsComplete({...valid,result:"Approved"}), false);
           assert.equal(commissioningRecordIsComplete({...valid,measured:"",result:"Not tested"}), true);
+          global.escapeHtml = value => String(value == null ? "" : value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
           global.state = {commissioning:[{...valid,remarks:"Verified at site"}]};
           const report = commissioningDprSection();
           for (const expected of ["Commissioning and electrical test register","String open-circuit voltage","720.5 V","Pass","Verified at site","not independent verification"]) assert.ok(report.includes(expected), "Missing commissioning DPR content: "+expected);
