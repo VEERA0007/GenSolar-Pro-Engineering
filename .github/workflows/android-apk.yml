@@ -64,6 +64,38 @@ jobs:
           print(f"HTML parsed; {len(parser.ids)} unique IDs; {len(scripts)} embedded script(s)")
           PY
           node --check /tmp/gensolar-inline.js
+      - name: Test complete-backup ZIP integrity and path validation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function zipCrc32(")
+          end = source.index("async function exportCompleteProjectBackup", start)
+          Path("/tmp/gensolar-zip-test.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-zip-test.js <<'JS'
+          const assert = require("node:assert/strict");
+          const entries = [
+            { name: "project.json", data: new TextEncoder().encode('{"project":{"id":"qa"}}') },
+            { name: "attachments/sample.bin", data: new Uint8Array([0, 1, 2, 127, 128, 255]) },
+            { name: "attachments/測試.txt", data: new TextEncoder().encode("GenSolar backup ✓") }
+          ];
+          const archive = zipBuild(entries);
+          const restored = zipRead(archive.buffer);
+          assert.equal(restored.size, entries.length);
+          for (const entry of entries) {
+            const actual = restored.get(entry.name);
+            assert.ok(actual, "Missing ZIP entry: " + entry.name);
+            assert.deepEqual(Array.from(actual), Array.from(entry.data));
+          }
+          const corrupted = archive.slice();
+          corrupted[42] ^= 1;
+          assert.throws(() => zipRead(corrupted.buffer), /Integrity check failed/);
+          const unsafe = zipBuild([{ name: "../outside.txt", data: new Uint8Array([1]) }]);
+          assert.throws(() => zipRead(unsafe.buffer), /Unsafe or duplicate ZIP path/);
+          console.log("ZIP round-trip, binary/UTF-8 payloads, CRC corruption detection and path traversal rejection passed");
+          JS
+          node /tmp/gensolar-zip-test.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
