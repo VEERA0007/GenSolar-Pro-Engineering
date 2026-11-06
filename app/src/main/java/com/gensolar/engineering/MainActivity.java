@@ -10,6 +10,9 @@ import android.print.PrintAttributes;
 import android.print.PrintManager;
 import android.webkit.*;
 import android.widget.Toast;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 public class MainActivity extends Activity {
     private WebView webView;
@@ -49,11 +52,15 @@ public class MainActivity extends Activity {
                 fileCallback = callback;
                 try {
                     Intent intent = params.createIntent();
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,
+                        params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
                     startActivityForResult(intent, FILE_REQUEST);
                     return true;
                 } catch (Exception e) {
+                    if (fileCallback != null) fileCallback.onReceiveValue(null);
                     fileCallback = null;
-                    Toast.makeText(MainActivity.this, "Unable to open file picker", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Unable to open file picker. Please use a device file manager.", Toast.LENGTH_LONG).show();
                     return false;
                 }
             }
@@ -89,15 +96,20 @@ public class MainActivity extends Activity {
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == FILE_REQUEST && fileCallback != null) {
-            Uri[] results = null;
+            ArrayList<Uri> selected = new ArrayList<>();
+            Set<String> seen = new HashSet<>();
             if (resultCode == RESULT_OK && data != null) {
                 if (data.getClipData() != null) {
                     int count = data.getClipData().getItemCount();
-                    results = new Uri[count];
-                    for (int i = 0; i < count; i++) results[i] = data.getClipData().getItemAt(i).getUri();
-                } else if (data.getData() != null) results = new Uri[]{data.getData()};
+                    for (int i = 0; i < count; i++) {
+                        Uri uri = data.getClipData().getItemAt(i).getUri();
+                        if (uri != null && seen.add(uri.toString())) selected.add(uri);
+                    }
+                }
+                Uri single = data.getData();
+                if (single != null && seen.add(single.toString())) selected.add(single);
             }
-            fileCallback.onReceiveValue(results);
+            fileCallback.onReceiveValue(selected.isEmpty() ? null : selected.toArray(new Uri[0]));
             fileCallback = null;
         }
     }
