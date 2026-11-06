@@ -309,8 +309,10 @@ jobs:
           from pathlib import Path
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("function pvAdjustedModuleCurrent(")
-          end = source.index("\\nfunction electrical(", start)
-          Path("/tmp/gensolar-mppt-current-capacity.js").write_text(source[start:end], encoding="utf-8")
+          first_end = source.index("\nfunction electrical(", start)
+          second_start = source.index("function pvMaxStringsPerMppt(", first_end)
+          end = source.index("\nfunction buildStringMpptPlan(", second_start)
+          Path("/tmp/gensolar-mppt-current-capacity.js").write_text(source[start:first_end] + "\n" + source[second_start:end], encoding="utf-8")
           PY
           cat >> /tmp/gensolar-mppt-current-capacity.js <<'JS'
           const assert = require("node:assert/strict");
