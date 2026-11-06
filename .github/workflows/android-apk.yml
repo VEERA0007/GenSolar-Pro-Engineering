@@ -457,7 +457,7 @@ jobs:
           from pathlib import Path
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("function pvProtectionCoordination(")
-          end = source.index("\\nfunction protection()", start)
+          end = source.index("\nfunction protection()", start)
           Path("/tmp/gensolar-protection.js").write_text(source[start:end], encoding="utf-8")
           PY
           cat >> /tmp/gensolar-protection.js <<'JS'
