@@ -119,7 +119,10 @@ jobs:
           assert.throws(() => buildStringMpptPlan(0, 20, 4), /positive integers/);
           assert.throws(() => buildStringMpptPlan(4, 0, 4), /positive integers/);
           assert.throws(() => buildStringMpptPlan(4, 20, 0), /positive integers/);
-          console.log("MPPT string allocation: balanced channels, sequential module references, single-string edge case and invalid-input guards passed");
+          assert.throws(() => buildStringMpptPlan(2.5, 20, 4), /positive integers/);
+          assert.throws(() => buildStringMpptPlan(4, 20.5, 4), /positive integers/);
+          assert.throws(() => buildStringMpptPlan(4, 20, 1.5), /positive integers/);
+          console.log("MPPT string allocation: balanced channels, sequential module references, single-string edge case and integer-input guards passed");
           JS
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
