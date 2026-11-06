@@ -148,6 +148,34 @@ jobs:
           console.log("PV polygon geometry: interior fit, boundary rejection, setback, concave-zone and segment-intersection tests passed");
           JS
           node /tmp/gensolar-pv-geometry.js
+      - name: Test PV layout module overlap and boundary validation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function validatePvLayout(")
+          end = source.index("\nfunction layoutCalc(", start)
+          Path("/tmp/gensolar-layout-validation.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-layout-validation.js <<'JS'
+          const assert = require("node:assert/strict");
+          function pvRectInAccessCorridor(){ return false; }
+          function pvRectOverlapsAny(){ return false; }
+          function pvRectObstacleClearAll(){ return true; }
+          const base = (modules) => validatePvLayout(modules, true, [], 20, 20, 1, [], [], 0, [], "none", 0);
+          const valid = base([{x:2,y:2,w:2,h:1},{x:5,y:2,w:2,h:1}]);
+          assert.equal(valid.valid, true, "separated modules inside roof boundary should pass");
+          const overlap = base([{x:2,y:2,w:2,h:1},{x:3,y:2.5,w:2,h:1}]);
+          assert.equal(overlap.valid, false, "overlapping modules must fail");
+          assert.match(overlap.errors.join(" "), /overlap/i, "overlap failure should be explicit");
+          const outside = base([{x:19,y:2,w:2,h:1}]);
+          assert.equal(outside.valid, false, "module crossing roof boundary must fail");
+          assert.match(outside.errors.join(" "), /roof boundary or setback/i);
+          const setback = validatePvLayout([{x:0.5,y:2,w:2,h:1}], true, [], 20, 20, 1, [], [], 0, [], "none", 0);
+          assert.equal(setback.valid, false, "legacy roof setback must be enforced");
+          console.log("PV layout validation: valid layout, module overlap, roof boundary and legacy setback tests passed");
+          JS
+          node /tmp/gensolar-layout-validation.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
