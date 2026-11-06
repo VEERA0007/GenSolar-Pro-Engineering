@@ -482,6 +482,26 @@ jobs:
           console.log("Electrical protection: string-fuse ceiling, DC isolator current/voltage, AC breaker current, Icu vs prospective fault level and earth adiabatic checks passed");
           JS
           node /tmp/gensolar-protection.js
+      - name: Test electrical DPR reporting
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function electricalProtectionReport(")
+          end = source.index("\\nfunction reportHtml()", start)
+          Path("/tmp/gensolar-electrical-report.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-electrical-report.js <<'JS'
+          const assert = require("node:assert/strict");
+          global.state = {protection:{fuseMinimum:17.5,fuseWithinModuleLimit:true,dcCurrentMinimum:35,dcVoltage:1100,dcSwitch:63,dcIsolatorCurrentPass:true,dcIsolatorVoltagePass:true,acBreakerMinimum:140,acBreaker:160,acBreakerCurrentPass:true,prospectiveFaultKa:12,breakerIcuPass:true,earthRequired:8,earthPass:true},project:{maxSeriesFuse:25,protBreakerIcu:25,earthArea:16,cableMode:"3ph",cableMaterial:"cu",cableLimit:2,cableAmpacity:200},cableDesign:{percent:1.2,drop:4.98,requiredArea:25,recommended:25,derating:.72,ampacitySpecified:true,deratedAmpacity:144,voltageDropPass:true,ampacityPass:true}};
+          const html = electricalProtectionReport();
+          for (const expected of ["Electrical protection screening","PV string fuse","DC isolator","AC breaker Icu","Protective earth","Cable sizing and voltage-drop screening","PASS","within entered limit"]) assert.ok(html.includes(expected), "Missing DPR report content: "+expected);
+          global.state.protection = null; global.state.cableDesign = null;
+          const empty = electricalProtectionReport();
+          assert.ok(empty.includes("Not calculated."));
+          console.log("Electrical DPR report: protection ratings, fault level, earthing, cable voltage drop and missing-data fallbacks passed");
+          JS
+          node /tmp/gensolar-electrical-report.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
