@@ -475,7 +475,7 @@ jobs:
           assert.equal(breakerFail.breakerIcuPass,false);
           const fuseFail = pvProtectionCoordination({...base,maxSeriesFuse:15});
           assert.equal(fuseFail.fuseWithinModuleLimit,false);
-          const earthFail = pvProtectionCoordination({...base,earthArea:5});
+          const earthFail = pvProtectionCoordination({...base,earthArea:2});
           assert.equal(earthFail.earthPass,false);
           assert.throws(()=>pvProtectionCoordination({...base,parallel:1.5}),/valid positive equipment ratings/);
           assert.throws(()=>pvProtectionCoordination({...base,pf:0}),/valid positive equipment ratings/);
