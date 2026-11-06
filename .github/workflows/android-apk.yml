@@ -368,6 +368,32 @@ jobs:
           console.log("MPPT topology: per-socket current limits, connector capacity, socket mapping and unallocated-string tests passed");
           JS
           node /tmp/gensolar-mppt-topology.js
+      - name: Test independent MPPT tracker limits
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvAdjustedModuleCurrent(")
+          end = source.index("\nfunction calculateCompatibility()", start)
+          Path("/tmp/gensolar-mppt-trackers.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-mppt-trackers.js <<'JS'
+          const assert = require("node:assert/strict");
+          const trackers = pvResolveMpptTrackerLimits(2, 160, 1000, 30, 40, "180,200", "850,1000", "26,30", "35,40");
+          assert.deepEqual(trackers.map(x => [x.minVoltage,x.maxVoltage,x.maxOperatingCurrent,x.maxShortCircuitCurrent]), [[180,850,26,35],[200,1000,30,40]]);
+          const fallback = pvResolveMpptTrackerLimits(2, 160, 1000, 30, 40, "0,0", "", "", "");
+          assert.equal(fallback[1].minVoltage, 160);
+          assert.equal(fallback[0].maxOperatingCurrent, 30);
+          assert.throws(() => pvResolveMpptTrackerLimits(2,160,1000,30,40,"180"), /exactly 2/);
+          assert.throws(() => pvResolveMpptTrackerLimits(2,160,1000,30,40,"180,1100"), /maximum voltage/);
+          const cap1 = pvMaxStringsPerMppt(26,35,13,14,0,0,2,2,0,0);
+          const cap2 = pvMaxStringsPerMppt(30,40,13,14,0,0,2,2,0,0);
+          const plan = buildStringMpptPlan(5,20,2,[cap1.maximum,cap2.maximum],2,2);
+          assert.deepEqual(plan.allocation,[2,3]);
+          assert.equal(plan.unallocatedStrings,0);
+          console.log("Independent MPPT tracker voltage/current overrides, fallback, invalid override and per-tracker capacity tests passed");
+          JS
+          node /tmp/gensolar-mppt-trackers.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
