@@ -451,6 +451,37 @@ jobs:
           console.log("Cable engineering: DC loop drop, single/three-phase AC R-X drop, temperature correction, combined derating and invalid-input guards passed");
           JS
           node /tmp/gensolar-cable-design.js
+      - name: Test electrical protection and fault-level checks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvProtectionCoordination(")
+          end = source.index("\\nfunction protection()", start)
+          Path("/tmp/gensolar-protection.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-protection.js <<'JS'
+          const assert = require("node:assert/strict");
+          const base = {isc:14,maxSeriesFuse:25,parallel:2,dcVoltage:1100,dcIsolatorCurrent:63,dcIsolatorVoltage:1200,acKw:80,acVoltage:415,pf:.95,eff:.98,acBreakerCurrent:160,prospectiveFaultKa:12,breakerIcuKa:25,earthFaultCurrent:1000,earthFaultTime:.2,k:143,earthArea:16};
+          const pass = pvProtectionCoordination(base);
+          assert.ok(Math.abs(pass.fuseMinimum-17.5)<1e-9);
+          assert.ok(pass.fuseWithinModuleLimit && pass.dcIsolatorCurrentPass && pass.dcIsolatorVoltagePass);
+          assert.ok(pass.acBreakerCurrentPass && pass.breakerIcuPass && pass.earthPass);
+          const dcVoltageFail = pvProtectionCoordination({...base,dcIsolatorVoltage:1000});
+          assert.equal(dcVoltageFail.dcIsolatorVoltagePass,false);
+          const dcCurrentFail = pvProtectionCoordination({...base,dcIsolatorCurrent:20});
+          assert.equal(dcCurrentFail.dcIsolatorCurrentPass,false);
+          const breakerFail = pvProtectionCoordination({...base,breakerIcuKa:6});
+          assert.equal(breakerFail.breakerIcuPass,false);
+          const fuseFail = pvProtectionCoordination({...base,maxSeriesFuse:15});
+          assert.equal(fuseFail.fuseWithinModuleLimit,false);
+          const earthFail = pvProtectionCoordination({...base,earthArea:5});
+          assert.equal(earthFail.earthPass,false);
+          assert.throws(()=>pvProtectionCoordination({...base,parallel:1.5}),/valid positive equipment ratings/);
+          assert.throws(()=>pvProtectionCoordination({...base,pf:0}),/valid positive equipment ratings/);
+          console.log("Electrical protection: string-fuse ceiling, DC isolator current/voltage, AC breaker current, Icu vs prospective fault level and earth adiabatic checks passed");
+          JS
+          node /tmp/gensolar-protection.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
