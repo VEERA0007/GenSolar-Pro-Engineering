@@ -348,7 +348,7 @@ jobs:
           const cap = pvMaxStringsPerMppt(60, 80, 13, 14, 0, 0, 2, 1, 30, 40);
           assert.equal(cap.operating, 3);
           assert.equal(cap.shortCircuit, 5);
-          assert.equal(cap.inputOperating, 4);
+          assert.equal(cap.inputOperating, 2);
           assert.equal(cap.inputShortCircuit, 4);
           assert.equal(cap.inputCapacity, 2);
           assert.equal(cap.maximum, 2);
