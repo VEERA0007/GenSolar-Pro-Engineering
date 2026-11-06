@@ -195,8 +195,8 @@ jobs:
           assert.equal(corridors.length, 2);
           assert.equal(pvRectObstacleClearAll(1,1,2,2, circles, [], 0), true, "module clear of circular obstacle should pass");
           assert.equal(pvRectObstacleClearAll(4.5,4.5,2,2, circles, [], 0), false, "module intersecting circular obstacle should fail");
-          assert.equal(pvRectObstacleClearAll(5,4,1,1, [], rects, 0), false, "module intersecting rectangular obstacle should fail");
-          assert.equal(pvRectObstacleClearAll(5,4,1,1, [], rects, 0.5), false, "rectangular obstacle clearance must be enforced");
+          assert.equal(pvRectObstacleClearAll(7.5,3,1,1, [], rects, 0), false, "module intersecting rectangular obstacle should fail");
+          assert.equal(pvRectObstacleClearAll(7.5,3,1,1, [], rects, 0.5), false, "rectangular obstacle clearance must be enforced");
           assert.equal(pvRectObstacleClearAll(2,2,1,1, [], rects, 0.5), true, "module outside rectangular obstacle clearance should pass");
           const bounds = {minX:0,minY:0,maxX:10,maxY:10};
           assert.equal(pvRectInAccessCorridor(0.2,4,1,1,bounds,"left",1), true, "left access corridor must be detected");
