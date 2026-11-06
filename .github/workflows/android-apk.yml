@@ -251,6 +251,28 @@ jobs:
           console.log("PV obstacle and access-corridor tests passed: circle clearance, rectangle clearance, all four edge corridors, custom corridor overlap and invalid geometry guards");
           JS
           node /tmp/gensolar-obstacle-corridor.js
+      - name: Test bifacial-adjusted PV input currents
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvAdjustedModuleCurrent(")
+          end = source.index("\\nfunction electrical(", start)
+          Path("/tmp/gensolar-bifacial-current.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-bifacial-current.js <<'JS'
+          const assert = require("node:assert/strict");
+          assert.equal(pvAdjustedModuleCurrent(13.2, 0), 13.2);
+          assert.equal(pvAdjustedModuleCurrent(13.2, 10), 14.52);
+          assert.equal(pvAdjustedModuleCurrent(14, 5), 14.7);
+          assert.throws(() => pvAdjustedModuleCurrent(0, 0), /positive/);
+          assert.throws(() => pvAdjustedModuleCurrent(-1, 0), /positive/);
+          assert.throws(() => pvAdjustedModuleCurrent(13, -1), /between 0% and 50%/);
+          assert.throws(() => pvAdjustedModuleCurrent(13, 50.1), /between 0% and 50%/);
+          assert.throws(() => pvAdjustedModuleCurrent("bad", 0), /positive/);
+          console.log("Bifacial current uplift: operating current and Isc multipliers validated, including invalid-input guards");
+          JS
+          node /tmp/gensolar-bifacial-current.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
