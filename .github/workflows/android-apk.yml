@@ -124,6 +124,22 @@ jobs:
           assert.throws(() => buildStringMpptPlan(4, 20, 1.5), /positive integers/);
           console.log("MPPT string allocation: balanced channels, sequential module references, single-string edge case and integer-input guards passed");
           JS
+      - name: Test strict PV module and MPPT integer inputs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function isPositiveIntegerInput(")
+          end = source.index("function buildStringMpptPlan(", start)
+          Path("/tmp/gensolar-integer-inputs.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-integer-inputs.js <<'JS'
+          const assert = require("node:assert/strict");
+          for (const value of [1, 2, 200, "12", "4"]) assert.equal(isPositiveIntegerInput(value), true);
+          for (const value of [0, -1, 1.5, "2.5", "", "abc", null, NaN, Infinity]) assert.equal(isPositiveIntegerInput(value), false);
+          console.log("PV module and MPPT input validation: positive whole numbers accepted; fractions, zero, negatives and invalid values rejected");
+          JS
+          node /tmp/gensolar-integer-inputs.js
       - name: Test temperature-adjusted PV string voltages
         run: |
           python3 - <<'PY'
