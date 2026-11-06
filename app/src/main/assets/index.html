@@ -80,7 +80,7 @@ else if(rcc.includes(k))clearCalcGroups(['rcc']);
 else if(detail.includes(k))clearCalcGroups(['detail']);
 }
 function resetProjectCalculations(){
-['wind','structure','loadCombinations','memberCapacity','ltb','connections','foundation','rccFooting','rccDetail','layout','electrical','protection','sldSvg'].forEach(k=>delete state[k]);
+['wind','structure','loadCombinations','memberCapacity','ltb','sectionClass','connections','foundation','rccFooting','rccDetail','layout','electrical','protection','sldSvg'].forEach(k=>delete state[k]);
 state.roofZones=[];state.dxfEntities=[];state.cadText='';state.cadName='';state.checks={};
 clearCalcGroups(['wind','structure','connections','foundation','rcc','detail']);
 ['layoutMetrics','layoutDrawing','layoutWarnings','electricalMetrics','electricalSchedule','electricalWarning','protectionMetrics','protectionSchedule','sldPreview','dprPreview'].forEach(id=>{if($(id))$(id).innerHTML=''});
