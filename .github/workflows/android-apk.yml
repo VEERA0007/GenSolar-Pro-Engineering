@@ -386,8 +386,8 @@ jobs:
           assert.equal(fallback[0].maxOperatingCurrent, 30);
           assert.throws(() => pvResolveMpptTrackerLimits(2,160,1000,30,40,"180"), /exactly 2/);
           assert.throws(() => pvResolveMpptTrackerLimits(2,160,1000,30,40,"180,1100"), /maximum voltage/);
-          const cap1 = pvMaxStringsPerMppt(26,35,13,14,0,0,2,2,0,0);
-          const cap2 = pvMaxStringsPerMppt(30,40,13,14,0,0,2,2,0,0);
+          const cap1 = pvMaxStringsPerMppt(32.5,28,13,14,0,0,2,2,0,0);
+          const cap2 = pvMaxStringsPerMppt(48.75,42,13,14,0,0,2,2,0,0);
           const plan = buildStringMpptPlan(5,20,2,[cap1.maximum,cap2.maximum],2,2);
           assert.deepEqual(plan.allocation,[2,3]);
           assert.equal(plan.unallocatedStrings,0);
