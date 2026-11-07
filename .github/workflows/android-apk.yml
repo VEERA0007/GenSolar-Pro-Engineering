@@ -804,6 +804,36 @@ jobs:
           console.log("RCC reinforcement detailing: bar quantities, cut lengths, d²/162 mass, total steel, geometric Ld flags, SVG drawing and invalid-state guards passed");
           JS
           node /tmp/gensolar-rcc-detail.js
+      - name: Test conceptual 3D roof model
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function build3d()")
+          end = source.index("\\nfunction electricalProtectionReport()", start)
+          Path("/tmp/gensolar-cad-preview.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-cad-preview.js <<'JS'
+          const assert = require("node:assert/strict");
+          const elements = {};
+          const fields = {width:{value:20},length:{value:30},buildingHeight:{value:8}};
+          global.$ = id => elements[id] ||= {innerHTML:"",textContent:""};
+          global.val = id => Number(fields[id]?.value || 0);
+          global.state = {project:{width:20,length:30,buildingHeight:8},layout:{count:12,rows:3}};
+          build3d();
+          let svg=$("model3d").innerHTML;
+          assert.ok(svg.includes("<svg"),"concept model must render SVG");
+          assert.ok(svg.includes("20 m × 30 m"),"building plan dimensions must be visible");
+          assert.ok(svg.includes("building height 8 m"),"building height must be visible");
+          assert.equal((svg.match(/<polygon/g)||[]).length,13,"12 PV modules plus roof surface");
+          state.layout.count=45;
+          build3d();
+          svg=$("model3d").innerHTML;
+          assert.equal((svg.match(/<polygon/g)||[]).length,31,"concept preview must cap drawn modules at 30");
+          assert.ok(svg.includes("Concept only"),"conceptual preview must carry limitation label");
+          console.log("Conceptual 3D roof preview: dimension labels, module rendering, 30-module preview cap and concept disclaimer passed");
+          JS
+          node /tmp/gensolar-cad-preview.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
