@@ -409,7 +409,7 @@ function calculateRccFooting(){
 save();const fd=state.foundation;if(!fd){alert('Calculate the foundation geometry and bearing screen first.');return}
 const B=fd.B,L=fd.L,dpB=val('rccPedB')/1000,dpL=val('rccPedL')/1000,h=val('rccDepth'),fck=val('rccFck'),fy=val('rccFy'),cover=val('rccCover'),dia=val('rccBarDia'),Pu=val('rccPu'),Mx=val('rccMx'),My=val('rccMy');
 if(!(B>0&&L>0&&dpB>0&&dpL>0&&dpB<B&&dpL<L&&h>0&&fck>0&&fy>0&&cover>=0&&dia>0&&Pu>=0)){alert('Check footing/pedestal dimensions, thickness, grades, cover, bar size and axial load.');return}
-const d=h-cover-dia/2000*1000/2,dm=d/1000;if(!(dm>0)){alert('Effective depth must be positive.');return}
+const d=h-cover-dia/2,dm=d/1000;if(!(dm>0)){alert('Effective depth must be positive.');return}
 const A=B*L,q0=Pu/A,qx=6*Mx/(L*B*B),qy=6*My/(B*L*L);
 const qAt=(x,y)=>q0+qx*x+qy*y;
 const qCorners=[qAt(-B/2,-L/2),qAt(B/2,-L/2),qAt(B/2,L/2),qAt(-B/2,L/2)],qmax=Math.max(...qCorners),qmin=Math.min(...qCorners);
