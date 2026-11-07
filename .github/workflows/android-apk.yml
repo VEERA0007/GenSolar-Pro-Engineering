@@ -575,7 +575,7 @@ jobs:
           cat >> /tmp/gensolar-maintenance.js <<'JS'
           const assert = require("node:assert/strict");
           const fields = {};
-          for (const [id,value] of Object.entries({omEquipment:"PV array",omTask:"Visual inspection",omFrequency:"Quarterly per O&M plan",omOwner:"Site technician",omLastDate:"2026-01-01",omDueDate:"2025-12-01",omStatus:"Planned",omReference:"Approved O&M manual §4",omNotes:"Check module glass and cable routing",omEvidence:""})) fields[id]={value};
+          for (const [id,value] of Object.entries({omEquipment:"PV array",omTask:"Visual inspection",omFrequency:"Quarterly maintenance plan",omOwner:"Site technician",omLastDate:"2026-01-01",omDueDate:"2025-12-01",omStatus:"Planned",omReference:"Approved O&M manual §4",omNotes:"Check module glass and cable routing",omEvidence:""})) fields[id]={value};
           global.$ = id => fields[id] || (fields[id]={value:"",innerHTML:""});
           global.state = {maintenance:[],attachments:[]};
           global.makeId = () => "maintenance-test";
@@ -589,7 +589,7 @@ jobs:
           assert.equal(state.maintenance.length,1);
           assert.equal(state.maintenance[0].dueDate,"2026-12-01");
           assert.ok(maintenanceDprSection().includes("Operations and preventive maintenance schedule"));
-          assert.ok(maintenanceDprSection().includes("Quarterly per O&M plan"));
+          assert.ok(maintenanceDprSection().includes("Quarterly maintenance plan"));
           assert.ok(maintenanceDprSection().includes("Approved O&M manual"));
           assert.ok(maintenanceDprSection().includes("2026-12-01"));
           console.log("O&M schedule: required fields, date order, persistence and DPR output passed");
