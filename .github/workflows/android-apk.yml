@@ -655,7 +655,7 @@ jobs:
               "function calculateFoundation()"
           ]:
               start = source.index(start_name)
-              end = source.find("\nfunction ", start + len(start_name))
+              end = source.find("function ", start + len(start_name))
               if end < 0:
                   end = len(source)
               blocks.append(source[start:end])
