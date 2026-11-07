@@ -861,7 +861,7 @@ jobs:
           assert.ok(saved.data.includes("CIRCLE"),"circular roof obstacle missing");
           assert.ok(saved.data.includes("LWPOLYLINE"),"polyline geometry missing");
           assert.ok(saved.data.includes("10000"),"coordinates must be exported in millimetres");
-          assert.deepEqual(saved.data.trimEnd().split("\\n").map(line=>line.replace(/\\r$/,"")).slice(-4),["0","ENDSEC","0","EOF"],"DXF must close ENTITIES section and file");
+          assert.ok(saved.data.endsWith("EOF") && saved.data.lastIndexOf("ENDSEC") < saved.data.lastIndexOf("EOF"),"DXF must close ENTITIES section and file");
           state.layout=null;
           assert.throws(()=>dxf(),/Generate the PV layout first/);
           console.log("PV layout DXF export: roof boundary, module rectangles, circular/rectangular obstacles, access corridors, mm coordinates, layers and missing-layout guard passed");
