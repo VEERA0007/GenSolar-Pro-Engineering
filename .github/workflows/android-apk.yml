@@ -720,7 +720,7 @@ jobs:
           from pathlib import Path
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("function calculateRccFooting()")
-          end = source.index("\\nfunction generateRccDetail()", start)
+          end = source.index("function generateRccDetail()", start)
           Path("/tmp/gensolar-rcc-footing.js").write_text(source[start:end], encoding="utf-8")
           PY
           cat >> /tmp/gensolar-rcc-footing.js <<'JS'
