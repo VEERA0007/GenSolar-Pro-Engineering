@@ -593,7 +593,7 @@ jobs:
           assert.ok(dpr.includes("Operations and preventive maintenance schedule"));
           assert.ok(dpr.includes("Quarterly maintenance plan"));
           assert.ok(dpr.includes("Procedure reference:"));
-          assert.ok(dpr.includes("Approved O&M manual §4"),"DPR must print the exact saved O&M procedure reference. Actual DPR: "+dpr);
+          assert.ok(dpr.includes("Approved O&amp;M manual §4"),"DPR must HTML-escape ampersands while preserving the saved O&M procedure reference");
           assert.ok(dpr.includes("2026-12-01"));
           console.log("O&M schedule: required fields, date order, persistence and DPR output passed");
           JS
