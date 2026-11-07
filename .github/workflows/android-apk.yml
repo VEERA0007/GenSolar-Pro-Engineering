@@ -825,11 +825,11 @@ jobs:
           assert.ok(svg.includes("<svg"),"concept model must render SVG");
           assert.ok(svg.includes("20 m × 30 m"),"building plan dimensions must be visible");
           assert.ok(svg.includes("building height 8 m"),"building height must be visible");
-          assert.equal((svg.match(/<polygon/g)||[]).length,13,"12 PV modules plus roof surface");
+          assert.equal((svg.match(/<polygon/g)||[]).length,15,"3 building faces plus 12 PV modules");
           state.layout.count=45;
           build3d();
           svg=$("model3d").innerHTML;
-          assert.equal((svg.match(/<polygon/g)||[]).length,31,"concept preview must cap drawn modules at 30");
+          assert.equal((svg.match(/<polygon/g)||[]).length,33,"3 building faces plus 30 PV modules");
           assert.ok(svg.includes("Concept only"),"conceptual preview must carry limitation label");
           console.log("Conceptual 3D roof preview: dimension labels, module rendering, 30-module preview cap and concept disclaimer passed");
           JS
