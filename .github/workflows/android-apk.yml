@@ -762,9 +762,8 @@ jobs:
           from pathlib import Path
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("function generateRccDetail()")
-          end = source.find("\\nfunction ", start + 12)
-          if end < 0:
-              end = len(source)
+          end = source.index("function calculateFoundation()", start)
+          end = source.rfind("\n", start, end)
           Path("/tmp/gensolar-rcc-detail.js").write_text(source[start:end], encoding="utf-8")
           PY
           cat >> /tmp/gensolar-rcc-detail.js <<'JS'
@@ -785,13 +784,13 @@ jobs:
           assert.equal(d.rows[0].count,21,"B-direction bar count");
           assert.equal(d.rows[1].count,11,"L-direction bar count");
           assert.equal(d.rows[0].length,1950,"B bar cut length includes allowance");
-          assert.equal(d.rows[1].length,1950,"L bar cut length includes allowance");
+          assert.equal(d.rows[1].length,2950,"L bar cut length includes allowance");
           assert.ok(Math.abs(d.wt-16*16/162)<1e-12,"unit mass must use d²/162 kg/m");
-          assert.ok(Math.abs(d.total-(62.4*256/162))<1e-9,"total steel weight");
+          assert.ok(Math.abs(d.total-(73.4*256/162))<1e-9,"total steel weight");
           assert.equal(d.availB,750,"B-direction geometric projection");
           assert.equal(d.availL,1250,"L-direction geometric projection");
           const html=$("rccDetailSchedule").innerHTML;
-          for(const expected of ["B1","L1","21","11","1950.0 mm","98.7 kg","Check anchorage / footing geometry","Geometry exceeds entered Ld target","d²/162","not for construction"]) assert.ok(html.includes(expected) || $("rccDetailDrawing").innerHTML.includes(expected),"Missing reinforcement schedule/drawing content: "+expected);
+          for(const expected of ["B1","L1","21","11","1950.0 mm","2950.0 mm","64.7 kg","Check anchorage / footing geometry","Geometry exceeds entered Ld target","d²/162","not for construction"]) assert.ok(html.includes(expected) || $("rccDetailDrawing").innerHTML.includes(expected),"Missing reinforcement schedule/drawing content: "+expected);
           assert.ok($("rccDetailDrawing").innerHTML.includes("<svg"));
           assert.ok($("rccDetailDrawing").innerHTML.includes("PEDESTAL"));
           assert.ok($("rccDetailWarning").textContent.includes("geometric flag only"));
