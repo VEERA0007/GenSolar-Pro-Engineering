@@ -569,7 +569,7 @@ jobs:
           from pathlib import Path
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("function refreshMaintenanceEvidenceOptions(")
-          end = source.index("\\nfunction reportHtml()", start)
+          end = source.index("\nfunction reportHtml()", start)
           Path("/tmp/gensolar-maintenance.js").write_text(source[start:end], encoding="utf-8")
           PY
           cat >> /tmp/gensolar-maintenance.js <<'JS'
