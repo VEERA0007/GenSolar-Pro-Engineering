@@ -714,6 +714,48 @@ jobs:
           console.log("Mounting connection and foundation tests passed: module uplift, clamp distribution, eccentric anchor tension, shear sharing, missing-capacity handling, footing reactions, soil pressure/contact, sliding, overturning and invalid-input guards");
           JS
           node /tmp/gensolar-connections-foundation.js
+      - name: Test RCC footing flexure and shear unit conversions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function calculateRccFooting()")
+          end = source.index("\\nfunction generateRccDetail()", start)
+          Path("/tmp/gensolar-rcc-footing.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-rcc-footing.js <<'JS'
+          const assert = require("node:assert/strict");
+          const inputs = {
+            rccPedB:400,rccPedL:400,rccDepth:500,rccFck:30,rccFy:500,
+            rccCover:50,rccBarDia:16,rccPu:600,rccMx:0,rccMy:0
+          };
+          const elements = {};
+          let state = {foundation:{B:2,L:3}};
+          function val(key){ return Number(inputs[key] ?? 0); }
+          function save(){}
+          function alert(message){ throw new Error(message); }
+          function metric(label,value){ return label+":"+value+";"; }
+          function $(id){ return elements[id] ||= {innerHTML:"",textContent:""}; }
+          calculateRccFooting();
+          const r=state.rccFooting;
+          assert.ok(Math.abs(r.d-442)<1e-9,"effective depth in mm");
+          assert.ok(Math.abs(r.qmax-100)<1e-9,"uniform soil pressure");
+          assert.ok(Math.abs(r.tauB-(100*(0.8-0.442)/0.442/1000))<1e-9,"B-direction one-way shear must convert kN/m2 to MPa");
+          assert.ok(Math.abs(r.tauL-(100*(1.3-0.442)/0.442/1000))<1e-9,"L-direction one-way shear must convert kN/m2 to MPa");
+          assert.ok(r.tauB<1 && r.tauL<1,"shear stress must be reported in MPa, not kN/m2");
+          assert.ok(r.AsB>0 && r.AsL>0,"flexural reinforcement demand");
+          assert.ok(r.AsMin>0 && r.spacingB>0 && r.spacingB<=300 && r.spacingL>0 && r.spacingL<=300,"minimum steel and spacing screen");
+          assert.ok(Number.isFinite(r.tauPunch) && r.tauPunch>=0,"punching shear calculation");
+          assert.match(elements.rccFootingWarning.textContent,/PRELIMINARY RCC FOOTING SCREEN ONLY/);
+          inputs.rccMx=500;
+          calculateRccFooting();
+          assert.ok(state.rccFooting.qmin<0,"moment-induced loss of soil contact must be visible");
+          assert.ok(elements.rccFootingSchedule.innerHTML.includes("Tension / contact loss"));
+          inputs.rccCover=600;
+          assert.throws(()=>calculateRccFooting(),/Effective depth must be positive/);
+          console.log("RCC footing: effective depth, flexure steel, minimum steel, bar spacing, one-way shear kN/m2-to-MPa conversion, punching stress, contact-loss warning and invalid effective-depth guard passed");
+          JS
+          node /tmp/gensolar-rcc-footing.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
