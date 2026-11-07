@@ -834,6 +834,39 @@ jobs:
           console.log("Conceptual 3D roof preview: dimension labels, module rendering, 30-module preview cap and concept disclaimer passed");
           JS
           node /tmp/gensolar-cad-preview.js
+      - name: Test PV layout DXF export geometry and layers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function dxf()")
+          end = source.index("\\nfunction pvTemperatureAdjustedVoltage()", start)
+          Path("/tmp/gensolar-dxf.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-dxf.js <<'JS'
+          const assert = require("node:assert/strict");
+          let saved=null;
+          global.alert = message => { throw new Error(message); };
+          global.download = (name,data,type) => { saved={name,data,type}; };
+          global.state = {roofZones:[{vertices:[{x:0,y:0},{x:10,y:0},{x:10,y:8}]}],
+            layout:{modules:[{x:1,y:2,w:2,h:1},{x:4,y:2,w:2,h:1}],
+              obstacles:[{x:3,y:4,r:0.5}],
+              rectObstacles:[{x:6,y:1,w:1,h:2}],
+              corridorRects:[{x:0,y:7,w:10,h:1}]}};
+          dxf();
+          assert.equal(saved.name,"GenSolar-PV-Layout.dxf");
+          assert.equal(saved.type,"application/dxf");
+          for(const layer of ["ROOF_ZONES","ROOF_OBSTACLES","ACCESS_CORRIDORS","PV_MODULES"])
+            assert.ok(saved.data.includes(layer),"DXF layer missing: "+layer);
+          assert.ok(saved.data.includes("CIRCLE"),"circular roof obstacle missing");
+          assert.ok(saved.data.includes("LWPOLYLINE"),"polyline geometry missing");
+          assert.ok(saved.data.includes("10000"),"coordinates must be exported in millimetres");
+          assert.ok(saved.data.endsWith("0\\nENDSEC\\n0\\nEOF"),"DXF must close ENTITIES section and file");
+          state.layout=null;
+          assert.throws(()=>dxf(),/Generate the PV layout first/);
+          console.log("PV layout DXF export: roof boundary, module rectangles, circular/rectangular obstacles, access corridors, mm coordinates, layers and missing-layout guard passed");
+          JS
+          node /tmp/gensolar-dxf.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
