@@ -588,10 +588,13 @@ jobs:
           addMaintenanceRecord();
           assert.equal(state.maintenance.length,1);
           assert.equal(state.maintenance[0].dueDate,"2026-12-01");
-          assert.ok(maintenanceDprSection().includes("Operations and preventive maintenance schedule"));
-          assert.ok(maintenanceDprSection().includes("Quarterly maintenance plan"));
-          assert.ok(maintenanceDprSection().includes("Approved O&M manual"));
-          assert.ok(maintenanceDprSection().includes("2026-12-01"));
+          assert.equal(state.maintenance[0].reference,"Approved O&M manual §4","O&M procedure reference must persist in the saved maintenance record");
+          const dpr = maintenanceDprSection();
+          assert.ok(dpr.includes("Operations and preventive maintenance schedule"));
+          assert.ok(dpr.includes("Quarterly maintenance plan"));
+          assert.ok(dpr.includes("Procedure reference:"));
+          assert.ok(dpr.includes("Approved O&M manual §4"),"DPR must print the exact saved O&M procedure reference");
+          assert.ok(dpr.includes("2026-12-01"));
           console.log("O&M schedule: required fields, date order, persistence and DPR output passed");
           JS
           node /tmp/gensolar-maintenance.js
