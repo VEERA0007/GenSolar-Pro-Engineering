@@ -418,7 +418,7 @@ const qB=(qAt(-dpB/2,0)+qAt(dpB/2,0))/2,qL=(qAt(0,-dpL/2)+qAt(0,dpL/2))/2;
 const mB=qB*projB*projB/2,mL=qL*projL*projL/2;
 const asReq=(m,b)=>{const Mu=m*1e6,bb=b*1000;let lo=0,hi=.04*bb*dm*1000;for(let i=0;i<70;i++){const As=(lo+hi)/2, xu=.87*fy*As/(.36*fck*bb),cap=.87*fy*As*(dm*1000-.42*xu)/1e6;if(cap<Mu)lo=As;else hi=As}return hi};
 const AsB=asReq(mB,L),AsL=asReq(mL,B),AsMin=.0012*1000*h,spacingB=AsB>0?Math.min(300,Math.floor((1000*(Math.PI*dia*dia/4))/Math.max(AsB,AsMin))):300,spacingL=AsL>0?Math.min(300,Math.floor((1000*(Math.PI*dia*dia/4))/Math.max(AsL,AsMin))):300;
-const tauB=qB*Math.max(projB-dm,0)/dm*1000/1000,tauL=qL*Math.max(projL-dm,0)/dm*1000/1000;
+const tauB=qB*Math.max(projB-dm,0)/dm/1000,tauL=qL*Math.max(projL-dm,0)/dm/1000;
 const b0=2*((dpB+dm)+(dpL+dm)),areaPunch=(dpB+dm)*(dpL+dm),qPunch=q0,VuPunch=Math.max(Pu-qPunch*areaPunch,0),tauPunch=VuPunch*1000/(b0*1000*dm*1000);
 const tauC=.25*Math.sqrt(fck),oneWayOK=Math.max(tauB,tauL)<=.36*Math.sqrt(fck),punchOK=tauPunch<=tauC,fullContact=qmin>=0;
 const fmt=x=>Number(x).toFixed(2);
