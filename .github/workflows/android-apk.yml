@@ -810,7 +810,7 @@ jobs:
           from pathlib import Path
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("function build3d()")
-          end = source.index("\\nfunction electricalProtectionReport()", start)
+          end = source.index("function electricalProtectionReport()", start)
           Path("/tmp/gensolar-cad-preview.js").write_text(source[start:end], encoding="utf-8")
           PY
           cat >> /tmp/gensolar-cad-preview.js <<'JS'
@@ -840,7 +840,7 @@ jobs:
           from pathlib import Path
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("function dxf()")
-          end = source.index("\\nfunction pvTemperatureAdjustedVoltage()", start)
+          end = source.index("function pvTemperatureAdjustedVoltage()", start)
           Path("/tmp/gensolar-dxf.js").write_text(source[start:end], encoding="utf-8")
           PY
           cat >> /tmp/gensolar-dxf.js <<'JS'
