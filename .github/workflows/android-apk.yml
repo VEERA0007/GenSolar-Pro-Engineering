@@ -598,6 +598,52 @@ jobs:
           console.log("O&M schedule: required fields, date order, persistence and DPR output passed");
           JS
           node /tmp/gensolar-maintenance.js
+      - name: Test IS 875 wind and mounting-member screens
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function calculateWind()")
+          end = source.index("\nfunction copyStructureActionToCombination", start)
+          Path("/tmp/gensolar-wind-structure.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-wind-structure.js <<'JS'
+          const assert = require("node:assert/strict");
+          const inputs = {
+            windVb:40, windK1:1, windK2:1, windK3:1, windK4:1,
+            windKd:0.9, windKa:0.9, windKc:0.9, windCpe:-0.8,
+            windCpi:0.2, windArea:10, windTribWidth:2,
+            strSpan:4, strTribWidth:1, strDeadLoad:0.5,
+            strE:200, strI:1000, strZ:100, strDeflRatio:250
+          };
+          const elements = {};
+          let state = {project:{buildingHeight:10}};
+          function val(key){ return Number(inputs[key] ?? 0); }
+          function save(){}
+          function alert(message){ throw new Error(message); }
+          function metric(label,value){ return label+":"+value+";"; }
+          function $(id){ return elements[id] ||= {innerHTML:"",textContent:""}; }
+          calculateWind();
+          assert.ok(Math.abs(state.wind.vz-40)<1e-9, "design wind speed");
+          assert.ok(Math.abs(state.wind.pz-960)<1e-9, "basic wind pressure");
+          assert.ok(Math.abs(state.wind.pd-699.84)<1e-9, "design wind pressure");
+          assert.ok(Math.abs(state.wind.net+699.84)<1e-9, "negative net pressure must be uplift");
+          assert.ok(Math.abs(state.wind.force+6.9984)<1e-9, "uplift force");
+          assert.ok(Math.abs(state.wind.line+1.39968)<1e-9, "member line load");
+          assert.match(state.wind.direction,/UPLIFT/);
+          assert.match(elements.windWarning.textContent,/PRELIMINARY|Preliminary/);
+          calculateStructure();
+          assert.ok(state.structure.downLine>0, "downward dead-load case");
+          assert.ok(state.structure.upliftLine>=0, "uplift must be net of stabilising dead load");
+          assert.ok(Number.isFinite(state.structure.down.defl), "downward deflection must be finite");
+          assert.ok(Number.isFinite(state.structure.up.stress), "uplift stress demand must be finite");
+          assert.ok(state.structure.limit>0, "deflection limit");
+          assert.match(elements.structureWarning.textContent,/PRELIMINARY BEAM SCREEN ONLY/);
+          inputs.windVb=0;
+          assert.throws(() => calculateWind(),/positive basic wind speed/);
+          console.log("IS 875 wind worksheet and member screen passed: pressure, suction sign, area force, tributary line load, uplift after dead-load stabilisation, beam demand, deflection and invalid-input guard");
+          JS
+          node /tmp/gensolar-wind-structure.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
