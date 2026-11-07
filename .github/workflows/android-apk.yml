@@ -696,6 +696,7 @@ jobs:
           calculateConnections();
           assert.equal(state.connections.anchorTUtil,null,"missing anchor resistance must not be treated as a pass");
           assert.match(elements.connectionWarning.textContent,/PRELIMINARY LOAD-TRANSFER DEMAND SCREEN ONLY/);
+          state.structure.up.V=1;
           calculateFoundation();
           const f=state.foundation;
           assert.ok(Math.abs(f.Ndown-7)<1e-9);
