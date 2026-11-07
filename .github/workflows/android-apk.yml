@@ -659,7 +659,7 @@ jobs:
               if end < 0:
                   end = len(source)
               blocks.append(source[start:end])
-          Path("/tmp/gensolar-connections-foundation.js").write_text("\\n".join(blocks), encoding="utf-8")
+          Path("/tmp/gensolar-connections-foundation.js").write_text("\n".join(blocks), encoding="utf-8")
           PY
           cat >> /tmp/gensolar-connections-foundation.js <<'JS'
           const assert = require("node:assert/strict");
