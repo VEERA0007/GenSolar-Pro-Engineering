@@ -860,6 +860,10 @@ jobs:
             assert.ok(saved.data.includes(layer),"DXF layer missing: "+layer);
           assert.ok(saved.data.includes("CIRCLE"),"circular roof obstacle missing");
           assert.ok(saved.data.includes("LWPOLYLINE"),"polyline geometry missing");
+          assert.ok(saved.data.includes("DIMENSIONS"),"dimension annotation layer missing");
+          assert.ok((saved.data.match(/\\nTEXT\\n/g)||[]).length>=2,"horizontal and vertical dimension labels missing");
+          assert.ok(saved.data.includes("5.00 m"),"PV field width dimension should be 5.00 m");
+          assert.ok(saved.data.includes("1.00 m"),"PV field height dimension should be 1.00 m");
           assert.ok(saved.data.includes("10000"),"coordinates must be exported in millimetres");
           assert.ok(saved.data.endsWith("EOF") && saved.data.lastIndexOf("ENDSEC") < saved.data.lastIndexOf("EOF"),"DXF must close ENTITIES section and file");
           state.layout=null;
