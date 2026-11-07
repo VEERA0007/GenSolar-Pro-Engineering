@@ -756,6 +756,55 @@ jobs:
           console.log("RCC footing: effective depth, flexure steel, minimum steel, bar spacing, one-way shear kN/m2-to-MPa conversion, punching stress, contact-loss warning and invalid effective-depth guard passed");
           JS
           node /tmp/gensolar-rcc-footing.js
+      - name: Test RCC reinforcement detailing and bar schedule
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function generateRccDetail()")
+          end = source.find("\\nfunction ", start + 12)
+          if end < 0:
+              end = len(source)
+          Path("/tmp/gensolar-rcc-detail.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-rcc-detail.js <<'JS'
+          const assert = require("node:assert/strict");
+          const fields = {rccLd:{value:900},rccExtra:{value:50},rccDrawingScale:{value:"1:50"}};
+          const elements = {};
+          global.$ = id => fields[id] || (elements[id] ||= {innerHTML:"",textContent:""});
+          global.val = id => Number(fields[id]?.value || 0);
+          global.metric = (label,value) => label+":"+value+";";
+          global.save = () => true;
+          global.alert = message => { throw new Error(message); };
+          global.state = {rccFooting:{
+            B:2,L:3,cover:50,dia:16,spacingB:150,spacingL:200,
+            dpB:0.4,dpL:0.4,h:500
+          }};
+          generateRccDetail();
+          const d=state.rccDetail;
+          assert.equal(d.rows[0].count,21,"B-direction bar count");
+          assert.equal(d.rows[1].count,11,"L-direction bar count");
+          assert.equal(d.rows[0].length,1950,"B bar cut length includes allowance");
+          assert.equal(d.rows[1].length,1950,"L bar cut length includes allowance");
+          assert.ok(Math.abs(d.wt-16*16/162)<1e-12,"unit mass must use d²/162 kg/m");
+          assert.ok(Math.abs(d.total-(62.4*256/162))<1e-9,"total steel weight");
+          assert.equal(d.availB,750,"B-direction geometric projection");
+          assert.equal(d.availL,1250,"L-direction geometric projection");
+          const html=$("rccDetailSchedule").innerHTML;
+          for(const expected of ["B1","L1","21","11","1950.0 mm","98.7 kg","Check anchorage / footing geometry","Geometry exceeds entered Ld target","d²/162","not for construction"]) assert.ok(html.includes(expected) || $("rccDetailDrawing").innerHTML.includes(expected),"Missing reinforcement schedule/drawing content: "+expected);
+          assert.ok($("rccDetailDrawing").innerHTML.includes("<svg"));
+          assert.ok($("rccDetailDrawing").innerHTML.includes("PEDESTAL"));
+          assert.ok($("rccDetailWarning").textContent.includes("geometric flag only"));
+          fields.rccLd.value=-1;
+          assert.throws(()=>generateRccDetail(),/valid anchorage review length/);
+          fields.rccLd.value=900;
+          state.rccFooting.cover=1200;
+          assert.throws(()=>generateRccDetail(),/Clear bar lengths are not positive/);
+          state.rccFooting=null;
+          assert.throws(()=>generateRccDetail(),/Calculate the RCC footing screen first/);
+          console.log("RCC reinforcement detailing: bar quantities, cut lengths, d²/162 mass, total steel, geometric Ld flags, SVG drawing and invalid-state guards passed");
+          JS
+          node /tmp/gensolar-rcc-detail.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
