@@ -644,6 +644,73 @@ jobs:
           console.log("IS 875 wind worksheet and member screen passed: pressure, suction sign, area force, tributary line load, uplift after dead-load stabilisation, beam demand, deflection and invalid-input guard");
           JS
           node /tmp/gensolar-wind-structure.js
+      - name: Test mounting connections and foundation stability screens
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          blocks = []
+          for start_name, end_name in [
+              ("function calculateConnections()", "function calculateWind()"),
+              ("function calculateFoundation()", "function calculateRccFooting()")
+          ]:
+              start = source.index(start_name)
+              end = source.index(end_name, start)
+              blocks.append(source[start:end])
+          Path("/tmp/gensolar-connections-foundation.js").write_text("\n".join(blocks), encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-connections-foundation.js <<'JS'
+          const assert = require("node:assert/strict");
+          const inputs = {
+            connModuleL:2.2, connModuleW:2, connModuleMass:25,
+            connClampCount:4, connClampCap:0.8, connBoltCount:4,
+            connTensionBolts:2, connAnchorSpacing:100, connEcc:100,
+            connHorizontal:1.2, connAnchorTCap:2.5, connAnchorVCap:0.5,
+            fdnB:2, fdnL:3, fdnDead:2, fdnSoil:150,
+            fdnH:1.5, fdnHeight:2, fdnMu:0.5
+          };
+          const elements = {};
+          let state = {
+            structure:{windKpa:-0.7,up:{V:2},down:{V:5}}
+          };
+          function val(key){ return Number(inputs[key] ?? 0); }
+          function save(){}
+          function alert(message){ throw new Error(message); }
+          function metric(label,value){ return label+":"+value+";"; }
+          function $(id){ return elements[id] ||= {innerHTML:"",textContent:""}; }
+          calculateConnections();
+          const c=state.connections;
+          assert.ok(Math.abs(c.area-4.4)<1e-9, "module area");
+          assert.ok(Math.abs(c.moduleWind-3.08)<1e-9, "module wind uplift");
+          assert.ok(Math.abs(c.moduleDead-25*9.80665/1000)<1e-9, "module self-weight");
+          assert.ok(Math.abs(c.moduleNet-(3.08-25*9.80665/1000))<1e-9, "net module uplift");
+          assert.ok(Math.abs(c.clampDemand-c.moduleNet/4)<1e-9, "clamp load sharing");
+          assert.ok(Math.abs(c.boltTension-2)<1e-9, "direct plus eccentric anchor tension");
+          assert.ok(Math.abs(c.boltShear-0.3)<1e-9, "anchor shear sharing");
+          assert.equal(c.clampUtil<=1,true);
+          assert.equal(c.anchorTUtil<=1,true);
+          assert.equal(c.anchorVUtil<=1,true);
+          inputs.connAnchorTCap=0;
+          calculateConnections();
+          assert.equal(state.connections.anchorTUtil,null,"missing anchor resistance must not be treated as a pass");
+          assert.match(elements.connectionWarning.textContent,/PRELIMINARY LOAD-TRANSFER DEMAND SCREEN ONLY/);
+          calculateFoundation();
+          const f=state.foundation;
+          assert.ok(Math.abs(f.Ndown-7)<1e-9);
+          assert.ok(Math.abs(f.Nup-1)<1e-9);
+          assert.ok(Math.abs(f.netN-6)<1e-9);
+          assert.ok(Math.abs(f.M-3)<1e-9);
+          assert.ok(Math.abs(f.qMax-2.5)<1e-9);
+          assert.ok(Math.abs(f.qMin+0.5)<1e-9);
+          assert.equal(f.bearingOK,false,"predicted soil contact loss must fail bearing/contact screen");
+          assert.ok(Math.abs(f.slidingFS-2)<1e-9);
+          assert.ok(Math.abs(f.overturningFS-2)<1e-9);
+          assert.match(elements.foundationWarning.textContent,/PRELIMINARY RIGID-FOOTING SCREEN ONLY/);
+          inputs.fdnSoil=0;
+          assert.throws(() => calculateFoundation(),/positive footing dimensions and soil pressure/);
+          console.log("Mounting connection and foundation tests passed: module uplift, clamp distribution, eccentric anchor tension, shear sharing, missing-capacity handling, footing reactions, soil pressure/contact, sliding, overturning and invalid-input guards");
+          JS
+          node /tmp/gensolar-connections-foundation.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
