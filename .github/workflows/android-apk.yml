@@ -650,14 +650,16 @@ jobs:
           from pathlib import Path
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           blocks = []
-          for start_name, end_name in [
-              ("function calculateConnections()", "function calculateWind()"),
-              ("function calculateFoundation()", "function calculateRccFooting()")
+          for start_name in [
+              "function calculateConnections()",
+              "function calculateFoundation()"
           ]:
               start = source.index(start_name)
-              end = source.index(end_name, start)
+              end = source.find("\\nfunction ", start + len(start_name))
+              if end < 0:
+                  end = len(source)
               blocks.append(source[start:end])
-          Path("/tmp/gensolar-connections-foundation.js").write_text("\n".join(blocks), encoding="utf-8")
+          Path("/tmp/gensolar-connections-foundation.js").write_text("\\n".join(blocks), encoding="utf-8")
           PY
           cat >> /tmp/gensolar-connections-foundation.js <<'JS'
           const assert = require("node:assert/strict");
