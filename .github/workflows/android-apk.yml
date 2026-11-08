@@ -871,6 +871,46 @@ jobs:
           console.log("PV layout DXF export: roof boundary, module rectangles, circular/rectangular obstacles, access corridors, mm coordinates, layers and missing-layout guard passed");
           JS
           node /tmp/gensolar-dxf.js
+      - name: Test preliminary mounting rail fabrication schedule
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function buildFabricationSchedule()")
+          end = source.index("function addVendor()", start)
+          Path("/tmp/gensolar-fabrication.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-fabrication.js <<'JS'
+          const assert = require("node:assert/strict");
+          global.state = {layout:{modules:[
+            {x:0,y:0,w:2,h:1},{x:2,y:0,w:2,h:1},{x:0,y:2,w:2,h:1}
+          ]}};
+          const nodes={fabricationTable:{},fabricationTotals:{}};
+          global.$ = id => nodes[id] || (nodes[id]={});
+          global.metric = (label,value) => label+":"+value;
+          global.save = () => {};
+          global.alert = message => { throw new Error(message); };
+          let downloaded=null;
+          global.download = (name,data,type) => { downloaded={name,data,type}; };
+          buildFabricationSchedule();
+          assert.equal(state.fabricationSchedule.rows.length,2);
+          assert.equal(state.fabricationSchedule.rows[0].modules,2);
+          assert.equal(state.fabricationSchedule.rows[0].lengthM,4);
+          assert.equal(state.fabricationSchedule.rows[0].railQty,2);
+          assert.equal(state.fabricationSchedule.totalRailM,12);
+          assert.equal(state.fabricationSchedule.railPieces,4);
+          assert.ok(nodes.fabricationTable.innerHTML.includes("Cut length"));
+          exportFabricationSchedule();
+          assert.equal(downloaded.name,"GenSolar-Mounting-Rail-Cut-Schedule.csv");
+          assert.equal(downloaded.type,"text/csv");
+          assert.ok(downloaded.data.includes("4.000"));
+          state.layout={modules:[]};
+          assert.throws(()=>buildFabricationSchedule(),/Generate PV layout first/);
+          state.fabricationSchedule=null;
+          assert.throws(()=>exportFabricationSchedule(),/Generate the rail schedule first/);
+          console.log("Mounting rail schedule: row grouping, cut lengths, two-rail quantities, total length, CSV export and invalid-state guards passed");
+          JS
+          node /tmp/gensolar-fabrication.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
