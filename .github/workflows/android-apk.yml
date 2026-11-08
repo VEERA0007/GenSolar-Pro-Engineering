@@ -892,6 +892,7 @@ jobs:
           global.alert = message => { throw new Error(message); };
           let downloaded=null;
           global.download = (name,data,type) => { downloaded={name,data,type}; };
+          global.csv = rows => rows.map(row => row.map(value => '"' + String(value ?? "").replace(/"/g, '""') + '"').join(",")).join("\\r\\n");
           buildFabricationSchedule();
           assert.equal(state.fabricationSchedule.rows.length,2);
           assert.equal(state.fabricationSchedule.rows[0].modules,2);
