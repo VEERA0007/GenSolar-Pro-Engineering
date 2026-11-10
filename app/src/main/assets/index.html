@@ -194,7 +194,7 @@ else if(rcc.includes(k))clearCalcGroups(['rcc']);
 else if(detail.includes(k))clearCalcGroups(['detail']);
 }
 function resetProjectCalculations(){
-['wind','structure','loadCombinations','memberCapacity','ltb','sectionClass','connections','foundation','rccFooting','rccDetail','layout','electrical','protection','sldSvg'].forEach(k=>delete state[k]);
+['wind','structure','loadCombinations','memberCapacity','ltb','sectionClass','connections','foundation','rccFooting','rccDetail','staadModel','layout','electrical','protection','sldSvg'].forEach(k=>delete state[k]);
 state.reviewLog=[];state.changeLog=[];state.drawings=[];state.attachments=[];state.documentControl={drawingNo:'',drawingRevision:'Rev 00',calculationRevision:'Calc Rev 00',status:'Draft'};state.qcRevision='';state.roofZones=[];state.dxfEntities=[];state.cadText='';state.cadName='';state.checks={};
 clearCalcGroups(['wind','structure','ltb','sectionClass','connections','foundation','rcc','detail']);
 ['layoutMetrics','layoutDrawing','layoutWarnings','electricalMetrics','electricalSchedule','electricalWarning','protectionMetrics','protectionSchedule','sldPreview','dprPreview'].forEach(id=>{if($(id))$(id).innerHTML=''});
@@ -700,7 +700,7 @@ function staadBuildStd(m){
  for(const type of ['column','rafter','purlin','brace'])group[type].forEach(id=>lines.push(id+' TABLE ST '+props[type]));
  lines.push('SUPPORTS');m.frames.forEach(fr=>lines.push(fr.baseL+' '+m.support,fr.baseR+' '+m.support));
  for(const load of m.loads){lines.push('LOAD '+load.id+' LOADTYPE '+load.type+' TITLE '+load.name.replace(/\s+/g,'_'));if(load.selfWeight)lines.push('SELFWEIGHT Y -1');if(load.memberLoads.length){lines.push('MEMBER LOAD');load.memberLoads.forEach(x=>lines.push(x.member+' UNI '+x.axis+' '+x.value.toFixed(5)))}}
- m.combinations.forEach(c=>lines.push('LOAD COMB '+c.id+' '+c.name.replace(/\s+/g,'_')+' '+c.factors.map(x=>x[0]+' '+x[1]).join(' ')));
+ m.combinations.forEach(c=>lines.push('LOAD COMB '+c.id+' '+c.factors.map(x=>x[0]+' '+x[1]).join(' ')));
  lines.push('PERFORM ANALYSIS PRINT STATICS CHECK','PARAMETER 1','CODE IS800 LSD','FYLD '+(m.fy*1000)+' ALL','CHECK CODE ALL','FINISH');return lines.join('\n')+'\n';
 }
 function staadRenderModel(m){
