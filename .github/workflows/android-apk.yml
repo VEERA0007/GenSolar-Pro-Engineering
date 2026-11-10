@@ -131,17 +131,21 @@ jobs:
           const takeoff=staadBuildSteelTakeoff(model,{staadColumnKgM:42.2,staadRafterKgM:42.2,
             staadPurlinKgM:16.8,staadBraceKgM:4.5,staadSteelWaste:5});
           assert.equal(takeoff.totalMembers,model.members.length);
+          assert.equal(takeoff.details.length,model.members.length);
           assert.equal(takeoff.rows.find(x=>x.type==="column").count,14);
           assert.equal(takeoff.rows.find(x=>x.type==="rafter").count,14);
           assert.equal(takeoff.rows.find(x=>x.type==="purlin").count,18);
           assert.equal(takeoff.rows.find(x=>x.type==="brace").count,48);
+          assert.equal(takeoff.details[0].id,model.members[0].id);
+          assert.equal(takeoff.details[0].frame,model.members[0].frame+1);
+          assert.ok(takeoff.details.every(x=>x.length>0&&x.startNode>0&&x.endNode>0));
           for(const row of takeoff.rows){assert.ok(row.length>0);assert.ok(Math.abs(row.procurementKg-row.netKg*1.05)<1e-8)}
           assert.ok(Math.abs(takeoff.procurementKg-takeoff.netKg*1.05)<1e-7);
           assert.throws(()=>staadBuildSteelTakeoff(model,{staadColumnKgM:0,staadRafterKgM:42,
             staadPurlinKgM:16,staadBraceKgM:4,staadSteelWaste:5}),/verified positive kg\/m/);
           assert.throws(()=>staadBuildSteelTakeoff(model,{staadColumnKgM:42,staadRafterKgM:42,
             staadPurlinKgM:16,staadBraceKgM:4,staadSteelWaste:21}),/between 0 and 20/);
-          console.log("STAAD steel take-off passed: 3D member lengths, four member groups, verified kg/m inputs, wastage and invalid-input guards");
+          console.log("STAAD steel take-off passed: individual cut lengths, frame/node references, group totals, verified kg/m inputs, wastage and invalid-input guards");
           JS
           node /tmp/gensolar-steel-takeoff.js
       - name: Test STAAD 3D DXF drawing export
