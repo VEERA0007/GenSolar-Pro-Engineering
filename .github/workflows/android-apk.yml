@@ -64,6 +64,50 @@ jobs:
           print(f"HTML parsed; {len(parser.ids)} unique IDs; {len(scripts)} embedded script(s)")
           PY
           node --check /tmp/gensolar-inline.js
+      - name: Test STAAD portal frame model and STAAD.Pro export
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function staadBuildModel(")
+          end = source.index("function staadRenderModel(", start)
+          Path("/tmp/gensolar-staad.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-staad.js <<'JS'
+          const assert = require("node:assert/strict");
+          const input = {
+            staadSpan:20, staadLength:30, staadFrameSpacing:5,
+            staadEaveHeight:6, staadRoofRise:2,
+            staadRoofDead:0.25, staadRoofLive:0.75,
+            staadWindUplift:0.9, staadWindSide:0.6, staadFy:250,
+            support:"PINNED", windFace:"left",
+            columnSection:"ISMB300", rafterSection:"ISMB300",
+            purlinSection:"ISMC150", braceSection:"ISA50X50X6"
+          };
+          const model = staadBuildModel(input);
+          assert.equal(model.frameCount,7);
+          assert.equal(model.frameSpacing,5);
+          assert.equal(model.nodes.length,35);
+          assert.equal(model.members.length,94);
+          assert.equal(model.purlinCount,18);
+          assert.equal(model.braceCount,48);
+          assert.equal(model.loads.length,4);
+          assert.equal(model.loads[0].selfWeight,true);
+          assert.equal(model.loads[0].memberLoads[0].value,-0.625);
+          assert.equal(model.loads[0].memberLoads[4].value,-1.25);
+          assert.deepEqual(model.combinations.map(x=>x.id),[5,6,7,8]);
+          const std=staadBuildStd(model);
+          for(const required of ["STAAD SPACE","UNIT METER KN","JOINT COORDINATES",
+            "MEMBER INCIDENCES","DEFINE MATERIAL START","SUPPORTS","MEMBER PROPERTY INDIAN",
+            "LOAD 1 LOADTYPE Dead","SELFWEIGHT Y -1","LOAD 3 LOADTYPE Wind",
+            "LOAD COMB 6 1 0.9 3 1.5","PERFORM ANALYSIS PRINT STATICS CHECK",
+            "CODE IS800 LSD","CHECK CODE ALL","FINISH"]) assert.ok(std.includes(required),"Missing STAAD command: "+required);
+          assert.throws(()=>staadBuildModel({...input,staadLength:301}),/supported engineering range/);
+          assert.throws(()=>staadBuildModel({...input,staadFrameSpacing:1,staadLength:100}),/2–61 portal frames/);
+          assert.throws(()=>staadBuildStd({...model,properties:{...model.properties,column:"ISMB300; DELETE"}}),/valid STAAD section-table name/);
+          console.log("STAAD model/export tests passed: portal geometry, tributary loads, supports, member groups, load cases/combinations, IS 800 directives and invalid-input guards");
+          JS
+          node /tmp/gensolar-staad.js
       - name: Test complete-backup ZIP integrity and path validation
         run: |
           python3 - <<'PY'
