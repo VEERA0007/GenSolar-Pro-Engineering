@@ -119,7 +119,7 @@ jobs:
           start = source.index("function staadBuildSteelTakeoff(")
           end = source.index("function staadCalculateTakeoff(", start)
           takeoff_source = source[start:end]
-          Path("/tmp/gensolar-steel-takeoff.js").write_text(model_source + "\\n" + takeoff_source, encoding="utf-8")
+          Path("/tmp/gensolar-steel-takeoff.js").write_text(model_source + "\n" + takeoff_source, encoding="utf-8")
           PY
           cat >> /tmp/gensolar-steel-takeoff.js <<'JS'
           const assert = require("node:assert/strict");
