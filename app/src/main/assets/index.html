@@ -718,8 +718,8 @@ function staadExport(){
 function staadExportDxf(){
  const m=state.staadModel||staadGenerate();if(!m)return;
  const nodes=new Map(m.nodes.map(n=>[n.id,n])),layers={column:'STAAD_COLUMNS',rafter:'STAAD_RAFTERS',purlin:'STAAD_PURLINS',brace:'STAAD_BRACING'},colors={STAAD_COLUMNS:5,STAAD_RAFTERS:3,STAAD_PURLINS:2,STAAD_BRACING:6};
- const out=['0','SECTION','2','HEADER','9','$INSUNITS','70','4','0','ENDSEC','0','SECTION','2','TABLES','0','TABLE','2','LAYER','70','4'];
- Object.values(layers).forEach(layer=>out.push('0','LAYER','2',layer,'70','0','62',String(colors[layer]),'6','CONTINUOUS'));
+ const out=['0','SECTION','2','HEADER','9','$INSUNITS','70','4','0','ENDSEC','0','SECTION','2','TABLES','0','TABLE','2','LAYER','70','5'];
+ Object.values(layers).concat(['STAAD_NODES']).forEach(layer=>out.push('0','LAYER','2',layer,'70','0','62',String(colors[layer]||7),'6','CONTINUOUS'));
  out.push('0','ENDTAB','0','ENDSEC','0','SECTION','2','ENTITIES');
  m.members.forEach(member=>{const a=nodes.get(member.a),b=nodes.get(member.b),layer=layers[member.type];out.push('0','LINE','8',layer,'10',String(a.x*1000),'20',String(a.y*1000),'30',String(a.z*1000),'11',String(b.x*1000),'21',String(b.y*1000),'31',String(b.z*1000))});
  m.nodes.forEach(n=>out.push('0','POINT','8','STAAD_NODES','10',String(n.x*1000),'20',String(n.y*1000),'30',String(n.z*1000)));
