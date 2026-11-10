@@ -108,6 +108,34 @@ jobs:
           console.log("STAAD model/export tests passed: portal geometry, tributary loads, supports, member groups, load cases/combinations, IS 800 directives and invalid-input guards");
           JS
           node /tmp/gensolar-staad.js
+      - name: Test STAAD 3D DXF drawing export
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function staadExportDxf()")
+          end = source.index("function staadExportSchedules()", start)
+          Path("/tmp/gensolar-staad-dxf.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-staad-dxf.js <<'JS'
+          const assert = require("node:assert/strict");
+          const model = {nodes:[{id:1,x:0,y:0,z:0},{id:2,x:0,y:6,z:0}],
+            members:[{id:1,a:1,b:2,type:"column"}]};
+          global.state={staadModel:model};
+          let saved=null;
+          global.download=(name,data,type)=>{saved={name,data,type};};
+          global.$=()=>({textContent:""});
+          staadExportDxf();
+          assert.equal(saved.name,"GenSolar-STAAD-3D-Frame.dxf");
+          assert.equal(saved.type,"application/dxf");
+          for(const layer of ["STAAD_COLUMNS","STAAD_RAFTERS","STAAD_PURLINS","STAAD_BRACING","STAAD_NODES"])
+            assert.ok(saved.data.includes(layer),"Missing DXF layer: "+layer);
+          assert.ok(saved.data.includes("$INSUNITS"));
+          assert.ok(saved.data.includes("6000"),"Metre coordinates must export as millimetres");
+          assert.ok(saved.data.endsWith("EOF\n"));
+          console.log("STAAD 3D DXF export passed: millimetre units, structural layers, node geometry and valid file terminator");
+          JS
+          node /tmp/gensolar-staad-dxf.js
       - name: Test complete-backup ZIP integrity and path validation
         run: |
           python3 - <<'PY'
