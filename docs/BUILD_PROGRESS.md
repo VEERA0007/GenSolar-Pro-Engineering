@@ -27,6 +27,8 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 
 ## Current verified build state
 
+- Build #271: success — survey-image underlay scaling, CAD layer visibility, full configured regression suite, debug APK verification and artifact upload passed. APK artifact ID `13859008893` (expires 2026-11-25).
+
 - Build #234: success — DXF preview regression test and APK artifact verified.
 - Build #235: success — persistent CAD layer visibility controls compiled and APK packaged.
 - Build #237: success — CAD layer visibility regression test, prior checks and APK packaging passed.
@@ -38,7 +40,7 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 - Build #266: orthogonal line/polyline drawing mode and regression tests passed.
 - Build #267: orthogonal CAD drawing regression tests passed; debug APK verification and artifact upload passed. Latest verified run: #267, commit `e8fbf11226c914f451b5bb181f63c72369644f9b`.
 
-Object snapping is verified: nearby drawing points snap to visible geometry vertices/endpoints, with hidden-layer filtering and an off switch. Survey image underlays are aligned in drawing metres and rendered beneath editable CAD geometry; they remain visual references and do not create surveyed coordinates automatically. Orthogonal drawing is implemented for line, dimension and polyline segments; regression tests and APK build passed. CAD now supports an image survey underlay with user-controlled scale width, origin, opacity, visibility and local project persistence.
+Object snapping is verified: nearby drawing points snap to visible geometry vertices/endpoints, with hidden-layer filtering and an off switch. Survey image underlays are aligned in drawing metres and rendered beneath editable CAD geometry; they remain visual references and do not create surveyed coordinates automatically. CAD JSON import now validates underlay image data types, payload size, dimensions, origin, calibrated width and opacity before applying it. Orthogonal drawing is implemented for line, dimension and polyline segments; regression tests and APK build passed. CAD now supports an image survey underlay with user-controlled scale width, origin, opacity, visibility and local project persistence.
 
 A green CI build verifies the checks configured in GitHub Actions and APK packaging. It does not mean the full EPC application is complete or validated on a physical Android device.
 
