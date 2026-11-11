@@ -1193,12 +1193,13 @@ jobs:
           // TEST HARNESS
           const assert=require("node:assert/strict"),vm=require("node:vm"),fs=require("node:fs");
           const model={entities:[],undo:[]};let draws=0,models=0,saves=0;
-          const context={window:{},model,saveUndo:()=>model.undo.push("snapshot"),
+          const context={model,saveUndo:()=>model.undo.push("snapshot"),
             addEntity:e=>{e.id="test-"+model.entities.length;model.entities.push(e)},
             draw:()=>draws++,render3d:()=>models++,save:()=>saves++};
+          context.window=context;
           vm.createContext(context);
           vm.runInContext(fs.readFileSync(__filename,"utf8").split("// TEST HARNESS")[0],context);
-          const result=context.window.gensolarImportDxf({units:4,entities:[
+          const result=context.gensolarImportDxf({units:4,entities:[
             {type:"LINE",layer:"ROOF",x1:0,y1:0,x2:1000,y2:500},
             {type:"LWPOLYLINE",layer:"ROOF",vertices:[{x:0,y:0},{x:1000,y:0},{x:1000,y:500}],closed:true},
             {type:"CIRCLE",layer:"OBSTACLES",x:500,y:250,radius:100},
@@ -1212,7 +1213,7 @@ jobs:
           assert.ok(model.entities[3].points.length>=8,"ARC should be approximated by a CAD polyline");
           assert.equal(draws,1);assert.equal(models,1);assert.equal(saves,1);
           const before=model.entities.length;
-          const unsupported=context.window.gensolarImportDxf({units:0,entities:[{type:"LINE",layer:"0",x1:0,y1:0,x2:10,y2:10}]});
+          const unsupported=context.gensolarImportDxf({units:0,entities:[{type:"LINE",layer:"0",x1:0,y1:0,x2:10,y2:10}]});
           assert.equal(unsupported.count,0);assert.equal(model.entities.length,before,"Unitless geometry must not be silently scaled");
           console.log("DXF-to-CAD handoff passed: mm-to-m conversion, line/polyline/circle/arc import, redraw/save and unitless rejection");
           JS
