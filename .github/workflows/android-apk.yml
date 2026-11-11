@@ -1326,7 +1326,7 @@ jobs:
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("function snapObject(p){")
           end = source.index("function point(evt)", start)
-          Path("/tmp/gensolar-object-snap.js").write_text("const snapSource = " + json.dumps(source[start:end]) + ";\\n", encoding="utf-8")
+          Path("/tmp/gensolar-object-snap.js").write_text("const snapSource = " + json.dumps(source[start:end]) + ";\n", encoding="utf-8")
           PY
           cat >> /tmp/gensolar-object-snap.js <<'JS'
           const assert=require("node:assert/strict"),vm=require("node:vm");
@@ -1336,7 +1336,6 @@ jobs:
             {type:"poly",layer:"OBSTACLES",points:[{x:30,y:30},{x:35,y:30}]}
           ]};
           let enabled=true;const context={model,$:()=>({checked:enabled})};vm.createContext(context);
-          vm.runInContext("const snapObject = ("+`snapSource`+").match(/function snapObject\\(p\\)\\{[\\s\\S]*?\\n?\\}/)?.[0]",context);
           vm.runInContext(snapSource,context);
           const call=(x,y)=>vm.runInContext("snapObject({x:"+x+",y:"+y+"})",context);
           assert.deepEqual(JSON.parse(JSON.stringify(call(10.1,10.1))),{x:10,y:10},"Nearby roof corner should snap");
