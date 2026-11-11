@@ -15,7 +15,7 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 | Automatic/manual PV layout | 65% | Preliminary polygon-based placement, setbacks, obstacles, orientation and module schedules; multi-zone optimization, pitch/tilt and comprehensive constraints remain |
 | Solar resource and yield | 35% | Resource inputs, loss/yield screens and monthly forecast foundations; validated sourced weather/resource integration and full yield model remain |
 | Shade engine | 15% | Simplified obstacle/shadow screen; sun-path time series, 3D ray tracing and module/string mismatch modelling remain |
-| CAD and drawings | 47% | Concept CAD editor, basic entities, layer-aware DXF import preview and DXF exports; robust editing tools, underlays, dimensions, snapping, SLD and fabrication drawing suite remain |
+| CAD and drawings | 47% | Concept CAD editor with selection/move, polygon-interior and line-segment hit testing, layer visibility, unit-aware DXF-to-CAD import, and conceptual 3D roof/wall/obstacle/PV layer rendering; underlays, advanced editing, SLD and fabrication drawing suite remain |
 | 3D engineering | 30% | Conceptual 3D roof/building and PV visualization; multi-roof parametric model, structural components and synchronized drawing sections remain |
 | Structural and wind | 55% | IS 875-oriented wind inputs/screens, portal frame/STAAD deck, steel take-off and preliminary RCC/foundation/detailing checks; complete code verification and engineer-reviewed release remain |
 | Electrical | 65% | String/MPPT, temperature voltage, cable, protection and battery screening with tests; full topology, coordination, earthing/lightning, transformer/HT and complete SLD remain |
@@ -27,15 +27,15 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 
 ## Current verified build state
 
-- Build #230: success — layer-aware DXF geometry preview.
-- Build #231: filename-escaping hardening; CI result pending at last assessment.
-- Build #232: failed due to a test-source extraction issue; corrected in #234.
 - Build #234: success — DXF preview regression test and APK artifact verified.
 - Build #235: success — persistent CAD layer visibility controls compiled and APK packaged.
-- Build #236: failed due to a regression-test harness issue; corrected in #237.
-- Build #237: success — CAD layer visibility regression test, all prior checks and APK packaging passed.
-- Build #238: DXF-to-editable-CAD bridge; CI result pending.
-- Build #239: DXF-to-editable-CAD regression test; CI result pending.
+- Build #237: success — CAD layer visibility regression test, prior checks and APK packaging passed.
+- Build #238: success — DXF import geometry was connected to the editable CAD workspace and APK packaged.
+- Builds #239–246: failed during successive DXF/3D regression-test or embedded-JavaScript validation attempts; the SVG syntax issue was corrected in a later commit.
+- Builds #247–251: failed at the DXF-to-CAD handoff regression harness; the browser-window binding was corrected in commit `509a69563cd5994ef4f6c69c03dd3b2ce2e00985`.
+- Build #252: rerunning the corrected DXF handoff harness together with the CAD selection and 3D layer changes.
+
+The CAD selection improvements now select line interiors, closed-polygon interiors and open-polyline segments, while hidden layers are excluded from hit testing. Drag completion refreshes the 3D view. The 3D preview now observes WALLS, ROOF, OBSTACLES and PV_MODULES visibility; obstacle footprints are shown as conceptual roof-plane geometry.
 
 A green CI build verifies the checks configured in GitHub Actions and APK packaging. It does not mean the full EPC application is complete or validated on a physical Android device.
 
