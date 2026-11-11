@@ -1375,7 +1375,7 @@ jobs:
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("function underlayHeight(")
           end = source.index("function syncUnderlayControls()", start)
-          Path("/tmp/gensolar-underlay.js").write_text("const underlaySource = " + json.dumps(source[start:end]) + ";\\n", encoding="utf-8")
+          Path("/tmp/gensolar-underlay.js").write_text("const underlaySource = " + json.dumps(source[start:end]) + ";\n", encoding="utf-8")
           PY
           cat >> /tmp/gensolar-underlay.js <<'JS'
           const assert=require("node:assert/strict"),vm=require("node:vm");
