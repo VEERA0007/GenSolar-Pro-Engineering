@@ -1105,6 +1105,38 @@ jobs:
           console.log("DXF import tests passed: LINE/CIRCLE/LWPOLYLINE/POINT, layer metadata, INSUNITS, closed polygons, extents and malformed-entity filtering");
           JS
           node /tmp/gensolar-dxf-import.js
+      - name: Test imported DXF SVG preview and untrusted layer labels
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function renderImportedDxf(")
+          end = source.index("\\nfunction importCad(", start)
+          Path("/tmp/gensolar-dxf-preview.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-dxf-preview.js <<'JS'
+          const assert = require("node:assert/strict");
+          const data = {
+            bounds:{minX:0,minY:0,maxX:1000,maxY:500},
+            layers:["ROOF","<img src=x onerror=alert(1)>"],
+            entities:[
+              {type:"LINE",layer:"ROOF",x1:0,y1:0,x2:1000,y2:500},
+              {type:"CIRCLE",layer:"ROOF",x:500,y:250,radius:50},
+              {type:"ARC",layer:"ROOF",x:500,y:250,radius:100,startAngle:0,endAngle:90},
+              {type:"LWPOLYLINE",layer:"ROOF",vertices:[{x:0,y:0},{x:1000,y:0},{x:1000,y:500}],closed:true},
+              {type:"POINT",layer:"ROOF",x:250,y:125}
+            ]
+          };
+          const html=renderImportedDxf(data);
+          for(const tag of ["<svg","<line","<circle","<path","<polyline","Imported DXF drawing preview"])
+            assert.ok(html.includes(tag),"Missing preview output: "+tag);
+          assert.ok(html.includes("&lt;img src=x onerror=alert(1)&gt;"),"Layer labels must be HTML-escaped");
+          assert.ok(!html.includes("<img src=x onerror=alert(1)>"),"Untrusted layer text must not become markup");
+          assert.ok(html.includes('viewBox="0 0 900 540"'),"Preview must use the fixed viewBox");
+          assert.match(renderImportedDxf({bounds:null,layers:[],entities:[]}),/No supported DXF geometry/);
+          console.log("DXF SVG preview passed: LINE/CIRCLE/ARC/LWPOLYLINE/POINT rendering, fit-to-view, empty drawing and escaped layer labels");
+          JS
+          node /tmp/gensolar-dxf-preview.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
