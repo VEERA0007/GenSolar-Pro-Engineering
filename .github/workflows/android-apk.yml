@@ -1247,6 +1247,40 @@ jobs:
           console.log("3D CAD layer visibility passed: roof and PV visibility follow layer state while walls remain visible");
           JS
           node /tmp/gensolar-3d-layer-visibility.js
+      - name: Test CAD entity selection and geometry hit targets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function segmentDistance(p,a,b){")
+          end = source.index("function finishPoly(){", start)
+          Path("/tmp/gensolar-cad-hit-test.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-cad-hit-test.js <<'JS'
+          // TEST HARNESS
+          const assert=require("node:assert/strict"),vm=require("node:vm"),fs=require("node:fs");
+          const model={hiddenLayers:[],entities:[
+            {id:"rect",type:"rect",layer:"ROOF",x:0,y:0,w:10,h:8},
+            {id:"circle",type:"circle",layer:"OBSTACLES",x:20,y:20,r:5},
+            {id:"line",type:"line",layer:"GENERAL",a:{x:30,y:0},b:{x:40,y:0}},
+            {id:"poly",type:"poly",layer:"ROOF",closed:true,points:[{x:50,y:0},{x:60,y:0},{x:60,y:10},{x:50,y:10}]},
+            {id:"open",type:"poly",layer:"GENERAL",closed:false,points:[{x:70,y:0},{x:80,y:0},{x:80,y:10}]}
+          ]};
+          const context={model,inside:(p,poly)=>{let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if(((a.y>p.y)!==(b.y>p.y))&&(p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x))c=!c}return c}};
+          vm.createContext(context);
+          const script=fs.readFileSync(__filename,"utf8").split("// TEST HARNESS")[0];
+          vm.runInContext(script,context);
+          assert.equal(vm.runInContext('hit({x:5,y:4}).id',context),"rect","Rectangle interior must select");
+          assert.equal(vm.runInContext('hit({x:25,y:20}).id',context),"circle","Circle circumference must select");
+          assert.equal(vm.runInContext('hit({x:35,y:.1}).id',context),"line","Line interior must select");
+          assert.equal(vm.runInContext('hit({x:55,y:5}).id',context),"poly","Closed polygon interior must select");
+          assert.equal(vm.runInContext('hit({x:80,y:5}).id',context),"open","Open polyline segment must select");
+          model.hiddenLayers=["ROOF"];
+          assert.notEqual(vm.runInContext('hit({x:5,y:4})',context)?.id,"rect","Hidden layer entities must not intercept selection");
+          assert.equal(vm.runInContext('hit({x:35,y:.1}).id',context),"line","Visible geometry remains selectable");
+          console.log("CAD hit testing passed: rectangle, circle, line, closed polygon, open polyline and hidden-layer filtering");
+          JS
+          node /tmp/gensolar-cad-hit-test.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
