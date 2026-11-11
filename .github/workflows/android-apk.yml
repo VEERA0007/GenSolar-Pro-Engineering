@@ -1273,8 +1273,7 @@ jobs:
           ]};
           const context={model,inside:(p,poly)=>{let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if(((a.y>p.y)!==(b.y>p.y))&&(p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x))c=!c}return c}};
           vm.createContext(context);
-          const script=fs.readFileSync(__filename,"utf8").split("// TEST HARNESS")[0];
-          vm.runInContext(script,context);
+          vm.runInContext(cadTransformSource,context);
           assert.equal(vm.runInContext('hit({x:5,y:4}).id',context),"rect","Rectangle interior must select");
           assert.equal(vm.runInContext('hit({x:25,y:20}).id',context),"circle","Circle circumference must select");
           assert.equal(vm.runInContext('hit({x:35,y:.1}).id',context),"line","Line interior must select");
