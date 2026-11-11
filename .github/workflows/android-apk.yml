@@ -1389,6 +1389,31 @@ jobs:
           console.log("CAD survey underlay scale passed: aspect ratio, calibration and invalid dimension guards");
           JS
           node /tmp/gensolar-underlay.js
+      - name: Test CAD survey underlay import validation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function validateImportedUnderlay(")
+          end = source.index("function syncUnderlayControls()", start)
+          Path("/tmp/gensolar-underlay-import.js").write_text("const validationSource = " + json.dumps(source[start:end]) + ";\\n", encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-underlay-import.js <<'JS'
+          const assert=require("node:assert/strict"),vm=require("node:vm");
+          const context={};vm.createContext(context);vm.runInContext(validationSource,context);
+          const valid={dataUrl:"data:image/png;base64,iVBORw0KGgo=",name:"roof.png",pixelWidth:3000,pixelHeight:1500,x:2,y:3,w:30,opacity:.45,visible:true};
+          const normalized=vm.runInContext("validateImportedUnderlay("+JSON.stringify(valid)+")",context);
+          assert.equal(normalized.h,15,"Imported image aspect ratio must be recalculated");
+          assert.equal(normalized.x,2);assert.equal(normalized.y,3);assert.equal(normalized.visible,true);
+          assert.equal(vm.runInContext("validateImportedUnderlay(null)",context),null);
+          for(const patch of [{dataUrl:"data:image/svg+xml;base64,PHN2Zz4=",},{opacity:2},{pixelWidth:0},{w:-2},{dataUrl:"https://example.com/image.png"}]){
+            const invalid={...valid,...patch};
+            assert.throws(()=>vm.runInContext("validateImportedUnderlay("+JSON.stringify(invalid)+")",context),"Invalid survey underlay must be rejected");
+          }
+          console.log("CAD survey underlay import passed: safe image types, calibration, aspect ratio and invalid-input rejection");
+          JS
+          node /tmp/gensolar-underlay-import.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
