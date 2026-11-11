@@ -1217,6 +1217,34 @@ jobs:
           console.log("DXF-to-CAD handoff passed: mm-to-m conversion, line/polyline/circle/arc import, redraw/save and unitless rejection");
           JS
           node /tmp/gensolar-dxf-handoff.js
+      - name: Test 3D CAD layer visibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function render3d(){", source.index("const model="))
+          end = source.index("$('cadRefresh3d').onclick=render3d;", start)
+          Path("/tmp/gensolar-3d-layer-visibility.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-3d-layer-visibility.js <<'JS'
+          const assert=require("node:assert/strict"),vm=require("node:vm"),fs=require("node:fs");
+          const box={innerHTML:""};
+          const model={building:{height:6},layout:[{x:1,y:1,w:2,h:1}],hiddenLayers:[]};
+          const context={model,$:id=>id==="cad3d"?box:null,n:()=>6,
+            roofPoly:()=>[{x:0,y:0},{x:10,y:0},{x:10,y:8},{x:0,y:8}]};
+          vm.createContext(context);
+          vm.runInContext(fs.readFileSync(__filename,"utf8"),context);
+          vm.runInContext("render3d()",context);
+          assert.ok(box.innerHTML.includes('fill="#a7d4bf"'),"Visible roof face must render");
+          assert.ok(box.innerHTML.includes('fill="#5da8dc"'),"Visible PV modules must render");
+          model.hiddenLayers=["ROOF","PV_MODULES"];
+          vm.runInContext("render3d()",context);
+          assert.ok(!box.innerHTML.includes('fill="#a7d4bf"'),"Hidden roof face must not render");
+          assert.ok(!box.innerHTML.includes('fill="#5da8dc"'),"Hidden PV modules must not render");
+          assert.ok(box.innerHTML.includes('fill="#d9e5df"'),"Building walls must remain visible");
+          console.log("3D CAD layer visibility passed: roof and PV visibility follow layer state while walls remain visible");
+          JS
+          node /tmp/gensolar-3d-layer-visibility.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
