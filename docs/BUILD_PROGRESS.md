@@ -15,7 +15,7 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 | Automatic/manual PV layout | 65% | Preliminary polygon-based placement, setbacks, obstacles, orientation and module schedules; multi-zone optimization, pitch/tilt and comprehensive constraints remain |
 | Solar resource and yield | 35% | Resource inputs, loss/yield screens and monthly forecast foundations; validated sourced weather/resource integration and full yield model remain |
 | Shade engine | 15% | Simplified obstacle/shadow screen; sun-path time series, 3D ray tracing and module/string mismatch modelling remain |
-| CAD and drawings | 47% | Concept CAD editor with selection/move, polygon-interior and line-segment hit testing, duplicate/90° rotate tools, layer visibility, unit-aware DXF-to-CAD import, and conceptual 3D roof/wall/obstacle/PV layer rendering; underlays, advanced editing, SLD and fabrication drawing suite remain |
+| CAD and drawings | 47% | Concept CAD editor with selection/move, polygon-interior and line-segment hit testing, duplicate/90° rotate tools, optional endpoint/vertex object snapping (new test pending), layer visibility, unit-aware DXF-to-CAD import, and conceptual 3D roof/wall/obstacle/PV layer rendering; underlays, advanced editing, SLD and fabrication drawing suite remain |
 | 3D engineering | 30% | Conceptual 3D roof/building and PV visualization with independent roof, wall, obstacle and PV layer visibility; multi-roof parametric model, structural components and synchronized drawing sections remain |
 | Structural and wind | 55% | IS 875-oriented wind inputs/screens, portal frame/STAAD deck, steel take-off and preliminary RCC/foundation/detailing checks; complete code verification and engineer-reviewed release remain |
 | Electrical | 65% | String/MPPT, temperature voltage, cable, protection and battery screening with tests; full topology, coordination, earthing/lightning, transformer/HT and complete SLD remain |
@@ -30,13 +30,14 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 - Build #234: success — DXF preview regression test and APK artifact verified.
 - Build #235: success — persistent CAD layer visibility controls compiled and APK packaged.
 - Build #237: success — CAD layer visibility regression test, prior checks and APK packaging passed.
-- Build #238: success — DXF import geometry connected to the editable CAD workspace and APK packaged.
-- Builds #239–257: unsuccessful test iterations while fixing the DXF bridge and VM-based regression harnesses; embedded JavaScript validation and the DXF parser/preview/layer tests passed in the latest complete test attempt.
-- Build #258: DXF handoff test passed, but the CAD transform test harness failed due to test-source extraction.
-- Builds #259–260: earlier harness corrections; not release-verification builds.
-- Build #261: rerunning the corrected DXF handoff, 3D layer visibility, CAD hit-testing, duplicate and rotate regression suite.
+- Build #238: success — DXF import geometry connected to editable CAD and APK packaged.
+- Builds #239–261: unsuccessful iterations while correcting embedded JavaScript and regression-test harnesses.
+- Build #262: success — all configured regression checks passed, including DXF import handoff, 3D layer visibility, CAD entity hit testing, duplicate/rotate behavior, debug APK build, APK verification and artifact upload.
+- Verified APK artifact from #262: `GenSolar-Pro-Engineering-debug-APK`, artifact ID `13834650229`.
+- Build #263/#264: runs for optional CAD object snapping and its regression coverage.
+- Build #265: latest workflow run for the corrected object-snap test harness; pending.
 
-The current branch implements CAD selection/movement, line-segment and polygon-interior hit testing, duplicate and 90-degree rotation, and layer-aware 3D rendering. These new editing tools remain unverified until the full #261 CI run passes and APK packaging completes.
+Object snapping is optional and snaps nearby drawing points to visible geometry vertices/endpoints. It ignores hidden layers. It is not yet counted as verified until its regression test and APK build pass.
 
 A green CI build verifies the checks configured in GitHub Actions and APK packaging. It does not mean the full EPC application is complete or validated on a physical Android device.
 
