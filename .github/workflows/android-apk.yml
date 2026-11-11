@@ -1286,6 +1286,37 @@ jobs:
           console.log("CAD hit testing passed: rectangle, circle, line, closed polygon, open polyline and hidden-layer filtering");
           JS
           node /tmp/gensolar-cad-hit-test.js
+      - name: Test CAD duplicate and rotate tools
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function entityPivot(e){")
+          end = source.index("function finishPoly(){", start)
+          Path("/tmp/gensolar-cad-transform.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-cad-transform.js <<'JS'
+          const assert=require("node:assert/strict"),vm=require("node:vm"),fs=require("node:fs");
+          let next=0;const context={uid:()=>"copy-"+(++next)};vm.createContext(context);
+          const script=fs.readFileSync(__filename,"utf8");
+          vm.runInContext(script,context);
+          const rect={id:"r",type:"rect",x:0,y:0,w:10,h:8};
+          assert.equal(vm.runInContext("rotateCadEntity",context)(rect),true);
+          assert.ok(Math.abs(rect.x-1)<1e-9&&Math.abs(rect.y+1)<1e-9);
+          assert.ok(Math.abs(rect.w-8)<1e-9&&Math.abs(rect.h-10)<1e-9,"90-degree rectangle rotation must swap extents");
+          const line={id:"l",type:"line",a:{x:0,y:0},b:{x:2,y:0}};
+          vm.runInContext("rotateCadEntity",context)(line);
+          assert.ok(Math.abs(line.a.x-1)<1e-9&&Math.abs(line.a.y+1)<1e-9);
+          assert.ok(Math.abs(line.b.x-1)<1e-9&&Math.abs(line.b.y-1)<1e-9);
+          const circle={type:"circle",x:2,y:3,r:1};
+          assert.equal(vm.runInContext("rotateCadEntity",context)(circle),false,"Circle rotation is a no-op");
+          const original={id:"p",type:"poly",layer:"ROOF",closed:true,points:[{x:0,y:0},{x:2,y:0},{x:2,y:1}]};
+          const copy=vm.runInContext("duplicateCadEntity",context)(original);
+          assert.equal(copy.id,"copy-1");assert.equal(copy.points[0].x,1);assert.equal(original.points[0].x,0);
+          assert.equal(copy.layer,"ROOF");assert.equal(copy.closed,true);
+          console.log("CAD transforms passed: rectangle and line rotation, symmetric-circle handling, independent layer-preserving duplicate");
+          JS
+          node /tmp/gensolar-cad-transform.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
