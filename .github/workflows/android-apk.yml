@@ -1407,10 +1407,13 @@ jobs:
           assert.equal(normalized.h,15,"Imported image aspect ratio must be recalculated");
           assert.equal(normalized.x,2);assert.equal(normalized.y,3);assert.equal(normalized.visible,true);
           assert.equal(vm.runInContext("validateImportedUnderlay(null)",context),null);
-          for(const patch of [{dataUrl:"data:image/svg+xml;base64,PHN2Zz4=",},{opacity:2},{pixelWidth:0},{w:-2},{dataUrl:"https://example.com/image.png"}]){
-            const invalid={...valid,...patch};
-            assert.throws(()=>vm.runInContext("validateImportedUnderlay("+JSON.stringify(invalid)+")",context),"Invalid survey underlay must be rejected");
+          function rejected(invalid){
+            let error=null;
+            try{vm.runInContext("validateImportedUnderlay("+JSON.stringify(invalid)+")",context)}catch(e){error=e}
+            assert.ok(error,"Invalid survey underlay must be rejected");
+            assert.match(String(error.message),/Survey underlay|positive finite numbers/,"Rejection must explain the invalid input");
           }
+          for(const patch of [{dataUrl:"data:image/svg+xml;base64,PHN2Zz4="},{opacity:2},{pixelWidth:0},{w:-2},{dataUrl:"https://example.com/image.png"}])rejected({...valid,...patch});
           console.log("CAD survey underlay import passed: safe image types, calibration, aspect ratio and invalid-input rejection");
           JS
           node /tmp/gensolar-underlay-import.js
