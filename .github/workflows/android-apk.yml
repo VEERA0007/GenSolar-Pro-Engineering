@@ -1169,7 +1169,7 @@ jobs:
           const script=require("node:fs").readFileSync(__filename,"utf8").split("// TEST HARNESS")[0];
           vm.runInContext(script,context);
           vm.runInContext("renderLayerVisibility()",context);
-          assert.equal(box.inputs.length,6,"All six standard CAD layers must be shown");
+          assert.equal(box.inputs.length,7,"All seven standard CAD layers, including the survey underlay, must be shown");
           const roof=box.inputs.find(x=>x.dataset.layerVisible==="ROOF");
           roof.checked=false;roof.listeners.change();
           assert.ok(model.hiddenLayers.includes("ROOF"),"Hiding a layer must persist its hidden state");
@@ -1177,7 +1177,7 @@ jobs:
           roof.checked=true;roof.listeners.change();
           assert.ok(!model.hiddenLayers.includes("ROOF"),"Showing a layer must remove its hidden state");
           assert.equal(redraws,2);assert.equal(renders,2);assert.equal(saves,2);
-          console.log("CAD layer visibility passed: six layers, hide/show state, redraw, 3D refresh and save");
+          console.log("CAD layer visibility passed: seven layers, hide/show state, redraw, 3D refresh and save");
           JS
           node /tmp/gensolar-layer-visibility.js
       - name: Test DXF import handoff to editable CAD
@@ -1367,6 +1367,28 @@ jobs:
           console.log("CAD orthogonal mode passed: horizontal, vertical and deterministic diagonal tie constraints");
           JS
           node /tmp/gensolar-ortho.js
+      - name: Test CAD survey underlay scale geometry
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function underlayHeight(")
+          end = source.index("function syncUnderlayControls()", start)
+          Path("/tmp/gensolar-underlay.js").write_text("const underlaySource = " + json.dumps(source[start:end]) + ";\\n", encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-underlay.js <<'JS'
+          const assert=require("node:assert/strict"),vm=require("node:vm");
+          const context={};vm.createContext(context);vm.runInContext(underlaySource,context);
+          const height=(w,pw,ph)=>vm.runInContext("underlayHeight("+w+","+pw+","+ph+")",context);
+          assert.equal(height(30,3000,1500),15,"Calibrated image height must preserve the pixel aspect ratio");
+          assert.equal(height(24,1600,900),13.5,"Wide site plans must retain their source aspect ratio");
+          assert.throws(()=>height(0,3000,1500),/positive finite numbers/,"Zero calibrated width must be rejected");
+          assert.throws(()=>height(30,0,1500),/positive finite numbers/,"Zero source width must be rejected");
+          assert.throws(()=>height(30,3000,-1),/positive finite numbers/,"Invalid source height must be rejected");
+          console.log("CAD survey underlay scale passed: aspect ratio, calibration and invalid dimension guards");
+          JS
+          node /tmp/gensolar-underlay.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
