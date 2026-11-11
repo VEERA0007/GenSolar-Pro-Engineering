@@ -1299,7 +1299,7 @@ jobs:
           cat >> /tmp/gensolar-cad-transform.js <<'JS'
           const assert=require("node:assert/strict"),vm=require("node:vm"),fs=require("node:fs");
           let next=0;const context={uid:()=>"copy-"+(++next)};vm.createContext(context);
-          const script=fs.readFileSync(__filename,"utf8");
+          const script=fs.readFileSync(__filename,"utf8").split("// TEST HARNESS")[0];
           vm.runInContext(script,context);
           const rect={id:"r",type:"rect",x:0,y:0,w:10,h:8};
           assert.equal(vm.runInContext("rotateCadEntity",context)(rect),true);
