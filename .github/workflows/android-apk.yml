@@ -1187,7 +1187,7 @@ jobs:
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("window.gensolarImportDxf=function(data){")
           end = source.index("function renderLayerVisibility(){", start)
-          Path("/tmp/gensolar-dxf-handoff.js").write_text("const window = {};\n" + source[start:end], encoding="utf-8")
+          Path("/tmp/gensolar-dxf-handoff.js").write_text(source[start:end], encoding="utf-8")
           PY
           cat >> /tmp/gensolar-dxf-handoff.js <<'JS'
           // TEST HARNESS
