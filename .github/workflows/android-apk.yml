@@ -1184,10 +1184,11 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import json
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("window.gensolarImportDxf=function(data){")
           end = source.index("function renderLayerVisibility(){", start)
-          Path("/tmp/gensolar-dxf-handoff.js").write_text(source[start:end], encoding="utf-8")
+          Path("/tmp/gensolar-dxf-handoff.js").write_text("const importedSource = " + json.dumps(source[start:end]) + ";\\n", encoding="utf-8")
           PY
           cat >> /tmp/gensolar-dxf-handoff.js <<'JS'
           // TEST HARNESS
@@ -1198,7 +1199,7 @@ jobs:
             draw:()=>draws++,render3d:()=>models++,save:()=>saves++};
           vm.createContext(context);
           vm.runInContext("window=globalThis",context);
-          vm.runInContext(fs.readFileSync(__filename,"utf8").split("// TEST HARNESS")[0],context);
+          vm.runInContext(importedSource,context);
           const result=context.gensolarImportDxf({units:4,entities:[
             {type:"LINE",layer:"ROOF",x1:0,y1:0,x2:1000,y2:500},
             {type:"LWPOLYLINE",layer:"ROOF",vertices:[{x:0,y:0},{x:1000,y:0},{x:1000,y:500}],closed:true},
