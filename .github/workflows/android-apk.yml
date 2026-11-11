@@ -154,7 +154,7 @@ jobs:
           from pathlib import Path
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("function staadDprSection()")
-          end = source.index("\\nfunction ", start)
+          end = source.index("\nfunction ", start)
           Path("/tmp/gensolar-staad-dpr.js").write_text(source[start:end], encoding="utf-8")
           PY
           cat >> /tmp/gensolar-staad-dpr.js <<'JS'
