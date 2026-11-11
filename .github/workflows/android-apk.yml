@@ -1347,6 +1347,26 @@ jobs:
           console.log("CAD object snap passed: rectangle vertices, line endpoints, disabled mode and hidden-layer filtering");
           JS
           node /tmp/gensolar-object-snap.js
+      - name: Test CAD orthogonal drawing mode
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function orthoPoint(p,origin){")
+          end = source.index("function segmentDistance", start)
+          Path("/tmp/gensolar-ortho.js").write_text("const orthoSource = " + json.dumps(source[start:end]) + ";\n", encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-ortho.js <<'JS'
+          const assert=require("node:assert/strict"),vm=require("node:vm");
+          const context={};vm.createContext(context);vm.runInContext(orthoSource,context);
+          const check=(p,o)=>vm.runInContext("orthoPoint("+JSON.stringify(p)+","+JSON.stringify(o)+")",context);
+          assert.deepEqual(JSON.parse(JSON.stringify(check({x:8,y:3},{x:1,y:1}))),{x:8,y:1},"Dominant horizontal movement must lock Y");
+          assert.deepEqual(JSON.parse(JSON.stringify(check({x:3,y:9},{x:1,y:1}))),{x:1,y:9},"Dominant vertical movement must lock X");
+          assert.deepEqual(JSON.parse(JSON.stringify(check({x:4,y:4},{x:1,y:1}))),{x:4,y:1},"Equal movement uses horizontal lock consistently");
+          console.log("CAD orthogonal mode passed: horizontal, vertical and deterministic diagonal tie constraints");
+          JS
+          node /tmp/gensolar-ortho.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
