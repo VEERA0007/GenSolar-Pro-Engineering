@@ -1137,6 +1137,47 @@ jobs:
           console.log("DXF SVG preview passed: LINE/CIRCLE/ARC/LWPOLYLINE/POINT rendering, fit-to-view, empty drawing and escaped layer labels");
           JS
           node /tmp/gensolar-dxf-preview.js
+      - name: Test persistent CAD layer visibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function renderLayerVisibility(){")
+          end = source.index("function save(){", start)
+          Path("/tmp/gensolar-layer-visibility.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-layer-visibility.js <<'JS'
+          const assert = require("node:assert/strict");
+          const vm = require("node:vm");
+          const model = {hiddenLayers:[]};
+          let redraws=0, renders=0, saves=0;
+          const box = {
+            inputs:[],
+            set innerHTML(html) {
+              this.html=html;
+              this.inputs=[...html.matchAll(/data-layer-visible="([^"]+)"([^>]*)/g)].map(m=>({
+                dataset:{layerVisible:m[1]},checked:/\bchecked\b/.test(m[2]),listeners:{},
+                addEventListener(name,fn){this.listeners[name]=fn;}
+              }));
+            },
+            querySelectorAll(){return this.inputs;}
+          };
+          const context={model,$:id=>id==="cadLayerVisibility"?box:null,
+            draw:()=>redraws++,render3d:()=>renders++,save:()=>saves++};
+          vm.createContext(context);
+          vm.runInContext(require("node:fs").readFileSync(__filename,"utf8"),context);
+          vm.runInContext("renderLayerVisibility()",context);
+          assert.equal(box.inputs.length,6,"All six standard CAD layers must be shown");
+          const roof=box.inputs.find(x=>x.dataset.layerVisible==="ROOF");
+          roof.checked=false;roof.listeners.change();
+          assert.ok(model.hiddenLayers.includes("ROOF"),"Hiding a layer must persist its hidden state");
+          assert.equal(redraws,1);assert.equal(renders,1);assert.equal(saves,1);
+          roof.checked=true;roof.listeners.change();
+          assert.ok(!model.hiddenLayers.includes("ROOF"),"Showing a layer must remove its hidden state");
+          assert.equal(redraws,2);assert.equal(renders,2);assert.equal(saves,2);
+          console.log("CAD layer visibility passed: six layers, hide/show state, redraw, 3D refresh and save");
+          JS
+          node /tmp/gensolar-layer-visibility.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
