@@ -550,8 +550,35 @@ function addVendor(){save();state.vendors=state.vendors||[];state.vendors.push([
 function renderSimple(id,arr){$(id).innerHTML=arr.length?'<ul>'+arr.map(x=>'<li>'+x.join(' · ')+'</li>').join('')+'</ul>':'No records yet.'}
 function addPo(){save();state.pos=state.pos||[];state.pos.push([state.project.poRef,state.project.poVendor,state.project.poValue,state.project.poDate,state.project.poStatus]);renderSimple('poList',state.pos);save()}
 function addActivity(){save();state.activities=state.activities||[];state.activities.push([state.project.activityName,state.project.activityOwner,state.project.activityStart,state.project.activityDays,state.project.activityStatus]);renderSimple('activityList',state.activities);save()}
-function parseDxf(text){const lines=text.replace(/\r/g,'').split('\n');let ent=[],current=null;for(let i=0;i<lines.length-1;i+=2){let code=lines[i].trim(),v=lines[i+1].trim();if(code==='0'){if(current)ent.push(current);current={type:v,pts:[]}}else if(current&&['LINE','CIRCLE','LWPOLYLINE'].includes(current.type)){if(code==='10'||code==='20'||code==='11'||code==='21'||code==='40')current.pts.push([code,Number(v)])}}if(current)ent.push(current);return ent.filter(e=>['LINE','CIRCLE','LWPOLYLINE'].includes(e.type))}
-function importCad(file){const reader=new FileReader();reader.onload=()=>{if(file.name.toLowerCase().endsWith('.dxf')){state.dxfEntities=parseDxf(reader.result);$('cadStatus').textContent='DXF parsed: '+state.dxfEntities.length+' supported entities. Validate drawing units and scale against a known dimension.';$('cadPreview').textContent='Imported DXF geometry: '+state.dxfEntities.length+' entities. Use exported layout DXF for panel arrangement.'}else{$('cadStatus').textContent='Reference file loaded. PDF and image files are underlays; editable geometry import is not available for this format.';$('cadPreview').innerHTML=file.type==='application/pdf'?'<p>PDF reference selected: '+file.name+'</p>':'<img style="max-width:100%" src="'+reader.result+'">'}state.cadName=file.name;save()};if(file.name.toLowerCase().endsWith('.dxf'))reader.readAsText(file);else if(file.type.startsWith('image/'))reader.readAsDataURL(file);else reader.readAsArrayBuffer(file)}
+function parseDxf(text){
+ const lines=String(text||'').replace(/\r/g,'').split('\n'),pairs=[];
+ for(let i=0;i+1<lines.length;i+=2){const code=Number(lines[i].trim());if(Number.isInteger(code))pairs.push({code,value:lines[i+1].trim()})}
+ const unitsMap={0:'Unitless',1:'Inches',2:'Feet',4:'Millimetres',5:'Centimetres',6:'Metres',7:'Kilometres',10:'Yards'};
+ let units=0,header=false,entitiesSection=false,records=[],current=null;
+ for(let i=0;i<pairs.length;i++){const p=pairs[i];
+  if(p.code===0&&p.value==='SECTION'){const n=pairs[i+1];header=n?.code===2&&n.value==='HEADER';entitiesSection=n?.code===2&&n.value==='ENTITIES';continue}
+  if(p.code===0&&p.value==='ENDSEC'){header=false;entitiesSection=false;continue}
+  if(header&&p.code===9&&p.value==='$INSUNITS'&&pairs[i+1]?.code===70)units=Number(pairs[i+1].value)||0;
+  if(!entitiesSection)continue;
+  if(p.code===0){if(current)records.push(current);current={type:p.value,layer:'0',raw:[]};continue}
+  if(current){current.raw.push(p);if(p.code===8)current.layer=p.value||'0'}
+ }
+ if(current)records.push(current);
+ const out=[];
+ for(const r of records){const get=c=>{const p=r.raw.find(x=>x.code===c);return p?Number(p.value):NaN};
+  if(r.type==='LINE'){const e={type:r.type,layer:r.layer,x1:get(10),y1:get(20),x2:get(11),y2:get(21)};if([e.x1,e.y1,e.x2,e.y2].every(Number.isFinite))out.push(e)}
+  else if(r.type==='CIRCLE'||r.type==='ARC'){const e={type:r.type,layer:r.layer,x:get(10),y:get(20),radius:get(40),startAngle:r.type==='ARC'?get(50):0,endAngle:r.type==='ARC'?get(51):360};if([e.x,e.y,e.radius,e.startAngle,e.endAngle].every(Number.isFinite)&&e.radius>0)out.push(e)}
+  else if(r.type==='POINT'){const e={type:r.type,layer:r.layer,x:get(10),y:get(20)};if([e.x,e.y].every(Number.isFinite))out.push(e)}
+  else if(r.type==='LWPOLYLINE'){const vertices=[];for(let i=0;i<r.raw.length;i++)if(r.raw[i].code===10){const x=Number(r.raw[i].value);let y=NaN;for(let j=i+1;j<r.raw.length&&r.raw[j].code!==10;j++)if(r.raw[j].code===20){y=Number(r.raw[j].value);break}if(Number.isFinite(x)&&Number.isFinite(y))vertices.push({x,y})}const flag=get(70);if(vertices.length>=2)out.push({type:r.type,layer:r.layer,vertices,closed:Number.isFinite(flag)&&(Math.trunc(flag)&1)===1})}
+ }
+ const xy=[];for(const e of out){if(e.type==='LINE')xy.push([e.x1,e.y1],[e.x2,e.y2]);else if(e.type==='LWPOLYLINE')e.vertices.forEach(v=>xy.push([v.x,v.y]));else if(e.type==='CIRCLE'||e.type==='ARC')xy.push([e.x-e.radius,e.y-e.radius],[e.x+e.radius,e.y+e.radius]);else xy.push([e.x,e.y])}
+ const bounds=xy.length?{minX:Math.min(...xy.map(p=>p[0])),minY:Math.min(...xy.map(p=>p[1])),maxX:Math.max(...xy.map(p=>p[0])),maxY:Math.max(...xy.map(p=>p[1]))}:null;
+ const layers=[...new Set(out.map(e=>e.layer))].sort(),counts=out.reduce((a,e)=>(a[e.type]=(a[e.type]||0)+1,a),{});
+ return {entities:out,units,unitName:unitsMap[units]||'Unknown',layers,bounds,counts};
+}
+function cadDxfSummary(data){const b=data?.bounds,extent=b?' · Extents '+(b.maxX-b.minX).toFixed(3)+' × '+(b.maxY-b.minY).toFixed(3)+' drawing units':'';return (data?.entities?.length||0)+' entities · '+(data?.layers?.length||0)+' layers · '+(data?.unitName||'Unknown')+extent+' · '+Object.entries(data?.counts||{}).map(([k,v])=>k+': '+v).join(', ')}
+
+function importCad(file){const reader=new FileReader();reader.onload=()=>{if(file.name.toLowerCase().endsWith('.dxf')){const parsed=parseDxf(reader.result);state.dxfEntities=parsed.entities;state.dxfMetadata={units:parsed.units,unitName:parsed.unitName,layers:parsed.layers,bounds:parsed.bounds,counts:parsed.counts};$('cadStatus').textContent='DXF import: '+cadDxfSummary(parsed)+'. Confirm units and scale against a known dimension before design use.';$('cadPreview').textContent='Imported DXF geometry: '+cadDxfSummary(parsed)+'. Use exported layout DXF for panel arrangement.'}else{$('cadStatus').textContent='Reference file loaded. PDF and image files are underlays; editable geometry import is not available for this format.';$('cadPreview').innerHTML=file.type==='application/pdf'?'<p>PDF reference selected: '+file.name+'</p>':'<img style="max-width:100%" src="'+reader.result+'">'}state.cadName=file.name;save()};if(file.name.toLowerCase().endsWith('.dxf'))reader.readAsText(file);else if(file.type.startsWith('image/'))reader.readAsDataURL(file);else reader.readAsArrayBuffer(file)}
 function build3d(){const p=state.project,w=val('width'),l=val('length'),h=val('buildingHeight');$('model3d').innerHTML='<svg viewBox="0 0 520 280" role="img" aria-label="Conceptual 3D building"><polygon points="110,105 320,40 450,105 240,172" fill="#d8e5df" stroke="#54756a" stroke-width="2"/><polygon points="110,105 240,172 240,240 110,173" fill="#9db8ab" stroke="#54756a"/><polygon points="240,172 450,105 450,173 240,240" fill="#779b8a" stroke="#54756a"/><g fill="#087f5b" stroke="#f3b51b">'+Array.from({length:Math.min(30,state.layout?state.layout.count:8)},(_,i)=>{let x=140+(i%6)*48,y=95+Math.floor(i/6)*17;return '<polygon points="'+x+','+y+' '+(x+35)+','+(y-11)+' '+(x+53)+','+(y-2)+' '+(x+18)+','+(y+9)+'"/>'}).join('')+'</g><text x="15" y="266" fill="#142b28" font-size="12">Concept only · '+w+' m × '+l+' m · building height '+h+' m</text></svg>'}
 function electricalProtectionReport(){
 const q=state.protection||{},c=state.cableDesign||{},rows=[];
