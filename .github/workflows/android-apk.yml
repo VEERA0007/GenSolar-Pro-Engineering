@@ -1147,6 +1147,7 @@ jobs:
           Path("/tmp/gensolar-layer-visibility.js").write_text(source[start:end], encoding="utf-8")
           PY
           cat >> /tmp/gensolar-layer-visibility.js <<'JS'
+          // TEST HARNESS
           const assert = require("node:assert/strict");
           const vm = require("node:vm");
           const model = {hiddenLayers:[]};
@@ -1165,7 +1166,8 @@ jobs:
           const context={model,$:id=>id==="cadLayerVisibility"?box:null,
             draw:()=>redraws++,render3d:()=>renders++,save:()=>saves++};
           vm.createContext(context);
-          vm.runInContext(require("node:fs").readFileSync(__filename,"utf8"),context);
+          const script=require("node:fs").readFileSync(__filename,"utf8").split("// TEST HARNESS")[0];
+          vm.runInContext(script,context);
           vm.runInContext("renderLayerVisibility()",context);
           assert.equal(box.inputs.length,6,"All six standard CAD layers must be shown");
           const roof=box.inputs.find(x=>x.dataset.layerVisible==="ROOF");
