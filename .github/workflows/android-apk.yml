@@ -1196,8 +1196,8 @@ jobs:
           const context={model,saveUndo:()=>model.undo.push("snapshot"),
             addEntity:e=>{e.id="test-"+model.entities.length;model.entities.push(e)},
             draw:()=>draws++,render3d:()=>models++,save:()=>saves++};
-          context.window=context;
           vm.createContext(context);
+          vm.runInContext("window=globalThis",context);
           vm.runInContext(fs.readFileSync(__filename,"utf8").split("// TEST HARNESS")[0],context);
           const result=context.gensolarImportDxf({units:4,entities:[
             {type:"LINE",layer:"ROOF",x1:0,y1:0,x2:1000,y2:500},
