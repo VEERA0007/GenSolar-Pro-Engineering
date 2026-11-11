@@ -1318,6 +1318,36 @@ jobs:
           console.log("CAD transforms passed: rectangle and line rotation, symmetric-circle handling, independent layer-preserving duplicate");
           JS
           node /tmp/gensolar-cad-transform.js
+      - name: Test CAD object snapping
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function snapObject(p){")
+          end = source.index("function point(evt)", start)
+          Path("/tmp/gensolar-object-snap.js").write_text("const snapSource = " + json.dumps(source[start:end]) + ";\\n", encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-object-snap.js <<'JS'
+          const assert=require("node:assert/strict"),vm=require("node:vm");
+          const model={hiddenLayers:[],entities:[
+            {type:"rect",layer:"ROOF",x:10,y:10,w:4,h:3},
+            {type:"line",layer:"GENERAL",a:{x:20,y:20},b:{x:25,y:20}},
+            {type:"poly",layer:"OBSTACLES",points:[{x:30,y:30},{x:35,y:30}]}
+          ]};
+          let enabled=true;const context={model,$:()=>({checked:enabled})};vm.createContext(context);
+          vm.runInContext("const snapObject = ("+`snapSource`+").match(/function snapObject\\(p\\)\\{[\\s\\S]*?\\n?\\}/)?.[0]",context);
+          vm.runInContext(snapSource,context);
+          const call=(x,y)=>vm.runInContext("snapObject({x:"+x+",y:"+y+"})",context);
+          assert.deepEqual(JSON.parse(JSON.stringify(call(10.1,10.1))),{x:10,y:10},"Nearby roof corner should snap");
+          assert.deepEqual(JSON.parse(JSON.stringify(call(20.1,20.05))),{x:20,y:20},"Line endpoint should snap");
+          enabled=false;
+          assert.deepEqual(JSON.parse(JSON.stringify(call(10.1,10.1))),{x:10.1,y:10.1},"Disabled object snap should preserve point");
+          enabled=true;model.hiddenLayers=["ROOF"];
+          assert.deepEqual(JSON.parse(JSON.stringify(call(10.1,10.1))),{x:10.1,y:10.1},"Hidden geometry must not attract snap");
+          console.log("CAD object snap passed: rectangle vertices, line endpoints, disabled mode and hidden-layer filtering");
+          JS
+          node /tmp/gensolar-object-snap.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
