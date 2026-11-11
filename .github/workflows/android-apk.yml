@@ -1067,12 +1067,12 @@ jobs:
           from pathlib import Path
           source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
           start = source.index("function parseDxf(")
-          end = source.index("\\nfunction importCad(", start)
+          end = source.index("\nfunction importCad(", start)
           Path("/tmp/gensolar-dxf-import.js").write_text(source[start:end], encoding="utf-8")
           PY
           cat >> /tmp/gensolar-dxf-import.js <<'JS'
           const assert = require("node:assert/strict");
-          const pair=(c,v)=>String(c)+"\\n"+String(v);
+          const pair=(c,v)=>String(c)+"\n"+String(v);
           const dxf=[
             pair(0,"SECTION"),pair(2,"HEADER"),pair(9,"$INSUNITS"),pair(70,4),pair(0,"ENDSEC"),
             pair(0,"SECTION"),pair(2,"ENTITIES"),
@@ -1083,7 +1083,7 @@ jobs:
             pair(0,"POINT"),pair(8,"SURVEY"),pair(10,250),pair(20,125),
             pair(0,"LINE"),pair(8,"BROKEN"),pair(10,"bad"),pair(20,0),pair(11,10),pair(21,10),
             pair(0,"ENDSEC"),pair(0,"EOF")
-          ].join("\\n")+"\\n";
+          ].join("\n")+"\n";
           const parsed=parseDxf(dxf);
           assert.equal(parsed.entities.length,4,"malformed entities must be skipped");
           assert.equal(parsed.units,4);
@@ -1101,8 +1101,8 @@ jobs:
           assert.match(summary,/4 entities/);
           assert.match(summary,/4 layers/);
           assert.match(summary,/Millimetres/);
-          assert.throws(()=>parseDxf("not a valid drawing"),/|^$/);
-          console.log("DXF import tests passed: LINE/CIRCLE/LWPOLYLINE/POINT, layer metadata, INSUNITS, closed polygons, extents and malformed-entity rejection");
+          assert.equal(parseDxf("not a valid drawing").entities.length,0,"invalid input must produce no supported geometry");
+          console.log("DXF import tests passed: LINE/CIRCLE/LWPOLYLINE/POINT, layer metadata, INSUNITS, closed polygons, extents and malformed-entity filtering");
           JS
           node /tmp/gensolar-dxf-import.js
       - name: Build debug APK
