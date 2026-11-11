@@ -15,7 +15,7 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 | Automatic/manual PV layout | 65% | Preliminary polygon-based placement, setbacks, obstacles, orientation and module schedules; multi-zone optimization, pitch/tilt and comprehensive constraints remain |
 | Solar resource and yield | 35% | Resource inputs, loss/yield screens and monthly forecast foundations; validated sourced weather/resource integration and full yield model remain |
 | Shade engine | 15% | Simplified obstacle/shadow screen; sun-path time series, 3D ray tracing and module/string mismatch modelling remain |
-| CAD and drawings | 47% | Concept CAD editor with selection/move, polygon-interior and line-segment hit testing, duplicate/90° rotate tools, optional endpoint/vertex object snapping, layer visibility, unit-aware DXF-to-CAD import, and conceptual 3D roof/wall/obstacle/PV layer rendering; underlays, advanced editing, SLD and fabrication drawing suite remain |
+| CAD and drawings | 49% | Editable CAD selection/move, polygon/line hit testing, duplicate/rotate, object snapping, orthogonal drawing, unit-aware DXF import, survey-image underlay with scale/origin/opacity controls, persistent visibility and conceptual 3D roof/wall/obstacle/PV rendering; PDF/DWG vector conversion, advanced editing and fabrication drawing suite remain |
 | 3D engineering | 30% | Conceptual 3D roof/building and PV visualization with independent roof, wall, obstacle and PV layer visibility; multi-roof parametric model, structural components and synchronized drawing sections remain |
 | Structural and wind | 55% | IS 875-oriented wind inputs/screens, portal frame/STAAD deck, steel take-off and preliminary RCC/foundation/detailing checks; complete code verification and engineer-reviewed release remain |
 | Electrical | 65% | String/MPPT, temperature voltage, cable, protection and battery screening with tests; full topology, coordination, earthing/lightning, transformer/HT and complete SLD remain |
@@ -23,7 +23,7 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 | Documents | 55% | DPR, schedules, PDF/print and backup foundations; revision-controlled drawing register, signatures, acceptance and cross-workspace snapshot assurance remain |
 | Quality and verification | 55% | CI syntax/HTML checks, many Node regression tests and APK build/artifact verification; instrumented Android tests, broader end-to-end tests and performance/offline verification remain |
 
-**Calculation:** arithmetic mean of the 14 workspace scores = 45.50%, reported as **46%**.
+**Calculation:** arithmetic mean of the 14 workspace scores = 45.64%, reported as **46%**.
 
 ## Current verified build state
 
@@ -35,9 +35,10 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 - Build #262: success — full configured regression suite, debug APK build, APK verification and artifact upload passed.
 - Build #265: success — full configured regression suite including CAD object snapping, debug APK build, APK verification and artifact upload passed.
 - Verified APK artifact from #265: `GenSolar-Pro-Engineering-debug-APK`, artifact ID `13834732793`.
-- Build #266/#267: orthogonal drawing mode and regression test; #267 is the latest CI run and is pending.
+- Build #266: orthogonal line/polyline drawing mode and regression tests passed.
+- Build #267: orthogonal CAD drawing regression tests passed; debug APK verification and artifact upload passed. Latest verified run: #267, commit `e8fbf11226c914f451b5bb181f63c72369644f9b`.
 
-Object snapping is verified: nearby drawing points snap to visible geometry vertices/endpoints, with hidden-layer filtering and an off switch. Orthogonal drawing is implemented for line, dimension and polyline segments; its regression test and APK build are pending.
+Object snapping is verified: nearby drawing points snap to visible geometry vertices/endpoints, with hidden-layer filtering and an off switch. Survey image underlays are aligned in drawing metres and rendered beneath editable CAD geometry; they remain visual references and do not create surveyed coordinates automatically. Orthogonal drawing is implemented for line, dimension and polyline segments; regression tests and APK build passed. CAD now supports an image survey underlay with user-controlled scale width, origin, opacity, visibility and local project persistence.
 
 A green CI build verifies the checks configured in GitHub Actions and APK packaging. It does not mean the full EPC application is complete or validated on a physical Android device.
 
