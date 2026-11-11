@@ -148,6 +148,43 @@ jobs:
           console.log("STAAD steel take-off passed: individual cut lengths, frame/node references, group totals, verified kg/m inputs, wastage and invalid-input guards");
           JS
           node /tmp/gensolar-steel-takeoff.js
+      - name: Test STAAD steel take-off DPR schedule
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function staadDprSection()")
+          end = source.index("\\nfunction ", start)
+          Path("/tmp/gensolar-staad-dpr.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-staad-dpr.js <<'JS'
+          const assert = require("node:assert/strict");
+          global.escapeHtml = value => String(value).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
+          const model={frameCount:2,nodes:[{id:1}],members:[{id:1}],purlinCount:2,braceCount:4,
+            span:12,length:20,eave:5,rise:1,frameSpacing:4.0,
+            loads:[{id:1,name:"Dead"},{id:2,name:"Wind"}],combinations:[{id:5,name:"1.5G+1.5W"}],
+            properties:{column:"ISMB300",rafter:"ISMB300",purlin:"ISMC150",brace:"ISA50X50X6"}};
+          global.state={staadModel:model,staadTakeoff:null};
+          let html=staadDprSection();
+          assert.match(html,/Not calculated/);
+          const takeoff={basis:"Centreline length × verified section mass",totalMembers:2,totalLength:15,
+            netKg:300,allowanceKg:15,procurementKg:315,waste:5,
+            rows:[{type:"column",section:"ISMB300",count:2,length:10,kgm:30,netKg:300,procurementKg:315}],
+            details:[{id:1,type:"column",frame:1,startNode:1,endNode:2,length:5,kgm:30,netKg:150,procurementKg:157.5},
+              {id:2,type:"column",frame:2,startNode:3,endNode:4,length:5,kgm:30,netKg:150,procurementKg:157.5}]};
+          state.staadTakeoff=takeoff;
+          html=staadDprSection();
+          for(const value of ["STAAD steel take-off","15.000 m","300.00 kg","5.0%","315.00 kg",
+            "Group","ISMB300","Individual member cut / length register","Member ID","Start node",
+            "157.50","Procurement estimate only","not a certified bill of materials"])
+            assert.ok(html.includes(value),"Missing DPR content: "+value);
+          state.staadTakeoff={...takeoff,rows:[{...takeoff.rows[0],section:"<script>bad</script>"}]};
+          html=staadDprSection();
+          assert.ok(html.includes("&lt;script&gt;bad&lt;/script&gt;"),"DPR must HTML-escape section labels");
+          assert.ok(!html.includes("<script>bad</script>"),"untrusted section labels must not become markup");
+          console.log("STAAD DPR schedule passed: absent-takeoff state, group totals, individual member records, procurement allowance, limitations and HTML escaping");
+          JS
+          node /tmp/gensolar-staad-dpr.js
       - name: Test STAAD 3D DXF drawing export
         run: |
           python3 - <<'PY'
