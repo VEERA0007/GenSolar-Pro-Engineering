@@ -1417,6 +1417,52 @@ jobs:
           console.log("CAD survey underlay import passed: safe image types, calibration, aspect ratio and invalid-input rejection");
           JS
           node /tmp/gensolar-underlay-import.js
+      - name: Test PV layout DXF export units and round-trip import
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function parseDxf(text){")
+          end = source.index("function cadDxfSummary(", start)
+          parser = source[start:end]
+          start = source.index("function dxf(){")
+          end = source.index("function pvTemperatureAdjustedVoltage(", start)
+          exporter = source[start:end]
+          Path("/tmp/gensolar-pv-dxf-roundtrip.js").write_text(parser + "\\n" + exporter, encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-pv-dxf-roundtrip.js <<'JS'
+          const assert = require("node:assert/strict");
+          global.state = {
+            roofZones: [{vertices:[{x:0,y:0},{x:12,y:0},{x:12,y:8},{x:0,y:8}]}],
+            layout: {
+              modules:[{x:1,y:2,w:2.1,h:1.1},{x:3.2,y:2,w:2.1,h:1.1}],
+              obstacles:[{x:8,y:4,r:0.5}],
+              rectObstacles:[{x:9,y:1,w:1,h:1}],
+              corridorRects:[{x:0,y:0,w:0.8,h:8}]
+            }
+          };
+          global.alert = message => { throw new Error(message); };
+          let saved = null;
+          global.download = (name,data,type) => { saved={name,data,type}; };
+          dxf();
+          assert.equal(saved.name,"GenSolar-PV-Layout.dxf");
+          assert.equal(saved.type,"application/dxf");
+          assert.ok(saved.data.includes("$INSUNITS\\n70\\n4\\n"),"DXF must declare millimetre units");
+          const imported = parseDxf(saved.data);
+          assert.equal(imported.units,4);
+          assert.equal(imported.unitName,"Millimetres");
+          assert.ok(imported.layers.includes("ROOF_ZONES"));
+          assert.ok(imported.layers.includes("PV_MODULES"));
+          assert.ok(imported.layers.includes("ROOF_OBSTACLES"));
+          assert.ok(imported.layers.includes("ACCESS_CORRIDORS"));
+          const modules=imported.entities.filter(e=>e.layer==="PV_MODULES");
+          assert.equal(modules.length,2);
+          assert.deepEqual(modules[0].vertices,[{x:1000,y:2000},{x:3100,y:2000},{x:3100,y:3100},{x:1000,y:3100}]);
+          const circle=imported.entities.find(e=>e.type==="CIRCLE");
+          assert.ok(circle);
+          assert.equal(circle.radius,500);
+          console.log("PV DXF round-trip passed: explicit millimetre units, roof zones, modules, obstacles, access corridors and geometry scale");
+          JS
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
