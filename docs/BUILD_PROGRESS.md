@@ -27,6 +27,7 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 
 ## Current verified build state
 
+- Build #276: success — all configured regression checks, including CAD survey underlay scale/import validation, debug APK verification and artifact upload passed. APK artifact ID `13860348660` (expires 2026-11-25).
 - Build #271: success — survey-image underlay scaling, CAD layer visibility, full configured regression suite, debug APK verification and artifact upload passed. APK artifact ID `13859008893` (expires 2026-11-25).
 
 - Build #234: success — DXF preview regression test and APK artifact verified.
@@ -41,6 +42,8 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 - Build #267: orthogonal CAD drawing regression tests passed; debug APK verification and artifact upload passed. Latest verified run: #267, commit `e8fbf11226c914f451b5bb181f63c72369644f9b`.
 
 Object snapping is verified: nearby drawing points snap to visible geometry vertices/endpoints, with hidden-layer filtering and an off switch. Survey image underlays are aligned in drawing metres and rendered beneath editable CAD geometry; they remain visual references and do not create surveyed coordinates automatically. CAD JSON import now validates underlay image data types, payload size, dimensions, origin, calibrated width and opacity before applying it. Orthogonal drawing is implemented for line, dimension and polyline segments; regression tests and APK build passed. CAD now supports an image survey underlay with user-controlled scale width, origin, opacity, visibility and local project persistence.
+
+PV layout DXF export now declares `$INSUNITS=4` (millimetres), matching the exporter's metre-to-millimetre coordinate conversion. A new CI regression test round-trips exported roof zones, PV modules, obstacles and access corridors through the DXF parser and checks unit metadata and geometry scale. Builds #277 and #278 were triggered while validating this change; #278 includes the new round-trip test.
 
 A green CI build verifies the checks configured in GitHub Actions and APK packaging. It does not mean the full EPC application is complete or validated on a physical Android device.
 
