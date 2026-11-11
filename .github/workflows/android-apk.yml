@@ -1096,7 +1096,7 @@ jobs:
           const poly=parsed.entities.find(x=>x.type==="LWPOLYLINE");
           assert.equal(poly.closed,true);
           assert.equal(poly.vertices.length,3);
-          assert.deepEqual(parsed.bounds,{minX:-50,minY:-50,maxX:1050,maxY:550});
+          assert.deepEqual(parsed.bounds,{minX:0,minY:0,maxX:1000,maxY:500});
           const summary=cadDxfSummary(parsed);
           assert.match(summary,/4 entities/);
           assert.match(summary,/4 layers/);
