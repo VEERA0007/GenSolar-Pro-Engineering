@@ -106,6 +106,7 @@
   <div class="drawing" style="min-height:340px;margin-top:12px;background:#fff"><svg id="cadCanvas" viewBox="0 0 1000 650" role="img" aria-label="Editable CAD drawing workspace" style="width:100%;height:auto;min-width:500px;touch-action:none"></svg></div>
   <p class="note" id="cadHint">Choose a tool, then tap/click in the drawing. Polyline: tap points and double-click to finish. Draw a closed polygon on the ROOF layer or create a parametric rectangle. Drawing coordinates are metres; DXF export is millimetres.</p>
   <div class="metrics" id="cadMetrics"></div>
+  <div class="card" style="margin-top:12px"><h3>Layer visibility</h3><p class="note">Toggle drawing layers without deleting or changing their geometry. Visibility is saved with this local CAD project.</p><div class="fieldgrid" id="cadLayerVisibility"></div></div>
  </div>
  <div class="grid">
   <div class="card"><h3>Editable 3D building model</h3><p>3D massing is generated from the editable roof/building footprint. It is a project visualization model, not a certified structural BIM model.</p><div class="drawing" id="cad3d" style="min-height:260px;background:#fff">Create a building or closed roof polygon to generate the 3D model.</div><div class="actions"><button class="btn alt" id="cadRefresh3d">Regenerate 3D</button><button class="btn alt" id="cadExport3d">Export 3D SVG</button></div></div>
@@ -878,15 +879,26 @@ let recalcTimer=null;window.addEventListener('gensolar:project-change',ev=>{cons
 'use strict';
 const $=id=>document.getElementById(id), STORE='gensolar_integrated_studio_v1', CAT='gensolar_module_catalogue_v1';
 const uid=()=> 'CAD-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
-const model={version:1,entities:[],catalogue:[],selected:null,layout:[],activeTool:'select',pending:[],undo:[],building:{height:6,thickness:.2},outputs:{}};
+const model={version:1,entities:[],catalogue:[],selected:null,layout:[],activeTool:'select',pending:[],undo:[],building:{height:6,thickness:.2},outputs:{},hiddenLayers:[]};
 let drag=null, redrawTimer=null;
 const n=(id,d=0)=>{const v=Number($(id)?.value);return Number.isFinite(v)?v:d};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const snap=v=>{const g=n('cadSnap',.25);return g>0?Math.round(v/g)*g:v};
 const activeLayer=()=> $('cadLayer')?.value||'ROOF';
 function saveUndo(){model.undo.push(JSON.stringify({entities:model.entities,layout:model.layout,building:model.building,outputs:model.outputs}));if(model.undo.length>40)model.undo.shift()}
+function renderLayerVisibility(){
+ const box=$('cadLayerVisibility');if(!box)return;
+ const layers=['ROOF','WALLS','OBSTACLES','DIMENSIONS','PV_MODULES','GENERAL'];
+ box.innerHTML=layers.map(layer=>'<label class="field" style="display:flex;align-items:center;gap:8px"><input type="checkbox" data-layer-visible="'+layer+'" '+((model.hiddenLayers||[]).includes(layer)?'':'checked')+' style="width:auto"> '+layer+'</label>').join('');
+ box.querySelectorAll('[data-layer-visible]').forEach(input=>input.addEventListener('change',()=>{
+  const layer=input.dataset.layerVisible;model.hiddenLayers=model.hiddenLayers||[];
+  if(input.checked)model.hiddenLayers=model.hiddenLayers.filter(x=>x!==layer);
+  else if(!model.hiddenLayers.includes(layer))model.hiddenLayers.push(layer);
+  draw();render3d();save();
+ }));
+}
 function save(){try{localStorage.setItem(STORE,JSON.stringify(model));localStorage.setItem(CAT,JSON.stringify(model.catalogue));$('studioStatus').textContent='Saved locally · '+new Date().toLocaleString();}catch(e){$('studioStatus').textContent='Save failed: '+e.message}}
-function load(){try{const v=JSON.parse(localStorage.getItem(STORE)||'null');if(v&&v.version===1){model.entities=v.entities||[];model.layout=v.layout||[];model.building=v.building||model.building;model.outputs=v.outputs||{};}const c=JSON.parse(localStorage.getItem(CAT)||'[]');model.catalogue=Array.isArray(c)?c:[];refreshCatalogue();draw();render3d();renderLayout();$('studioStatus').textContent='Loaded local workspace.';}catch(e){$('studioStatus').textContent='Saved workspace could not be read: '+e.message}}
+function load(){try{const v=JSON.parse(localStorage.getItem(STORE)||'null');if(v&&v.version===1){model.entities=v.entities||[];model.layout=v.layout||[];model.building=v.building||model.building;model.outputs=v.outputs||{};model.hiddenLayers=Array.isArray(v.hiddenLayers)?v.hiddenLayers:[];}const c=JSON.parse(localStorage.getItem(CAT)||'[]');model.catalogue=Array.isArray(c)?c:[];refreshCatalogue();renderLayerVisibility();draw();render3d();renderLayout();$('studioStatus').textContent='Loaded local workspace.';}catch(e){$('studioStatus').textContent='Saved workspace could not be read: '+e.message}}
 function openStudio(){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='cadstudio'));document.querySelectorAll('[data-foot]').forEach(b=>b.classList.toggle('active',b.dataset.foot==='cadstudio'));document.querySelectorAll('.stage').forEach(b=>b.classList.toggle('active',b.dataset.stage==='engineering'));document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));draw();render3d();refreshCatalogue();renderLayout()}
 function addEntity(e){e.id=e.id||uid();e.layer=e.layer||activeLayer();model.entities.push(e);return e}
 function bounds(){const all=[];for(const e of model.entities){if(e.type==='rect')all.push({x:e.x,y:e.y},{x:e.x+e.w,y:e.y+e.h});else if(e.points)all.push(...e.points);else if(e.type==='circle')all.push({x:e.x-e.r,y:e.y-e.r},{x:e.x+e.r,y:e.y+e.r})}if(!all.length)return{x:0,y:0,w:n('cadRoofLength',30),h:n('cadRoofWidth',20)};const xs=all.map(p=>p.x),ys=all.map(p=>p.y),x=Math.min(...xs),y=Math.min(...ys);return{x,y,w:Math.max(.1,Math.max(...xs)-x),h:Math.max(.1,Math.max(...ys)-y)}}
@@ -902,14 +914,14 @@ function draw(){
  s+='<g transform="translate('+ox+' '+oy+') scale('+scale+' '+(-scale)+')">';
  for(let x=Math.floor(b.x)-5;x<=b.x+b.w+5;x++)s+='<path d="M'+x+' '+(b.y-5)+'V'+(b.y+b.h+5)+'" stroke="#edf1ef" stroke-width=".025"/>';
  for(let y=Math.floor(b.y)-5;y<=b.y+b.h+5;y++)s+='<path d="M'+(b.x-5)+' '+y+'H'+(b.x+b.w+5)+'" stroke="#edf1ef" stroke-width=".025"/>';
- for(const e of model.entities){const sel=e.id===model.selected, color=e.layer==='ROOF'?'#087f5b':e.layer==='OBSTACLES'?'#c24a3a':e.layer==='PV_MODULES'?'#2476b8':e.layer==='DIMENSIONS'?'#9a6a00':'#334b45', sw=sel?.13:.09;
+ for(const e of model.entities){if((model.hiddenLayers||[]).includes(e.layer))continue;const sel=e.id===model.selected, color=e.layer==='ROOF'?'#087f5b':e.layer==='OBSTACLES'?'#c24a3a':e.layer==='PV_MODULES'?'#2476b8':e.layer==='DIMENSIONS'?'#9a6a00':'#334b45', sw=sel?.13:.09;
  if(e.type==='line')s+='<path d="M'+e.a.x+' '+e.a.y+'L'+e.b.x+' '+e.b.y+'" fill="none" stroke="'+color+'" stroke-width="'+sw+'"/>';
  if(e.type==='rect')s+='<rect x="'+e.x+'" y="'+e.y+'" width="'+e.w+'" height="'+e.h+'" fill="'+(e.layer==='ROOF'?'#d9eee5':'none')+'" fill-opacity=".45" stroke="'+color+'" stroke-width="'+sw+'"/>';
  if(e.type==='circle')s+='<circle cx="'+e.x+'" cy="'+e.y+'" r="'+e.r+'" fill="#fbe5e1" fill-opacity=".4" stroke="'+color+'" stroke-width="'+sw+'"/>';
  if(e.type==='poly')s+='<polygon points="'+e.points.map(p=>p.x+','+p.y).join(' ')+'" fill="'+(e.closed?'#d9eee5':'none')+'" fill-opacity=".35" stroke="'+color+'" stroke-width="'+sw+'"/>';
  if(e.type==='dim')s+='<g stroke="#a16c00" stroke-width=".06" fill="none"><path d="M'+e.a.x+' '+e.a.y+'L'+e.b.x+' '+e.b.y+'"/></g><text x="'+((e.a.x+e.b.x)/2)+'" y="'+((e.a.y+e.b.y)/2+.25)+'" font-size=".55" fill="#8a5d00" transform="scale(1,-1) translate(0,'+(-2*((e.a.y+e.b.y)/2+.25))+')">'+esc(e.label)+'</text>';
  }
- for(const m of model.layout)s+='<rect x="'+m.x+'" y="'+m.y+'" width="'+m.w+'" height="'+m.h+'" fill="#7bb9e7" fill-opacity=".55" stroke="#176ba6" stroke-width=".045"/>';
+ if(!(model.hiddenLayers||[]).includes('PV_MODULES'))for(const m of model.layout)s+='<rect x="'+m.x+'" y="'+m.y+'" width="'+m.w+'" height="'+m.h+'" fill="#7bb9e7" fill-opacity=".55" stroke="#176ba6" stroke-width=".045"/>';
  if(model.pending.length){const p=model.pending;s+='<polyline points="'+p.map(q=>q.x+','+q.y).join(' ')+'" fill="none" stroke="#e09b13" stroke-width=".1" stroke-dasharray=".25 .15"/>'}
  s+='</g><text x="18" y="28" fill="#34534a" font-size="16">GENSOLAR CAD · m · '+model.entities.length+' entities</text><text x="18" y="630" fill="#74867f" font-size="12">Grid 1 m · Snapping '+(n('cadSnap',.25)||'OFF')+' m · Select objects to move</text>';svg.innerHTML=s;
  $('cadMetrics').innerHTML='<div class="metric"><span>CAD entities</span><b>'+model.entities.length+'</b></div><div class="metric"><span>Roof area</span><b>'+area(roofPoly()).toFixed(2)+' m²</b></div><div class="metric"><span>Layers</span><b>'+new Set(model.entities.map(e=>e.layer)).size+'</b></div><div class="metric"><span>PV modules</span><b>'+model.layout.length+'</b></div>';
