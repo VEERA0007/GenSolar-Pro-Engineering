@@ -1030,13 +1030,13 @@ private fun NativeStaadScreen(browser: WebView, modifier: Modifier = Modifier, o
                 Text("01  GEOMETRY & SUPPORTS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                 labels.take(5).forEach { (key, label) -> SurveyInput(label, fields.getValue(key).value, { fields.getValue(key).value = it }) }
                 androidx.compose.material3.Text("Support condition", color = Color(0xFF667A75), fontSize = 11.sp)
-                androidx.compose.material3.SingleChoiceSegmentedButtonRow {
-                    listOf("PINNED", "FIXED").forEachIndexed { index, value ->
-                        androidx.compose.material3.SegmentedButton(
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("PINNED", "FIXED").forEach { value ->
+                        FilterChip(
                             selected = fields.getValue("support").value == value,
                             onClick = { fields.getValue("support").value = value },
-                            shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(index, 2)
-                        ) { Text(value) }
+                            label = { Text(value) }
+                        )
                     }
                 }
             }
@@ -1046,13 +1046,13 @@ private fun NativeStaadScreen(browser: WebView, modifier: Modifier = Modifier, o
                 Text("02  DESIGN LOAD INPUTS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                 labels.drop(5).forEach { (key, label) -> SurveyInput(label, fields.getValue(key).value, { fields.getValue(key).value = it }) }
                 androidx.compose.material3.Text("Windward side", color = Color(0xFF667A75), fontSize = 11.sp)
-                androidx.compose.material3.SingleChoiceSegmentedButtonRow {
-                    listOf("left", "right").forEachIndexed { index, value ->
-                        androidx.compose.material3.SegmentedButton(
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("left", "right").forEach { value ->
+                        FilterChip(
                             selected = fields.getValue("windFace").value == value,
                             onClick = { fields.getValue("windFace").value = value },
-                            shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(index, 2)
-                        ) { Text(value.uppercase()) }
+                            label = { Text(value.uppercase()) }
+                        )
                     }
                 }
             }
