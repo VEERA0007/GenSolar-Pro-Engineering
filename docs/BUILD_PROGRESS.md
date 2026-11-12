@@ -27,27 +27,19 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 
 ## Current verified build state
 
-- Build #278: success — all configured regression checks, including the PV-layout DXF millimetre-unit and round-trip import test, debug APK verification and artifact upload passed. APK artifact ID `13876255978` (expires 2026-11-25).
-- Build #277: success — full configured checks and APK verification passed.
-- Build #276: success — all configured regression checks, including CAD survey underlay scale/import validation, debug APK verification and artifact upload passed. APK artifact ID `13860348660` (expires 2026-11-25).
-- Build #271: success — survey-image underlay scaling, CAD layer visibility, full configured regression suite, debug APK verification and artifact upload passed. APK artifact ID `13859008893` (expires 2026-11-25).
+- **Build #297: success** — shared-router navigation for dashboard destinations, Android back-to-Home behavior, new dashboard shortcuts, native shell validation, configured engineering regression suite, debug APK verification and artifact upload passed.
+- Build #297 commit: `e3ed7adcd0d68f1794d6f21338c556332adaf9cb`.
+- APK artifact: `GenSolar-Pro-Engineering-debug-APK`, ID `13923075759`, size 8,521,207 bytes, SHA-256 `3b7e1e31edfe4127276e6a3b5fd6532fe8f9d8f3d0700acaee6681f2207ed8fc`, expires 2026-11-26.
+- **Build #295: success** — native Compose dashboard and workspace launcher, structural solver regression test, configured engineering suite, debug APK verification and artifact upload passed.
+- Build #295 commit: `ced912889a77941484e8e9309e91372cdc59959e`; artifact ID `13922697003`.
+- Builds #293 and #294 failed during Kotlin compilation because the initial dashboard commit omitted the Compose `Spacer` import. The import was corrected and Build #295 passed.
+- Build #292: success — inbuilt 2D portal-frame solver regression test, configured engineering suite, APK verification and artifact upload passed.
+- Build #278: success — PV-layout DXF millimetre-unit and round-trip import test, debug APK verification and artifact upload passed.
+- Build #267: success — orthogonal CAD drawing regression tests, debug APK verification and artifact upload passed.
 
-- Build #234: success — DXF preview regression test and APK artifact verified.
-- Build #235: success — persistent CAD layer visibility controls compiled and APK packaged.
-- Build #237: success — CAD layer visibility regression test, prior checks and APK packaging passed.
-- Build #238: success — DXF import geometry connected to editable CAD and APK packaged.
-- Builds #239–261: unsuccessful iterations while correcting embedded JavaScript and regression-test harnesses.
-- Build #262: success — full configured regression suite, debug APK build, APK verification and artifact upload passed.
-- Build #265: success — full configured regression suite including CAD object snapping, debug APK build, APK verification and artifact upload passed.
-- Verified APK artifact from #265: `GenSolar-Pro-Engineering-debug-APK`, artifact ID `13834732793`.
-- Build #266: orthogonal line/polyline drawing mode and regression tests passed.
-- Build #267: orthogonal CAD drawing regression tests passed; debug APK verification and artifact upload passed. Latest verified run: #267, commit `e8fbf11226c914f451b5bb181f63c72369644f9b`.
+The native Android UI includes a Compose Home dashboard, workspace cards for survey, PV design, CAD/3D, electrical, structural, GPS/resource, BOM/BOQ, procurement, construction and DPR, a More menu, bottom navigation and back-to-Home behavior. Navigation now calls the workspace's shared router, fixing destinations such as BOM and STAAD that do not have footer shortcuts. CI validates the route wiring.
 
-Object snapping is verified: nearby drawing points snap to visible geometry vertices/endpoints, with hidden-layer filtering and an off switch. Survey image underlays are aligned in drawing metres and rendered beneath editable CAD geometry; they remain visual references and do not create surveyed coordinates automatically. CAD JSON import now validates underlay image data types, payload size, dimensions, origin, calibrated width and opacity before applying it. Orthogonal drawing is implemented for line, dimension and polyline segments; regression tests and APK build passed. CAD now supports an image survey underlay with user-controlled scale width, origin, opacity, visibility and local project persistence.
-
-PV layout DXF export now declares `$INSUNITS=4` (millimetres), matching the exporter's metre-to-millimetre coordinate conversion. A new CI regression test round-trips exported roof zones, PV modules, obstacles and access corridors through the DXF parser and checks unit metadata and geometry scale. Builds #277 and #278 were triggered while validating this change; #278 includes the new round-trip test.
-
-The Android host is being migrated from a Java Activity to Kotlin 2.0.21 + Jetpack Compose / Material 3 while retaining the existing offline EPC workspace in WebView. Native navigation now targets Home, Survey, PV Design, CAD / 3D and a More menu for Map, Electrical, STAAD, BOM/BOQ, Procurement, Construction and DPR. Python CI guardrails validate the Kotlin/Compose setup, navigation wiring, WebView security configuration and HTML IDs. The new Kotlin/Compose APK workflow is currently under validation; do not treat this migration as complete until its build and APK artifact pass.
+The native Home dashboard and Android navigation are implemented, but the engineering workspace content still runs inside the local WebView. The UI migration is therefore partial, not a complete native rewrite. Build #297 verifies compilation and configured tests; it does not replace physical Android device testing or professional engineering review.
 
 A green CI build verifies the checks configured in GitHub Actions and APK packaging. It does not mean the full EPC application is complete or validated on a physical Android device.
 
