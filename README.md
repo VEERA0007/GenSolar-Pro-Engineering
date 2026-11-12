@@ -29,7 +29,7 @@ An offline-first Android solar EPC engineering workspace for site survey, PV lay
 4. Download `GenSolar-Pro-Engineering-debug-APK` from the Artifacts section.
 5. Extract the ZIP to obtain `app-debug.apk`.
 
-Latest verified build at the time of this update: [Build #295](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43171933073). The debug artifact is a test build, not a Play Store release.
+Latest verified build at the time of this update: [Build #297](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43172507991). The debug artifact is a test build, not a Play Store release.
 
 ## Project structure
 
