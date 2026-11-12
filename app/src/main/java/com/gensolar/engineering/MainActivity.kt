@@ -238,15 +238,19 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
     var moreExpanded by remember { mutableStateOf(false) }
     var advancedSite by remember { mutableStateOf(false) }
     var advancedLayout by remember { mutableStateOf(false) }
+    var advancedElectrical by remember { mutableStateOf(false) }
     BackHandler(enabled = selected != "dashboard") {
         if (selected == "site" && advancedSite) {
             advancedSite = false
         } else if (selected == "layout" && advancedLayout) {
             advancedLayout = false
+        } else if (selected == "electrical" && advancedElectrical) {
+            advancedElectrical = false
         } else {
             selected = "dashboard"
             advancedSite = false
             advancedLayout = false
+            advancedElectrical = false
             onNavigate("dashboard")
         }
     }
@@ -309,6 +313,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                                         selected = key
                                         advancedSite = false
                                         advancedLayout = false
+                                        advancedElectrical = false
                                         onNavigate(key)
                                     }
                                 )
@@ -330,6 +335,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                                 selected = destination.key
                                 advancedSite = false
                                 advancedLayout = false
+                                advancedElectrical = false
                                 onNavigate(destination.key)
                             },
                             icon = { Text(destination.symbol, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
@@ -354,9 +360,12 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                         selected = destination
                         advancedSite = false
                         advancedLayout = false
+                        advancedElectrical = false
                         onNavigate(destination)
                     }
                 )
+            } else if (selected == "electrical" && !advancedElectrical) {
+                NativeElectricalScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedElectrical = true }
             } else if (selected == "layout" && !advancedLayout) {
                 NativePvDesignScreen(
                     browser = browser,
@@ -770,6 +779,94 @@ private fun NativePvDesignScreen(
             Text("Open detailed PV layout, drawings & exports")
         }
         Text("Concept arrangement only. Confirm surveyed geometry, fire access, shade, structural capacity and standards before construction.", color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp)
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+
+@Composable
+private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifier, onOpenAdvanced: () -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("gensolar_native_electrical", android.content.Context.MODE_PRIVATE) }
+    val defaults = listOf("acKw" to "80", "mpptMin" to "200", "mpptMax" to "1000", "maxDc" to "1100", "minTemp" to "5", "mpptCurrent" to "30", "bifacialCurrentGain" to "0", "mpptCount" to "4", "maxCellTemp" to "70", "vmpCoeff" to "-0.35")
+    val fields = remember { defaults.associate { (key, value) -> key to mutableStateOf(prefs.getString(key, value) ?: value) } }
+    var voc by remember { mutableStateOf(prefs.getString("voc", "49.8") ?: "49.8") }
+    var vmp by remember { mutableStateOf(prefs.getString("vmp", "41.8") ?: "41.8") }
+    var isc by remember { mutableStateOf(prefs.getString("isc", "14") ?: "14") }
+    var imp by remember { mutableStateOf(prefs.getString("imp", "13.2") ?: "13.2") }
+    var vocCoeff by remember { mutableStateOf(prefs.getString("vocCoeff", "-0.28") ?: "-0.28") }
+    var output by remember { mutableStateOf("Generate a PV layout, then run electrical checks.") }
+    var status by remember { mutableStateOf("Inputs are stored offline when calculations are run.") }
+    val labels = listOf("acKw" to "Inverter AC capacity (kW)", "mpptMin" to "Minimum MPPT voltage (V)", "mpptMax" to "Maximum MPPT voltage (V)", "maxDc" to "Maximum DC voltage (V)", "minTemp" to "Minimum design temperature (°C)", "mpptCurrent" to "Max operating current / MPPT (A)", "bifacialCurrentGain" to "Bifacial current gain (%)", "mpptCount" to "MPPT channel count", "maxCellTemp" to "Maximum cell temperature (°C)", "vmpCoeff" to "Vmp coefficient (%/°C)")
+    Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("ELECTRICAL ENGINEERING", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("Validate every PV string.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Temperature-adjusted string voltage, MPPT current capacity and DC/AC ratio using the existing engineering calculator.", color = Color(0xFFD7E8E1), fontSize = 12.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("01  MODULE DATASHEET", color = AccentGreen, fontWeight = FontWeight.ExtraBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SurveyInput("Voc (V)", voc, { voc = it }, Modifier.weight(1f))
+                    SurveyInput("Vmp (V)", vmp, { vmp = it }, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SurveyInput("Isc (A)", isc, { isc = it }, Modifier.weight(1f))
+                    SurveyInput("Imp (A)", imp, { imp = it }, Modifier.weight(1f))
+                }
+                SurveyInput("Voc coefficient (%/°C)", vocCoeff, { vocCoeff = it })
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("02  INVERTER & DESIGN LIMITS", color = AccentGreen, fontWeight = FontWeight.ExtraBold)
+                labels.forEach { (key, label) -> SurveyInput(label, fields.getValue(key).value, { fields.getValue(key).value = it }) }
+            }
+        }
+        Button(onClick = {
+            val values = linkedMapOf("voc" to voc, "vmp" to vmp, "isc" to isc, "imp" to imp, "vocCoeff" to vocCoeff)
+            fields.forEach { (key, value) -> values[key] = value.value }
+            prefs.edit().apply { values.forEach { (key, value) -> putString(key, value) } }.apply()
+            val payload = JSONObject(values).toString()
+            val script = """
+                (function(){
+                  var data = $payload, root = document.getElementById('electrical');
+                  if (!root) return JSON.stringify({error:'Electrical workspace unavailable.'});
+                  Object.keys(data).forEach(function(key) {
+                    var field = root.querySelector('[data-k="' + key + '"]');
+                    if (field) { field.value = data[key]; field.dispatchEvent(new Event('input',{bubbles:true})); field.dispatchEvent(new Event('change',{bubbles:true})); }
+                  });
+                  var button = document.getElementById('calcElectrical');
+                  if (!button) return JSON.stringify({error:'Electrical calculation action unavailable.'});
+                  button.click();
+                  if (typeof state === 'undefined' || !state.electrical) return JSON.stringify({error:'No result. Generate a PV layout first and verify inputs.'});
+                  return JSON.stringify({strings:state.electrical.strings,modules:state.electrical.modules,warning:document.getElementById('electricalWarning')?.textContent||''});
+                })()
+            """.trimIndent()
+            browser.evaluateJavascript(script) { raw ->
+                try {
+                    val response = org.json.JSONTokener(raw ?: "{}").nextValue() as? String ?: "{}"
+                    val json = JSONObject(response)
+                    if (json.has("error")) status = json.optString("error")
+                    else {
+                        output = "${json.optInt("strings")} strings · ${json.optInt("modules")} modules"
+                        status = json.optString("warning", "Review detailed calculation output.")
+                    }
+                } catch (_: Exception) { status = "Could not read the calculation response. Open detailed electrical workspace." }
+            }
+        }, modifier = Modifier.fillMaxWidth()) { Text("Run electrical string checks") }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("ENGINEERING RESULT", color = AccentGreen, fontWeight = FontWeight.ExtraBold)
+                Text(output, color = BrandGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(status, color = Color(0xFF60756E), fontSize = 11.sp)
+            }
+        }
+        androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) { Text("Open MPPT allocation, battery, cable & protection tools") }
+        Text("Preliminary screening only. Verify inverter datasheets, MPPT operating and short-circuit limits, protection coordination, cable sizing and applicable electrical standards.", color = Color(0xFF667A75), fontSize = 10.sp)
         Spacer(Modifier.height(8.dp))
     }
 }
