@@ -24,9 +24,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
@@ -47,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -311,10 +319,116 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                 }
             }
         ) { padding ->
-            AndroidView(
-                factory = { browser },
-                modifier = Modifier.fillMaxSize().padding(padding)
-            )
+            if (selected == "dashboard") {
+                NativeDashboard(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    onNavigate = { destination ->
+                        selected = destination
+                        onNavigate(destination)
+                    }
+                )
+            } else {
+                AndroidView(
+                    factory = { browser },
+                    modifier = Modifier.fillMaxSize().padding(padding)
+                )
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun NativeDashboard(modifier: Modifier = Modifier, onNavigate: (String) -> Unit) {
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = BrandGreen)
+        ) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("SOLAR EPC · PROJECT WORKSPACE", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
+                Text("Design smarter. Deliver with confidence.", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 29.sp)
+                Text("One workspace for site survey, PV engineering, structural checks, CAD, procurement and handover.", color = Color(0xFFD8E8E1), fontSize = 13.sp)
+                Button(onClick = { onNavigate("site") }) { Text("Start site survey  →") }
+            }
+        }
+        Text("PROJECT OVERVIEW", color = Color(0xFF60756E), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            NativeMetric("01", "Site survey", Modifier.weight(1f))
+            NativeMetric("02", "PV design", Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            NativeMetric("03", "Engineering", Modifier.weight(1f))
+            NativeMetric("04", "DPR / BOQ", Modifier.weight(1f))
+        }
+        Text("ENGINEERING WORKSPACES", color = Color(0xFF60756E), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+        NativeActionCard("Site survey & GPS", "Capture project details, roof dimensions, site photos and location.", "Open survey", "site", onNavigate)
+        NativeActionCard("PV design & auto layout", "Size the PV array, place modules and export layout schedules.", "Open PV design", "layout", onNavigate)
+        NativeActionCard("CAD / 2D / 3D studio", "Import drawings, build conceptual 3D and export DXF outputs.", "Open CAD studio", "cadstudio", onNavigate)
+        NativeActionCard("Electrical engineering", "Check strings, inverter compatibility, batteries, cables and SLD.", "Open electrical", "electrical", onNavigate)
+        NativeActionCard("Structural analysis", "Build portal frames, review member actions and export STAAD models.", "Open structural", "staad", onNavigate)
+        NativeActionCard("BOM, procurement & DPR", "Prepare material schedules, vendor records and project handover.", "Open project outputs", "procurement", onNavigate)
+        Text("Engineering outputs are preliminary until checked against approved equipment datasheets, applicable standards, site conditions and signed calculations.", color = Color(0xFF60756E), fontSize = 11.sp)
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun NativeMetric(value: String, label: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.height(86.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(value, color = AccentGreen, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+            Text(label, color = Color(0xFF536A63), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun NativeActionCard(
+    title: String,
+    description: String,
+    action: String,
+    destination: String,
+    onNavigate: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(
+                modifier = Modifier.size(42.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFE8F3EE)
+            ) {
+                androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                    Text("✦", color = AccentGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(title, color = Color(0xFF142B28), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(description, color = Color(0xFF667A75), fontSize = 11.sp, lineHeight = 15.sp)
+            }
+            androidx.compose.material3.TextButton(onClick = { onNavigate(destination) }) {
+                Text(action, color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
