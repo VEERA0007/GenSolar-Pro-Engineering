@@ -17,6 +17,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.addCallback
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -199,14 +200,18 @@ class MainActivity : ComponentActivity() {
 
     private fun navigateWorkspace(destination: String) {
         val browser = webView ?: return
-        val script = when (destination) {
-            "staad" -> "document.querySelector('.stage[data-stage=engineering]')?.click();document.querySelectorAll('.tab').forEach(function(b){if(b.textContent.includes('STAAD Structural'))b.click()});"
-            "procurement" -> "document.querySelector('.stage[data-stage=procurement]')?.click();"
-            "construction" -> "document.querySelector('.stage[data-stage=construction]')?.click();"
-            "cadstudio" -> "document.querySelector('[data-foot=cadstudio]')?.click();"
-            else -> "document.querySelector('[data-foot=$destination]')?.click();"
-        }
-        browser.evaluateJavascript(script, null)
+        val allowedDestinations = setOf(
+            "dashboard", "site", "location", "layout", "shade", "draw",
+            "cadstudio", "electrical", "staad", "bom", "procurement",
+            "construction", "dpr"
+        )
+        if (destination !in allowedDestinations) return
+        // Use the workspace's own router. Footer buttons do not exist for every view
+        // (notably BOM and STAAD), so selector-based navigation silently failed there.
+        browser.evaluateJavascript(
+            "if (typeof go === 'function') { go('$destination'); }",
+            null
+        )
     }
 
     override fun onDestroy() {
@@ -227,6 +232,10 @@ class MainActivity : ComponentActivity() {
 private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
     var selected by remember { mutableStateOf("dashboard") }
     var moreExpanded by remember { mutableStateOf(false) }
+    BackHandler(enabled = selected != "dashboard") {
+        selected = "dashboard"
+        onNavigate("dashboard")
+    }
     val context = LocalContext.current
     val destinations = listOf(
         NativeDestination("dashboard", "Home", "⌂"),
@@ -374,7 +383,11 @@ private fun NativeDashboard(modifier: Modifier = Modifier, onNavigate: (String) 
         NativeActionCard("CAD / 2D / 3D studio", "Import drawings, build conceptual 3D and export DXF outputs.", "Open CAD studio", "cadstudio", onNavigate)
         NativeActionCard("Electrical engineering", "Check strings, inverter compatibility, batteries, cables and SLD.", "Open electrical", "electrical", onNavigate)
         NativeActionCard("Structural analysis", "Build portal frames, review member actions and export STAAD models.", "Open structural", "staad", onNavigate)
-        NativeActionCard("BOM, procurement & DPR", "Prepare material schedules, vendor records and project handover.", "Open project outputs", "procurement", onNavigate)
+        NativeActionCard("GPS & solar resource", "Capture site coordinates and review solar-resource inputs.", "Open map", "location", onNavigate)
+        NativeActionCard("BOM / BOQ", "Review material quantities, fabrication schedules and cost records.", "Open BOM", "bom", onNavigate)
+        NativeActionCard("Procurement", "Compare vendor quotations and manage purchase records.", "Open procurement", "procurement", onNavigate)
+        NativeActionCard("Construction & commissioning", "Track execution activities, inspections and handover readiness.", "Open construction", "construction", onNavigate)
+        NativeActionCard("DPR & document control", "Generate project reports, backup files and handover documents.", "Open DPR", "dpr", onNavigate)
         Text("Engineering outputs are preliminary until checked against approved equipment datasheets, applicable standards, site conditions and signed calculations.", color = Color(0xFF60756E), fontSize = 11.sp)
         Spacer(Modifier.height(8.dp))
     }
