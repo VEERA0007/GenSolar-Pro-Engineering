@@ -76,6 +76,8 @@ class MainActivity : ComponentActivity() {
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var geoCallback: GeolocationPermissions.Callback? = null
     private var geoOrigin: String? = null
+    private var nativeGpsCallback: ((Double, Double, Double) -> Unit)? = null
+    private var nativeGpsErrorCallback: ((String) -> Unit)? = null
     private lateinit var filePicker: androidx.activity.result.ActivityResultLauncher<Intent>
     private lateinit var locationPermission: androidx.activity.result.ActivityResultLauncher<Array<String>>
 
@@ -167,6 +169,24 @@ class MainActivity : ComponentActivity() {
             }
             addJavascriptInterface(object {
                 @JavascriptInterface
+                fun onNativeGps(latitude: Double, longitude: Double, accuracy: Double) {
+                    runOnUiThread {
+                        nativeGpsCallback?.invoke(latitude, longitude, accuracy)
+                        nativeGpsCallback = null
+                        nativeGpsErrorCallback = null
+                    }
+                }
+
+                @JavascriptInterface
+                fun onNativeGpsError(message: String) {
+                    runOnUiThread {
+                        nativeGpsErrorCallback?.invoke(message)
+                        nativeGpsCallback = null
+                        nativeGpsErrorCallback = null
+                    }
+                }
+
+                @JavascriptInterface
                 fun printPage() {
                     runOnUiThread {
                         try {
@@ -197,9 +217,29 @@ class MainActivity : ComponentActivity() {
         setContent {
             GenSolarApp(
                 browser = browser,
-                onNavigate = ::navigateWorkspace
+                onNavigate = ::navigateWorkspace,
+                onRequestGps = ::requestNativeGps
             )
         }
+    }
+
+    private fun requestNativeGps(
+        onResult: (Double, Double, Double) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        nativeGpsCallback = onResult
+        nativeGpsErrorCallback = onError
+        val browser = webView
+        if (browser == null) {
+            nativeGpsErrorCallback?.invoke("The engineering workspace is not ready.")
+            nativeGpsCallback = null
+            nativeGpsErrorCallback = null
+            return
+        }
+        browser.evaluateJavascript(
+            "(function(){if(!navigator.geolocation){GenSolarNative.onNativeGpsError('Geolocation is unavailable on this device.');return 'unavailable';}navigator.geolocation.getCurrentPosition(function(p){GenSolarNative.onNativeGps(p.coords.latitude,p.coords.longitude,p.coords.accuracy||0);},function(e){GenSolarNative.onNativeGpsError(e.message||'Unable to read device location.');},{enableHighAccuracy:true,timeout:20000,maximumAge:0});return 'requested';})()",
+            null
+        )
     }
 
     private fun navigateWorkspace(destination: String) {
@@ -233,7 +273,11 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
+private fun GenSolarApp(
+    browser: WebView,
+    onNavigate: (String) -> Unit,
+    onRequestGps: ((Double, Double, Double) -> Unit, (String) -> Unit) -> Unit
+) {
     var selected by remember { mutableStateOf("dashboard") }
     var moreExpanded by remember { mutableStateOf(false) }
     var advancedSite by remember { mutableStateOf(false) }
@@ -241,6 +285,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
     var advancedElectrical by remember { mutableStateOf(false) }
     var advancedCad by remember { mutableStateOf(false) }
     var advancedShade by remember { mutableStateOf(false) }
+    var advancedLocation by remember { mutableStateOf(false) }
     BackHandler(enabled = selected != "dashboard") {
         if (selected == "site" && advancedSite) {
             advancedSite = false
@@ -252,6 +297,8 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
             advancedCad = false
         } else if (selected == "shade" && advancedShade) {
             advancedShade = false
+        } else if (selected == "location" && advancedLocation) {
+            advancedLocation = false
         } else {
             selected = "dashboard"
             advancedSite = false
@@ -259,6 +306,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
             advancedElectrical = false
             advancedCad = false
             advancedShade = false
+            advancedLocation = false
             onNavigate("dashboard")
         }
     }
@@ -324,6 +372,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                                         advancedElectrical = false
                                         advancedCad = false
                                         advancedShade = false
+                                        advancedLocation = false
                                         onNavigate(key)
                                     }
                                 )
@@ -348,6 +397,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                                 advancedElectrical = false
                                 advancedCad = false
                                 advancedShade = false
+                                advancedLocation = false
                                 onNavigate(destination.key)
                             },
                             icon = { Text(destination.symbol, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
@@ -375,9 +425,12 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                         advancedElectrical = false
                         advancedCad = false
                         advancedShade = false
+                        advancedLocation = false
                         onNavigate(destination)
                     }
                 )
+            } else if (selected == "location" && !advancedLocation) {
+                NativeLocationScreen(browser, Modifier.fillMaxSize().padding(padding), onRequestGps) { advancedLocation = true }
             } else if (selected == "shade" && !advancedShade) {
                 NativeShadeScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedShade = true }
             } else if (selected == "cadstudio" && !advancedCad) {
@@ -891,6 +944,109 @@ private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifi
     }
 }
 
+
+@Composable
+private fun NativeLocationScreen(
+    browser: WebView,
+    modifier: Modifier = Modifier,
+    onRequestGps: ((Double, Double, Double) -> Unit, (String) -> Unit) -> Unit,
+    onOpenAdvanced: () -> Unit
+) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("gensolar_native_location", android.content.Context.MODE_PRIVATE) }
+    var latitude by remember { mutableStateOf(prefs.getString("lat", "") ?: "") }
+    var longitude by remember { mutableStateOf(prefs.getString("lon", "") ?: "") }
+    var elevation by remember { mutableStateOf(prefs.getString("elevation", "") ?: "") }
+    var accuracy by remember { mutableStateOf(prefs.getString("accuracy", "") ?: "") }
+    var ghi by remember { mutableStateOf(prefs.getString("ghi", "") ?: "") }
+    var dni by remember { mutableStateOf(prefs.getString("dni", "") ?: "") }
+    var dhi by remember { mutableStateOf(prefs.getString("dhi", "") ?: "") }
+    var gti by remember { mutableStateOf(prefs.getString("gti", "") ?: "") }
+    var annualYield by remember { mutableStateOf(prefs.getString("yield", "") ?: "") }
+    var resourceSource by remember { mutableStateOf(prefs.getString("resourceSource", "") ?: "") }
+    var status by remember { mutableStateOf("GPS NOT CAPTURED") }
+    fun persist() {
+        prefs.edit().putString("lat", latitude).putString("lon", longitude).putString("elevation", elevation)
+            .putString("accuracy", accuracy).putString("ghi", ghi).putString("dni", dni).putString("dhi", dhi)
+            .putString("gti", gti).putString("yield", annualYield).putString("resourceSource", resourceSource).apply()
+    }
+    fun syncProject() {
+        val lat = latitude.toDoubleOrNull()
+        val lon = longitude.toDoubleOrNull()
+        if (lat == null || lon == null || lat !in -90.0..90.0 || lon !in -180.0..180.0) {
+            status = "INVALID COORDINATES"
+            return
+        }
+        persist()
+        val values = JSONObject().put("lat", latitude).put("lon", longitude).put("elevation", elevation)
+            .put("gpsAccuracy", accuracy).put("ghi", ghi).put("dni", dni).put("dhi", dhi).put("gti", gti)
+            .put("yield", annualYield).put("resourceSource", resourceSource)
+        browser.evaluateJavascript(
+            "(function(v){Object.keys(v).forEach(function(k){var e=document.querySelector('[data-k=\\"'+k+'\\"]');if(e){e.value=v[k];e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}});if(typeof save==='function')save();var b=document.getElementById('pinCoordinates');if(b)b.click();return 'synced';})($values)",
+            null
+        )
+        status = "SAVED OFFLINE & SYNCED TO PROJECT"
+    }
+    Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("SITE GPS & SOLAR RESOURCE", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("Pin the project. Record the resource.", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Capture device coordinates, record location accuracy and sync resource inputs with the shared EPC project.", color = Color(0xFFD7E8E1), fontSize = 12.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("01  GPS COORDINATES", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SurveyInput("Latitude (°)", latitude, { latitude = it }, Modifier.weight(1f))
+                    SurveyInput("Longitude (°)", longitude, { longitude = it }, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SurveyInput("Elevation (m)", elevation, { elevation = it }, Modifier.weight(1f))
+                    SurveyInput("Accuracy (m)", accuracy, { accuracy = it }, Modifier.weight(1f))
+                }
+                Button(onClick = {
+                    status = "REQUESTING DEVICE GPS"
+                    onRequestGps(
+                        { lat, lon, acc ->
+                            latitude = "%.7f".format(java.util.Locale.US, lat)
+                            longitude = "%.7f".format(java.util.Locale.US, lon)
+                            accuracy = "%.1f".format(java.util.Locale.US, acc)
+                            persist()
+                            status = "GPS CAPTURED · ±$accuracy m"
+                        },
+                        { message -> status = "GPS ERROR · $message" }
+                    )
+                }, modifier = Modifier.fillMaxWidth()) { Text("Capture current device GPS") }
+                Text("Location permission is requested by Android when required. Confirm the coordinates against the site survey before design.", color = Color(0xFF667A75), fontSize = 10.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("02  SOLAR RESOURCE DATA", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SurveyInput("GHI (kWh/m²/day)", ghi, { ghi = it }, Modifier.weight(1f))
+                    SurveyInput("DNI (kWh/m²/day)", dni, { dni = it }, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SurveyInput("DHI (kWh/m²/day)", dhi, { dhi = it }, Modifier.weight(1f))
+                    SurveyInput("GTI / POA (kWh/m²/day)", gti, { gti = it }, Modifier.weight(1f))
+                }
+                SurveyInput("Annual yield (kWh/kWp/year)", annualYield, { annualYield = it })
+                SurveyInput("Resource source / report date", resourceSource, { resourceSource = it })
+                Text("Enter values from a cited resource dataset or validated simulation. GPS coordinates alone do not establish GHI, DNI, DHI or annual yield.", color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text(status, color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                Button(onClick = { syncProject() }, modifier = Modifier.fillMaxWidth()) { Text("Save & sync location to EPC project") }
+                Button(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) { Text("Open detailed map & resource workspace") }
+            }
+        }
+    }
+}
 
 @Composable
 private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, onOpenAdvanced: () -> Unit) {
