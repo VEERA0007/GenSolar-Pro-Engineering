@@ -36,7 +36,7 @@ require("jvmTarget = '17'" in APP_GRADLE, "Kotlin bytecode target must be Java 1
 require(KOTLIN.exists(), "Kotlin MainActivity.kt missing")
 require(not (ROOT / "app/src/main/java/com/gensolar/engineering/MainActivity.java").exists(), "Legacy Java Activity must not coexist with Kotlin launcher")
 kotlin = KOTLIN.read_text(encoding="utf-8")
-for marker in ("class MainActivity : ComponentActivity()", "setContent {", "AndroidView(", "NavigationBar(", "onShowFileChooser", "onGeolocationPermissionsShowPrompt", "GenSolarNative", "MIXED_CONTENT_NEVER_ALLOW", "allowUniversalAccessFromFileURLs = false"):
+for marker in ("class MainActivity : ComponentActivity()", "setContent {", "NativeDashboard(", "NativeActionCard(", "NativeMetric(", "AndroidView(", "NavigationBar(", "onShowFileChooser", "onGeolocationPermissionsShowPrompt", "GenSolarNative", "MIXED_CONTENT_NEVER_ALLOW", "allowUniversalAccessFromFileURLs = false"):
     require(marker in kotlin, "Kotlin native shell missing: " + marker)
 require('android:name=".MainActivity"' in MANIFEST, "Manifest launcher must resolve to Kotlin MainActivity")
 html = HTML.read_text(encoding="utf-8")
@@ -47,6 +47,7 @@ require(not duplicates, "duplicate HTML IDs: " + ", ".join(duplicates))
 for destination in ("dashboard", "site", "location", "layout", "electrical", "dpr"):
     require(destination in audit.foot_destinations, "native bottom navigation target missing from web workspace: " + destination)
 require("STAAD Structural" in html and "cadstudio" in html, "STAAD and CAD workspace navigation must remain available")
+require("Design smarter. Deliver with confidence." in kotlin and "PROJECT OVERVIEW" in kotlin, "Native dashboard experience missing")
 solver = ROOT / "app/src/main/assets/structural_solver.js"
 require(solver.exists() and "GenSolarStructuralSolver" in solver.read_text(encoding="utf-8"), "Inbuilt structural solver asset missing")
 require("staadRunAnalysis" in html and "staadAnalysisSchedule" in html, "Inbuilt structural analysis UI is not wired")
