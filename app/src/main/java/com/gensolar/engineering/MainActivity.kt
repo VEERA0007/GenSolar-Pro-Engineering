@@ -999,7 +999,7 @@ private fun NativeStaadScreen(browser: WebView, modifier: Modifier = Modifier, o
         mapping.forEach { (key, domKey) -> payload.put(domKey, fields[key]?.value.orEmpty()) }
         persist()
         status = "GENERATING STRUCTURAL MODEL"
-        val expression = "JSON.stringify((function(v){Object.keys(v).forEach(function(k){var e=document.querySelector('[data-k=\\"'+k+'\\"]');if(e){e.value=v[k];e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}});if(typeof save==='function')save();var m=staadGenerate();return {ok:!!m,frames:m?m.frameCount:0,nodes:m?m.nodes.length:0,members:m?m.members.length:0,spacing:m?m.frameSpacing:0,purlins:m?m.purlinCount:0,braces:m?m.braceCount:0,message:document.getElementById('staadStatus')?.textContent||'Model generation failed'};})($payload))"
+        val expression = "JSON.stringify((function(v){Object.keys(v).forEach(function(k){var e=document.querySelector('[data-k='+k+']');if(e){e.value=v[k];e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}});if(typeof save==='function')save();var m=staadGenerate();return {ok:!!m,frames:m?m.frameCount:0,nodes:m?m.nodes.length:0,members:m?m.members.length:0,spacing:m?m.frameSpacing:0,purlins:m?m.purlinCount:0,braces:m?m.braceCount:0,message:document.getElementById('staadStatus')?.textContent||'Model generation failed'};})($payload))"
         browser.evaluateJavascript("(function(){try{return $expression}catch(e){return JSON.stringify({ok:false,message:e.message})}})()") { raw ->
             try {
                 val jsonText = org.json.JSONTokener(raw ?: "null").nextValue() as? String ?: "{}"
@@ -1115,7 +1115,7 @@ private fun NativeLocationScreen(
             .put("gpsAccuracy", accuracy).put("ghi", ghi).put("dni", dni).put("dhi", dhi).put("gti", gti)
             .put("yield", annualYield).put("resourceSource", resourceSource)
         browser.evaluateJavascript(
-            "(function(v){Object.keys(v).forEach(function(k){var e=document.querySelector('[data-k=\\"'+k+'\\"]');if(e){e.value=v[k];e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}});if(typeof save==='function')save();var b=document.getElementById('pinCoordinates');if(b)b.click();return 'synced';})($values)",
+            "(function(v){Object.keys(v).forEach(function(k){var e=document.querySelector('[data-k='+k+']');if(e){e.value=v[k];e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}});if(typeof save==='function')save();var b=document.getElementById('pinCoordinates');if(b)b.click();return 'synced';})($values)",
             null
         )
         status = "SAVED OFFLINE & SYNCED TO PROJECT"
