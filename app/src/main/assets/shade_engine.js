@@ -4,7 +4,7 @@ const RAD=Math.PI/180, DEG=180/Math.PI;
 function wrap360(v){return ((v%360)+360)%360}
 function angularDifference(a,b){return Math.abs(((a-b+540)%360)-180)}
 function solarPosition(date,time,latitude,longitude,timezoneOffsetMinutes){
- if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||!/^\\d{2}:\\d{2}$/.test(time))throw new Error('Date and local time are required');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(time))throw new Error('Date and local time are required');
  const [year,month,day]=date.split('-').map(Number),[hour,minute]=time.split(':').map(Number);
  if(month<1||month>12||day<1||day>31||hour>23||minute>59)throw new Error('Invalid date or local time');
  if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180)throw new Error('Latitude or longitude is outside its valid range');
