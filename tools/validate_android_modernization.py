@@ -36,7 +36,7 @@ require("jvmTarget = '17'" in APP_GRADLE, "Kotlin bytecode target must be Java 1
 require(KOTLIN.exists(), "Kotlin MainActivity.kt missing")
 require(not (ROOT / "app/src/main/java/com/gensolar/engineering/MainActivity.java").exists(), "Legacy Java Activity must not coexist with Kotlin launcher")
 kotlin = KOTLIN.read_text(encoding="utf-8")
-for marker in ("class MainActivity : ComponentActivity()", "setContent {", "NativeDashboard(", "NativeSurveyScreen(", "NativePvDesignScreen(", "NativeElectricalScreen(", "NativeCadScreen(", "NativeShadeScreen(", "SurveyInput(", "NativeActionCard(", "NativeMetric(", "AndroidView(", "NavigationBar(", "onShowFileChooser", "onGeolocationPermissionsShowPrompt", "GenSolarNative", "MIXED_CONTENT_NEVER_ALLOW", "allowUniversalAccessFromFileURLs = false"):
+for marker in ("class MainActivity : ComponentActivity()", "setContent {", "NativeDashboard(", "NativeSurveyScreen(", "NativePvDesignScreen(", "NativeElectricalScreen(", "NativeCadScreen(", "NativeShadeScreen(", "NativeLocationScreen(", "SurveyInput(", "NativeActionCard(", "NativeMetric(", "AndroidView(", "NavigationBar(", "onShowFileChooser", "onGeolocationPermissionsShowPrompt", "GenSolarNative", "MIXED_CONTENT_NEVER_ALLOW", "allowUniversalAccessFromFileURLs = false"):
     require(marker in kotlin, "Kotlin native shell missing: " + marker)
 require('android:name=".MainActivity"' in MANIFEST, "Manifest launcher must resolve to Kotlin MainActivity")
 html = HTML.read_text(encoding="utf-8")
@@ -53,6 +53,7 @@ require("PV ARRAY DESIGN" in kotlin and "gensolar_native_pv_design" in kotlin an
 require("ELECTRICAL ENGINEERING" in kotlin and "gensolar_native_electrical" in kotlin and "calcElectrical" in kotlin and "NativeElectricalScreen(" in kotlin, "Native electrical string validation screen or calculator integration missing")
 require("CAD & 3D ENGINEERING" in kotlin and "gensolar_native_cad" in kotlin and "cadCreateBuilding" in kotlin and "NativeCadScreen(" in kotlin, "Native CAD building model screen or shared CAD engine integration missing")
 require("SOLAR RESOURCE & SHADE" in kotlin and "gensolar_native_shade" in kotlin and "GenSolarShadeEngine.assess($input)" in kotlin and "GenSolarShadeEngine.dayProfile($input,30)" in kotlin and 'selected == "shade"' in kotlin, "Native shade screen, offline input persistence, solar calculation bridge or day-profile integration missing")
+require("SITE GPS & SOLAR RESOURCE" in kotlin and "gensolar_native_location" in kotlin and "requestNativeGps" in kotlin and "onNativeGps(latitude: Double" in kotlin and "navigator.geolocation.getCurrentPosition" in kotlin and 'selected == "location"' in kotlin, "Native GPS/resource screen, Android geolocation bridge or project synchronization missing")
 require("delete state.electrical" in kotlin and "!state.layout" in kotlin, "Electrical bridge must require a fresh PV layout and clear stale calculation results")
 require("typeof state !== 'undefined' ||" not in kotlin and "typeof state === 'undefined' || !state.layout" in kotlin and "delete state.layout" in kotlin, "PV optimizer bridge must clear stale results and detect the page-global state safely")
 require("BackHandler(enabled = selected != \"dashboard\")" in kotlin, "Android back navigation must return from workspaces to Home")
