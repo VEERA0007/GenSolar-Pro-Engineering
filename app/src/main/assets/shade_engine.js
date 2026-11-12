@@ -15,7 +15,7 @@ function solarPosition(date,time,latitude,longitude,timezoneOffsetMinutes){
  const gamma=2*Math.PI/365*(doy-1+(utcHour-12)/24);
  const eq=229.18*(.000075+.001868*Math.cos(gamma)-.032077*Math.sin(gamma)-.014615*Math.cos(2*gamma)-.040849*Math.sin(2*gamma));
  const decl=.006918-.399912*Math.cos(gamma)+.070257*Math.sin(gamma)-.006758*Math.cos(2*gamma)+.000907*Math.sin(2*gamma)-.002697*Math.cos(3*gamma)+.00148*Math.sin(3*gamma);
- const localMinutes=hour*60+minute,trueSolar=wrap360(localMinutes+eq+4*longitude-timezoneOffsetMinutes),ha=(trueSolar/4-180)*RAD,phi=latitude*RAD;
+ const localMinutes=hour*60+minute,trueSolar=((localMinutes+eq+4*longitude-timezoneOffsetMinutes)%1440+1440)%1440,ha=(trueSolar/4-180)*RAD,phi=latitude*RAD;
  const sinAlt=Math.sin(phi)*Math.sin(decl)+Math.cos(phi)*Math.cos(decl)*Math.cos(ha),alt=Math.asin(Math.max(-1,Math.min(1,sinAlt)));
  const az=wrap360(Math.atan2(Math.sin(ha),Math.cos(ha)*Math.sin(phi)-Math.tan(decl)*Math.cos(phi))*DEG+180);
  return {altitude:alt*DEG,azimuth:az,equationOfTimeMin:eq,declinationDeg:decl*DEG,trueSolarTimeMin:trueSolar,dayOfYear:doy};
