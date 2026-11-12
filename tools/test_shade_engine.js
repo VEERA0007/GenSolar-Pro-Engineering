@@ -8,8 +8,8 @@ assert.ok(noon.altitude>80&&noon.altitude<=90,'Hyderabad summer-solstice solar a
 assert.ok(noon.azimuth>=0&&noon.azimuth<360);
 const sameInstant=e.solarPosition('2026-06-21','06:30',17.385,78.4867,0);
 assert.ok(Math.abs(noon.altitude-sameInstant.altitude)<0.01&&e.angularDifference(noon.azimuth,sameInstant.azimuth)<0.01,'timezone representations of the same instant agree');
-const morning=e.solarPosition('2026-06-21','09:00',17.385,78.4867,-330);
-const afternoon=e.solarPosition('2026-06-21','15:00',17.385,78.4867,-330);
+const morning=e.solarPosition('2026-06-21','09:00',17.385,78.4867,330);
+const afternoon=e.solarPosition('2026-06-21','15:00',17.385,78.4867,330);
 assert.ok(morning.azimuth<180&&afternoon.azimuth>180,'morning sun east, afternoon sun west');
 const shade=e.assess({...hyderabad,time:'09:00',obstructionHeight:3,obstructionDistance:4,obstructionAzimuth:morning.azimuth,obstructionWidthDeg:30});
 assert.equal(shade.directionallyAligned,true);
