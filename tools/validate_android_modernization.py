@@ -2,6 +2,7 @@
 """CI guardrails for the Kotlin + Compose Android shell and offline EPC workspace."""
 from pathlib import Path
 from html.parser import HTMLParser
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_GRADLE = (ROOT / "build.gradle").read_text(encoding="utf-8")
@@ -46,4 +47,8 @@ require(not duplicates, "duplicate HTML IDs: " + ", ".join(duplicates))
 for destination in ("dashboard", "site", "location", "layout", "electrical", "dpr"):
     require(destination in audit.foot_destinations, "native bottom navigation target missing from web workspace: " + destination)
 require("STAAD Structural" in html and "cadstudio" in html, "STAAD and CAD workspace navigation must remain available")
+solver = ROOT / "app/src/main/assets/structural_solver.js"
+require(solver.exists() and "GenSolarStructuralSolver" in solver.read_text(encoding="utf-8"), "Inbuilt structural solver asset missing")
+require("staadRunAnalysis" in html and "staadAnalysisSchedule" in html, "Inbuilt structural analysis UI is not wired")
+subprocess.run(["node", str(ROOT / "tools/test_structural_solver.js")], cwd=ROOT, check=True)
 print(f"Android modernization checks passed: Kotlin 2.0.21, Compose Material 3, Java 17, secure local WebView bridge, {len(audit.ids)} unique HTML IDs and all native navigation targets.")
