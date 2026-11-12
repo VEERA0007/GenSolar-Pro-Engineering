@@ -36,7 +36,7 @@ require("jvmTarget = '17'" in APP_GRADLE, "Kotlin bytecode target must be Java 1
 require(KOTLIN.exists(), "Kotlin MainActivity.kt missing")
 require(not (ROOT / "app/src/main/java/com/gensolar/engineering/MainActivity.java").exists(), "Legacy Java Activity must not coexist with Kotlin launcher")
 kotlin = KOTLIN.read_text(encoding="utf-8")
-for marker in ("class MainActivity : ComponentActivity()", "setContent {", "NativeDashboard(", "NativeSurveyScreen(", "NativePvDesignScreen(", "SurveyInput(", "NativeActionCard(", "NativeMetric(", "AndroidView(", "NavigationBar(", "onShowFileChooser", "onGeolocationPermissionsShowPrompt", "GenSolarNative", "MIXED_CONTENT_NEVER_ALLOW", "allowUniversalAccessFromFileURLs = false"):
+for marker in ("class MainActivity : ComponentActivity()", "setContent {", "NativeDashboard(", "NativeSurveyScreen(", "NativePvDesignScreen(", "NativeElectricalScreen(", "SurveyInput(", "NativeActionCard(", "NativeMetric(", "AndroidView(", "NavigationBar(", "onShowFileChooser", "onGeolocationPermissionsShowPrompt", "GenSolarNative", "MIXED_CONTENT_NEVER_ALLOW", "allowUniversalAccessFromFileURLs = false"):
     require(marker in kotlin, "Kotlin native shell missing: " + marker)
 require('android:name=".MainActivity"' in MANIFEST, "Manifest launcher must resolve to Kotlin MainActivity")
 html = HTML.read_text(encoding="utf-8")
@@ -50,6 +50,7 @@ require("STAAD Structural" in html and "cadstudio" in html, "STAAD and CAD works
 require("Your solar EPC command centre" in kotlin and "PROJECT OVERVIEW" in kotlin and "OutlinedTextField(" in kotlin and "FilterChip(" in kotlin and "NativeWorkspaceTile(" in kotlin, "Native Compose dashboard, search, filters or workspace tiles missing")
 require("FIELD SURVEY" in kotlin and "gensolar_native_survey" in kotlin and "saveSurvey" in kotlin and "JSONObject(values)" in kotlin, "Native offline-first survey persistence or project sync missing")
 require("PV ARRAY DESIGN" in kotlin and "gensolar_native_pv_design" in kotlin and "generateLayout" in kotlin and "NativePvDesignScreen(" in kotlin, "Native PV design screen or optimizer integration missing")
+require("ELECTRICAL ENGINEERING" in kotlin and "gensolar_native_electrical" in kotlin and "calcElectrical" in kotlin and "NativeElectricalScreen(" in kotlin, "Native electrical string validation screen or calculator integration missing")
 require("typeof state !== 'undefined' ||" not in kotlin and "typeof state === 'undefined' || !state.layout" in kotlin and "delete state.layout" in kotlin, "PV optimizer bridge must clear stale results and detect the page-global state safely")
 require("BackHandler(enabled = selected != \"dashboard\")" in kotlin, "Android back navigation must return from workspaces to Home")
 require('browser.evaluateJavascript(' in kotlin and 'if (typeof go === \'function\') { go(' in kotlin, "Native workspace navigation must call the shared workspace router")
