@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict');
+require('../app/src/main/assets/shade_engine.js');
+const e=global.GenSolarShadeEngine;
+assert.ok(e,'shade engine global exported');
+const hyderabad={date:'2026-06-21',time:'12:00',latitude:17.385,longitude:78.4867,timezoneOffsetMinutes:-330};
+const noon=e.solarPosition(hyderabad.date,hyderabad.time,hyderabad.latitude,hyderabad.longitude,hyderabad.timezoneOffsetMinutes);
+assert.ok(noon.altitude>80&&noon.altitude<=90,'Hyderabad summer-solstice solar altitude near overhead');
+assert.ok(noon.azimuth>=0&&noon.azimuth<360);
+const morning=e.solarPosition('2026-06-21','09:00',17.385,78.4867,-330);
+const afternoon=e.solarPosition('2026-06-21','15:00',17.385,78.4867,-330);
+assert.ok(morning.azimuth<180&&afternoon.azimuth>180,'morning sun east, afternoon sun west');
+const shade=e.assess({...hyderabad,time:'09:00',obstructionHeight:3,obstructionDistance:4,obstructionAzimuth:morning.azimuth,obstructionWidthDeg:30});
+assert.equal(shade.directionallyAligned,true);
+assert.ok(shade.shadowLengthM>0);
+assert.equal(shade.potentialDirectShade,shade.shadowLengthM>=4);
+const away=e.assess({...hyderabad,time:'09:00',obstructionHeight:3,obstructionDistance:0,obstructionAzimuth:wrap(morning.azimuth+180),obstructionWidthDeg:20});
+assert.equal(away.directionallyAligned,false);
+const profile=e.dayProfile({...hyderabad,obstructionHeight:2,obstructionDistance:5,obstructionAzimuth:180,obstructionWidthDeg:45},60);
+assert.equal(profile.length,24);
+assert.ok(profile.every(x=>Number.isFinite(x.altitude)&&Number.isFinite(x.azimuth)));
+assert.throws(()=>e.solarPosition('2026-06-21','09:00',91,78,-330),/valid range/);
+assert.throws(()=>e.dayProfile(hyderabad,50),/interval/);
+function wrap(v){return ((v%360)+360)%360}
+console.log('Solar shade engine passed: timezone-aware NOAA solar position, directional obstruction screening, day profile and input validation.');
