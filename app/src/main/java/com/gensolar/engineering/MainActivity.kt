@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
         }
         locationPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
             val granted = grants.values.any { it }
-            geoCallback?.invoke(geoOrigin, granted, false)
+            geoCallback?.invoke(geoOrigin.orEmpty(), granted, false)
             geoCallback = null
             geoOrigin = null
         }
