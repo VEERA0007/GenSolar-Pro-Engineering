@@ -1,6 +1,6 @@
 # GenSolar Pro Engineering — Build Progress
 
-Last assessed: 2026-11-11
+Last assessed: 2026-11-12
 
 ## Overall completion estimate: 46%
 
@@ -27,6 +27,8 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 
 ## Current verified build state
 
+- Build #278: success — all configured regression checks, including the PV-layout DXF millimetre-unit and round-trip import test, debug APK verification and artifact upload passed. APK artifact ID `13876255978` (expires 2026-11-25).
+- Build #277: success — full configured checks and APK verification passed.
 - Build #276: success — all configured regression checks, including CAD survey underlay scale/import validation, debug APK verification and artifact upload passed. APK artifact ID `13860348660` (expires 2026-11-25).
 - Build #271: success — survey-image underlay scaling, CAD layer visibility, full configured regression suite, debug APK verification and artifact upload passed. APK artifact ID `13859008893` (expires 2026-11-25).
 
@@ -44,6 +46,8 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 Object snapping is verified: nearby drawing points snap to visible geometry vertices/endpoints, with hidden-layer filtering and an off switch. Survey image underlays are aligned in drawing metres and rendered beneath editable CAD geometry; they remain visual references and do not create surveyed coordinates automatically. CAD JSON import now validates underlay image data types, payload size, dimensions, origin, calibrated width and opacity before applying it. Orthogonal drawing is implemented for line, dimension and polyline segments; regression tests and APK build passed. CAD now supports an image survey underlay with user-controlled scale width, origin, opacity, visibility and local project persistence.
 
 PV layout DXF export now declares `$INSUNITS=4` (millimetres), matching the exporter's metre-to-millimetre coordinate conversion. A new CI regression test round-trips exported roof zones, PV modules, obstacles and access corridors through the DXF parser and checks unit metadata and geometry scale. Builds #277 and #278 were triggered while validating this change; #278 includes the new round-trip test.
+
+The Android host is being migrated from a Java Activity to Kotlin 2.0.21 + Jetpack Compose / Material 3 while retaining the existing offline EPC workspace in WebView. Native navigation now targets Home, Survey, PV Design, CAD / 3D and a More menu for Map, Electrical, STAAD, BOM/BOQ, Procurement, Construction and DPR. Python CI guardrails validate the Kotlin/Compose setup, navigation wiring, WebView security configuration and HTML IDs. The new Kotlin/Compose APK workflow is currently under validation; do not treat this migration as complete until its build and APK artifact pass.
 
 A green CI build verifies the checks configured in GitHub Actions and APK packaging. It does not mean the full EPC application is complete or validated on a physical Android device.
 
