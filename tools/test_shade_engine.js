@@ -2,7 +2,7 @@ const assert=require('node:assert/strict');
 require('../app/src/main/assets/shade_engine.js');
 const e=global.GenSolarShadeEngine;
 assert.ok(e,'shade engine global exported');
-const hyderabad={date:'2026-06-21',time:'12:00',latitude:17.385,longitude:78.4867,timezoneOffsetMinutes:-330};
+const hyderabad={date:'2026-06-21',time:'12:00',latitude:17.385,longitude:78.4867,timezoneOffsetMinutes:330};
 const noon=e.solarPosition(hyderabad.date,hyderabad.time,hyderabad.latitude,hyderabad.longitude,hyderabad.timezoneOffsetMinutes);
 assert.ok(noon.altitude>80&&noon.altitude<=90,'Hyderabad summer-solstice solar altitude near overhead');
 assert.ok(noon.azimuth>=0&&noon.azimuth<360);
