@@ -1,6 +1,6 @@
 # GenSolar Pro Engineering — Build Progress
 
-Last assessed: 2026-11-12 (after Build #295)
+Last assessed: 2026-11-12 (solar-position and directional-shading implementation; Build #304 pending)
 
 ## Overall completion estimate: 46%
 
@@ -14,7 +14,7 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 | Module/equipment catalogue | 60% | Sourced module records and electrical parameters; complete inverter, battery, protection and vendor catalogue coverage remains |
 | Automatic/manual PV layout | 65% | Preliminary polygon-based placement, setbacks, obstacles, orientation and module schedules; multi-zone optimization, pitch/tilt and comprehensive constraints remain |
 | Solar resource and yield | 35% | Resource inputs, loss/yield screens and monthly forecast foundations; validated sourced weather/resource integration and full yield model remain |
-| Shade engine | 15% | Simplified obstacle/shadow screen; sun-path time series, 3D ray tracing and module/string mismatch modelling remain |
+| Shade engine | 22% | NOAA-style timezone-aware solar position, configurable day-profile intervals and directional obstruction / shadow-distance screening with regression tests; 3D ray tracing, horizon profiles, diffuse shading and module/string mismatch modelling remain |
 | CAD and drawings | 49% | Editable CAD selection/move, polygon/line hit testing, duplicate/rotate, object snapping, orthogonal drawing, unit-aware DXF import, survey-image underlay with scale/origin/opacity controls, persistent visibility and conceptual 3D roof/wall/obstacle/PV rendering; PDF/DWG vector conversion, advanced editing and fabrication drawing suite remain |
 | 3D engineering | 30% | Conceptual 3D roof/building and PV visualization with independent roof, wall, obstacle and PV layer visibility; multi-roof parametric model, structural components and synchronized drawing sections remain |
 | Structural and wind | 55% | IS 875-oriented wind inputs/screens, portal frame/STAAD deck, steel take-off and preliminary RCC/foundation/detailing checks; complete code verification and engineer-reviewed release remain |
@@ -23,7 +23,16 @@ This is a feature-scope estimate, not an APK build percentage or a certification
 | Documents | 55% | DPR, schedules, PDF/print and backup foundations; revision-controlled drawing register, signatures, acceptance and cross-workspace snapshot assurance remain |
 | Quality and verification | 55% | CI syntax/HTML checks, many Node regression tests and APK build/artifact verification; instrumented Android tests, broader end-to-end tests and performance/offline verification remain |
 
-**Calculation:** arithmetic mean of the 14 workspace scores = 45.64%, reported as **46%**.
+**Calculation:** arithmetic mean of the 14 workspace scores = 46.14%, reported as **46%**.
+
+
+## Latest implementation in progress (2026-11-12)
+
+- Added `shade_engine.js`: timezone-aware solar altitude / azimuth calculation, solar-time conversion, obstruction bearing alignment, shadow-length screening and configurable 15 / 30 / 60-minute day profiles.
+- Replaced the earlier shade-screen calculation with the shared engine. The date defaults to the device's local date; the profile reports daylight samples, peak altitude and potential obstruction-alignment samples.
+- Added Node regression coverage for Hyderabad summer-solstice sun position, east/west azimuth progression, equivalent UTC / India-local timestamps, directional obstruction screening, profile intervals and invalid inputs.
+- The shade engine remains a geometric screening tool. It is not a 3D ray tracer, PVsyst replacement or module-level mismatch / energy-loss model.
+- **Build #304 is running** for commit `854b77e6229ba01db521abd24e2b4be379fbae5b`. Do not treat the new APK as verified until the workflow and artifact checks complete.
 
 ## Current verified build state
 
