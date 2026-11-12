@@ -728,8 +728,9 @@ private fun NativePvDesignScreen(
                   });
                   var button = document.getElementById('generateLayout');
                   if (!button) return JSON.stringify({error:'Layout optimizer button is unavailable.'});
+                  if (typeof state !== 'undefined') delete state.layout;
                   button.click();
-                  if (!window.state || !state.layout) return JSON.stringify({error:'No layout was generated. Check the site survey, roof dimensions and obstacle positions.'});
+                  if (typeof state === 'undefined' || !state.layout) return JSON.stringify({error:'No layout was generated. Check the site survey, roof dimensions and obstacle positions.'});
                   return JSON.stringify({
                     count:state.layout.count, kwp:state.layout.kwp,
                     pitch:state.layout.pitch, orientation:state.layout.orientation,
