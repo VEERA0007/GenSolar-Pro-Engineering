@@ -240,6 +240,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
     var advancedLayout by remember { mutableStateOf(false) }
     var advancedElectrical by remember { mutableStateOf(false) }
     var advancedCad by remember { mutableStateOf(false) }
+    var advancedShade by remember { mutableStateOf(false) }
     BackHandler(enabled = selected != "dashboard") {
         if (selected == "site" && advancedSite) {
             advancedSite = false
@@ -249,12 +250,15 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
             advancedElectrical = false
         } else if (selected == "cadstudio" && advancedCad) {
             advancedCad = false
+        } else if (selected == "shade" && advancedShade) {
+            advancedShade = false
         } else {
             selected = "dashboard"
             advancedSite = false
             advancedLayout = false
             advancedElectrical = false
             advancedCad = false
+            advancedShade = false
             onNavigate("dashboard")
         }
     }
@@ -319,6 +323,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                                         advancedLayout = false
                                         advancedElectrical = false
                                         advancedCad = false
+                                        advancedShade = false
                                         onNavigate(key)
                                     }
                                 )
@@ -342,6 +347,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                                 advancedLayout = false
                                 advancedElectrical = false
                                 advancedCad = false
+                                advancedShade = false
                                 onNavigate(destination.key)
                             },
                             icon = { Text(destination.symbol, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
@@ -368,9 +374,12 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                         advancedLayout = false
                         advancedElectrical = false
                         advancedCad = false
+                        advancedShade = false
                         onNavigate(destination)
                     }
                 )
+            } else if (selected == "shade" && !advancedShade) {
+                NativeShadeScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedShade = true }
             } else if (selected == "cadstudio" && !advancedCad) {
                 NativeCadScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedCad = true }
             } else if (selected == "electrical" && !advancedElectrical) {
@@ -882,6 +891,123 @@ private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifi
     }
 }
 
+
+@Composable
+private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, onOpenAdvanced: () -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("gensolar_native_shade", android.content.Context.MODE_PRIVATE) }
+    var date by remember { mutableStateOf(prefs.getString("date", java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())) ?: "") }
+    var time by remember { mutableStateOf(prefs.getString("time", "09:00") ?: "09:00") }
+    var latitude by remember { mutableStateOf(prefs.getString("lat", "") ?: "") }
+    var longitude by remember { mutableStateOf(prefs.getString("lon", "") ?: "") }
+    var height by remember { mutableStateOf(prefs.getString("height", "2") ?: "2") }
+    var distance by remember { mutableStateOf(prefs.getString("distance", "5") ?: "5") }
+    var bearing by remember { mutableStateOf(prefs.getString("bearing", "180") ?: "180") }
+    var width by remember { mutableStateOf(prefs.getString("width", "45") ?: "45") }
+    var output by remember { mutableStateOf("Enter the project coordinates and obstruction geometry to calculate solar position and shadow reach.") }
+    var status by remember { mutableStateOf("NO SIMULATION RUN") }
+    var profile by remember { mutableStateOf("") }
+    fun persist() {
+        prefs.edit().putString("date", date).putString("time", time).putString("lat", latitude)
+            .putString("lon", longitude).putString("height", height).putString("distance", distance)
+            .putString("bearing", bearing).putString("width", width).apply()
+    }
+    fun runSimulation(dayProfile: Boolean) {
+        val lat = latitude.toDoubleOrNull()
+        val lon = longitude.toDoubleOrNull()
+        val h = height.toDoubleOrNull()
+        val d = distance.toDoubleOrNull()
+        val az = bearing.toDoubleOrNull()
+        val w = width.toDoubleOrNull()
+        if (lat == null || lon == null || h == null || d == null || az == null || w == null ||
+            lat !in -90.0..90.0 || lon !in -180.0..180.0 || h < 0 || d < 0 || az !in 0.0..360.0 || w !in 0.0..360.0 ||
+            !date.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) || !time.matches(Regex("\\d{2}:\\d{2}"))) {
+            status = "CHECK INPUTS"
+            output = "Enter a valid date, local time, latitude (−90 to 90), longitude (−180 to 180), and non-negative obstruction dimensions."
+            return
+        }
+        persist()
+        val zoneOffset = java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 60000
+        val input = JSONObject().put("date", date).put("time", time).put("latitude", lat).put("longitude", lon)
+            .put("timezoneOffsetMinutes", zoneOffset).put("obstructionHeight", h).put("obstructionDistance", d)
+            .put("obstructionAzimuth", az).put("obstructionWidthDeg", w)
+        val expression = if (dayProfile) {
+            "JSON.stringify((function(){var a=GenSolarShadeEngine.dayProfile($input,30),s=a.filter(function(x){return x.altitude>0}),m=s.reduce(function(v,x){return Math.max(v,x.altitude)},0),n=a.filter(function(x){return x.potentialDirectShade}).length;return {samples:a.length,daylightSamples:s.length,maxAltitude:m,shadeSamples:n}})())"
+        } else {
+            "JSON.stringify(GenSolarShadeEngine.assess($input))"
+        }
+        status = "CALCULATING"
+        browser.evaluateJavascript("(function(){try{return $expression}catch(e){return JSON.stringify({error:e.message})}})()") { raw ->
+            try {
+                val jsonText = org.json.JSONTokener(raw ?: "null").nextValue() as? String ?: "{}"
+                val result = JSONObject(jsonText)
+                if (result.has("error")) {
+                    status = "CALCULATION ERROR"
+                    output = result.optString("error")
+                } else if (dayProfile) {
+                    status = "DAY PROFILE COMPLETE"
+                    profile = "30-minute profile · ${result.optInt("samples")} samples · ${result.optInt("daylightSamples")} daylight samples · ${result.optInt("shadeSamples")} potential shade intervals"
+                    output = "Maximum solar altitude: ${"%.1f".format(java.util.Locale.US, result.optDouble("maxAltitude"))}°"
+                } else {
+                    val altitude = result.optDouble("altitude")
+                    val shadow = result.optDouble("shadowLengthM")
+                    val shade = result.optBoolean("potentialDirectShade")
+                    status = if (altitude <= 0.01) "SUN BELOW HORIZON" else if (shade) "POTENTIAL DIRECT SHADE" else "NO DIRECT SHADE REACH"
+                    output = "Solar altitude: ${"%.1f".format(java.util.Locale.US, altitude)}°\nSolar azimuth: ${"%.1f".format(java.util.Locale.US, result.optDouble("azimuth"))}°\nShadow length: ${if (shadow.isFinite()) "%.2f".format(java.util.Locale.US, shadow) + " m" else "No direct sun"}\nBearing difference: ${"%.1f".format(java.util.Locale.US, result.optDouble("angularDifferenceDeg"))}°\nDirection aligned: ${result.optBoolean("directionallyAligned")}"
+                    profile = ""
+                }
+            } catch (_: Exception) {
+                status = "ENGINE NOT READY"
+                output = "Open the engineering workspace once, then retry the shade calculation."
+            }
+        }
+    }
+    Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("SOLAR RESOURCE & SHADE", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("Model the sun. Screen obstructions.", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Timezone-aware solar position, obstruction bearing and geometric shadow-length screening using the integrated shade engine.", color = Color(0xFFD7E8E1), fontSize = 12.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("01  SITE & TIME", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                SurveyInput("Date (YYYY-MM-DD)", date, { date = it }, Modifier.fillMaxWidth())
+                SurveyInput("Local time (HH:MM)", time, { time = it }, Modifier.fillMaxWidth())
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SurveyInput("Latitude (°)", latitude, { latitude = it }, Modifier.weight(1f))
+                    SurveyInput("Longitude (°)", longitude, { longitude = it }, Modifier.weight(1f))
+                }
+                Text("Use surveyed GPS coordinates for the project. Coordinates are not guessed or automatically substituted.", color = Color(0xFF667A75), fontSize = 10.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("02  OBSTRUCTION GEOMETRY", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SurveyInput("Height (m)", height, { height = it }, Modifier.weight(1f))
+                    SurveyInput("Distance (m)", distance, { distance = it }, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SurveyInput("Bearing / azimuth (°)", bearing, { bearing = it }, Modifier.weight(1f))
+                    SurveyInput("Angular width (°)", width, { width = it }, Modifier.weight(1f))
+                }
+                Button(onClick = { runSimulation(false) }, modifier = Modifier.fillMaxWidth()) { Text("Run solar & shadow simulation") }
+                Button(onClick = { runSimulation(true) }, modifier = Modifier.fillMaxWidth()) { Text("Generate 30-minute day profile") }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(status, color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                Text(output, color = Color(0xFF173B32), fontSize = 14.sp, lineHeight = 21.sp)
+                if (profile.isNotBlank()) Text(profile, color = Color(0xFF667A75), fontSize = 11.sp)
+            }
+        }
+        Button(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) { Text("Open detailed shade workspace & visualization") }
+        Text("Preliminary geometric screening only. It is not a bankable PVsyst-grade shade-loss simulation; validate obstruction geometry, horizon profile, diffuse shading and module mismatch separately.", color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp)
+    }
+}
 
 @Composable
 private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onOpenAdvanced: () -> Unit) {
