@@ -47,7 +47,7 @@ require(not duplicates, "duplicate HTML IDs: " + ", ".join(duplicates))
 for destination in ("dashboard", "site", "location", "layout", "electrical", "dpr"):
     require(destination in audit.foot_destinations, "native bottom navigation target missing from web workspace: " + destination)
 require("STAAD Structural" in html and "cadstudio" in html, "STAAD and CAD workspace navigation must remain available")
-require("Design smarter. Deliver with confidence." in kotlin and "PROJECT OVERVIEW" in kotlin, "Native dashboard experience missing")
+require("Your solar EPC command centre" in kotlin and "PROJECT OVERVIEW" in kotlin and "OutlinedTextField(" in kotlin and "FilterChip(" in kotlin and "NativeWorkspaceTile(" in kotlin, "Native Compose dashboard, search, filters or workspace tiles missing")
 require("BackHandler(enabled = selected != \"dashboard\")" in kotlin, "Android back navigation must return from workspaces to Home")
 require('browser.evaluateJavascript(' in kotlin and 'if (typeof go === \'function\') { go(' in kotlin, "Native workspace navigation must call the shared workspace router")
 for destination in ("location", "bom", "procurement", "construction", "dpr"):
