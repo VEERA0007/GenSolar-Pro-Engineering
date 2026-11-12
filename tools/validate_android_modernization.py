@@ -48,6 +48,11 @@ for destination in ("dashboard", "site", "location", "layout", "electrical", "dp
     require(destination in audit.foot_destinations, "native bottom navigation target missing from web workspace: " + destination)
 require("STAAD Structural" in html and "cadstudio" in html, "STAAD and CAD workspace navigation must remain available")
 require("Design smarter. Deliver with confidence." in kotlin and "PROJECT OVERVIEW" in kotlin, "Native dashboard experience missing")
+require("BackHandler(enabled = selected != \"dashboard\")" in kotlin, "Android back navigation must return from workspaces to Home")
+require('browser.evaluateJavascript(' in kotlin and 'if (typeof go === \'function\') { go(' in kotlin, "Native workspace navigation must call the shared workspace router")
+for destination in ("location", "bom", "procurement", "construction", "dpr"):
+    require(f'"{destination}"' in kotlin, "native dashboard or More menu destination missing: " + destination)
+
 solver = ROOT / "app/src/main/assets/structural_solver.js"
 require(solver.exists() and "GenSolarStructuralSolver" in solver.read_text(encoding="utf-8"), "Inbuilt structural solver asset missing")
 require("staadRunAnalysis" in html and "staadAnalysisSchedule" in html, "Inbuilt structural analysis UI is not wired")
