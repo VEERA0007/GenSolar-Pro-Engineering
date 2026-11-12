@@ -239,6 +239,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
     var advancedSite by remember { mutableStateOf(false) }
     var advancedLayout by remember { mutableStateOf(false) }
     var advancedElectrical by remember { mutableStateOf(false) }
+    var advancedCad by remember { mutableStateOf(false) }
     BackHandler(enabled = selected != "dashboard") {
         if (selected == "site" && advancedSite) {
             advancedSite = false
@@ -246,11 +247,14 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
             advancedLayout = false
         } else if (selected == "electrical" && advancedElectrical) {
             advancedElectrical = false
+        } else if (selected == "cadstudio" && advancedCad) {
+            advancedCad = false
         } else {
             selected = "dashboard"
             advancedSite = false
             advancedLayout = false
             advancedElectrical = false
+            advancedCad = false
             onNavigate("dashboard")
         }
     }
@@ -314,6 +318,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                                         advancedSite = false
                                         advancedLayout = false
                                         advancedElectrical = false
+                                        advancedCad = false
                                         onNavigate(key)
                                     }
                                 )
@@ -336,6 +341,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                                 advancedSite = false
                                 advancedLayout = false
                                 advancedElectrical = false
+                                advancedCad = false
                                 onNavigate(destination.key)
                             },
                             icon = { Text(destination.symbol, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
@@ -361,9 +367,12 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                         advancedSite = false
                         advancedLayout = false
                         advancedElectrical = false
+                        advancedCad = false
                         onNavigate(destination)
                     }
                 )
+            } else if (selected == "cadstudio" && !advancedCad) {
+                NativeCadScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedCad = true }
             } else if (selected == "electrical" && !advancedElectrical) {
                 NativeElectricalScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedElectrical = true }
             } else if (selected == "layout" && !advancedLayout) {
@@ -869,6 +878,95 @@ private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifi
         }
         androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) { Text("Open MPPT allocation, battery, cable & protection tools") }
         Text("Preliminary screening only. Verify inverter datasheets, MPPT operating and short-circuit limits, protection coordination, cable sizing and applicable electrical standards.", color = Color(0xFF667A75), fontSize = 10.sp)
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+
+@Composable
+private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onOpenAdvanced: () -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("gensolar_native_cad", android.content.Context.MODE_PRIVATE) }
+    var roofLength by remember { mutableStateOf(prefs.getString("length", "30") ?: "30") }
+    var roofWidth by remember { mutableStateOf(prefs.getString("width", "20") ?: "20") }
+    var wallHeight by remember { mutableStateOf(prefs.getString("height", "6") ?: "6") }
+    var roofThickness by remember { mutableStateOf(prefs.getString("thickness", "0.2") ?: "0.2") }
+    var result by remember { mutableStateOf("No parametric CAD model created in this session.") }
+    var status by remember { mutableStateOf("Set the building geometry, then create the model in the integrated CAD engine.") }
+    val area = (roofLength.toDoubleOrNull() ?: 0.0) * (roofWidth.toDoubleOrNull() ?: 0.0)
+    Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("CAD & 3D ENGINEERING", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Text("Build the rooftop model.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Create an editable parametric building footprint and 3D projection using the integrated CAD model. Geometry is stored in the shared project workspace.", color = Color(0xFFD7E8E1), fontSize = 12.sp, lineHeight = 18.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("01  BUILDING PARAMETERS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Roof length (m)", roofLength, { roofLength = it }, Modifier.weight(1f))
+                    SurveyInput("Roof width (m)", roofWidth, { roofWidth = it }, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Wall height (m)", wallHeight, { wallHeight = it }, Modifier.weight(1f))
+                    SurveyInput("Roof thickness (m)", roofThickness, { roofThickness = it }, Modifier.weight(1f))
+                }
+                Surface(shape = RoundedCornerShape(14.dp), color = Color(0xFFE8F3EE)) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text("ROOF FOOTPRINT", color = Color(0xFF60756E), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text(String.format("%.2f m²", area), color = BrandGreen, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                        Text(String.format("%.1f sq.ft", area * 10.7639), color = AccentGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        Button(onClick = {
+            val values = linkedMapOf("cadRoofLength" to roofLength, "cadRoofWidth" to roofWidth, "cadWallHeight" to wallHeight, "cadRoofThickness" to roofThickness)
+            prefs.edit().putString("length", roofLength).putString("width", roofWidth).putString("height", wallHeight).putString("thickness", roofThickness).apply()
+            val payload = JSONObject(values).toString()
+            val script = """
+                (function(){
+                  var data = $payload, keys = Object.keys(data);
+                  for (var i=0;i<keys.length;i++) {
+                    var field=document.getElementById(keys[i]);
+                    if(!field) return JSON.stringify({error:'CAD parameter '+keys[i]+' is unavailable.'});
+                    field.value=data[keys[i]];
+                    field.dispatchEvent(new Event('input',{bubbles:true}));
+                    field.dispatchEvent(new Event('change',{bubbles:true}));
+                  }
+                  var button=document.getElementById('cadCreateBuilding');
+                  if(!button) return JSON.stringify({error:'Parametric building action is unavailable.'});
+                  button.click();
+                  if(typeof model==='undefined'||!model.building||!model.entities) return JSON.stringify({error:'CAD model was not created.'});
+                  var roof=model.entities.filter(function(e){return e.layer==='ROOF'&&e.type==='rect'}).slice(-1)[0];
+                  return JSON.stringify({entities:model.entities.length,height:model.building.height,thickness:model.building.thickness,width:roof?roof.w:0,length:roof?roof.h:0});
+                })()
+            """.trimIndent()
+            browser.evaluateJavascript(script) { raw ->
+                try {
+                    val response = org.json.JSONTokener(raw ?: "{}").nextValue() as? String ?: "{}"
+                    val json = JSONObject(response)
+                    if (json.has("error")) status = json.optString("error")
+                    else {
+                        result = String.format("%.2f × %.2f m · %.2f m wall height", json.optDouble("width"), json.optDouble("length"), json.optDouble("height"))
+                        status = "Parametric roof and wall entities created in the shared CAD model (" + json.optInt("entities") + " total entities). Open detailed CAD for editing, 3D view and exports."
+                    }
+                } catch (_: Exception) { status = "CAD response could not be read. Open the detailed CAD workspace to inspect the model." }
+            }
+        }, modifier = Modifier.fillMaxWidth()) { Text("Create parametric building model") }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("MODEL STATUS", color = AccentGreen, fontWeight = FontWeight.ExtraBold)
+                Text(result, color = BrandGreen, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text(status, color = Color(0xFF60756E), fontSize = 11.sp, lineHeight = 16.sp)
+            }
+        }
+        androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) { Text("Open CAD editor, 2D tools, 3D preview & DXF exports") }
+        Text("Concept geometry only. Verify dimensions, levels, structural details and drawing units before construction or fabrication.", color = Color(0xFF667A75), fontSize = 10.sp)
         Spacer(Modifier.height(8.dp))
     }
 }
