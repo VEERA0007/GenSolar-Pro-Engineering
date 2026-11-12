@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
@@ -43,6 +44,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -350,46 +353,181 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
 
 @Composable
 private fun NativeDashboard(modifier: Modifier = Modifier, onNavigate: (String) -> Unit) {
+    var search by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("All") }
+    val workspaces = listOf(
+        Triple("Site survey & GPS", "Roof measurements, site photos and coordinates.", "site"),
+        Triple("PV design & layout", "Module placement, setbacks and array sizing.", "layout"),
+        Triple("CAD / 2D / 3D studio", "Drawing tools, DXF exchange and 3D model.", "cadstudio"),
+        Triple("Solar shade analysis", "Sun path, obstruction direction and shade profile.", "shade"),
+        Triple("Electrical engineering", "Strings, MPPT, cables, batteries and SLD.", "electrical"),
+        Triple("STAAD structural", "Portal frames, wind basis and member checks.", "staad"),
+        Triple("GPS & solar resource", "Location capture, irradiance and yield inputs.", "location"),
+        Triple("BOM / BOQ", "Material take-off, quantities and cost schedule.", "bom"),
+        Triple("Procurement", "Vendor quotations and purchase tracking.", "procurement"),
+        Triple("Construction & QA", "Site progress, inspections and commissioning.", "construction"),
+        Triple("DPR & handover", "Reports, drawing register and handover pack.", "dpr")
+    )
+    val filtered = workspaces.filter { item ->
+        val matchesSearch = search.isBlank() || (item.first + " " + item.second).contains(search, ignoreCase = true)
+        val group = when (item.third) {
+            "site", "location" -> "Survey"
+            "layout", "cadstudio", "shade" -> "Design"
+            "electrical", "staad" -> "Engineering"
+            else -> "Delivery"
+        }
+        matchesSearch && (category == "All" || category == group)
+    }
     Column(
         modifier = modifier
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
+            shape = RoundedCornerShape(26.dp),
             colors = CardDefaults.cardColors(containerColor = BrandGreen)
         ) {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("SOLAR EPC · PROJECT WORKSPACE", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
-                Text("Design smarter. Deliver with confidence.", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 29.sp)
-                Text("One workspace for site survey, PV engineering, structural checks, CAD, procurement and handover.", color = Color(0xFFD8E8E1), fontSize = 13.sp)
-                Button(onClick = { onNavigate("site") }) { Text("Start site survey  →") }
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(shape = CircleShape, color = Color(0xFFF3B51B), modifier = Modifier.size(34.dp)) {
+                        androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                            Text("GS", color = BrandGreen, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                        }
+                    }
+                    Text("GENSOLAR PRO  /  EPC STUDIO", color = Color(0xFFE2F0E9), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                    Spacer(Modifier.weight(1f))
+                    Surface(shape = RoundedCornerShape(30.dp), color = Color(0xFF24584D)) {
+                        Text("OFFLINE FIRST", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = Color(0xFFBDE8D3), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Text("Your solar EPC command centre", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 30.sp)
+                Text("Survey, design, engineer and deliver projects from one connected workspace.", color = Color(0xFFD7E8E1), fontSize = 13.sp, lineHeight = 19.sp)
+                Button(onClick = { onNavigate("site") }) { Text("＋  Create / open project") }
             }
         }
-        Text("PROJECT OVERVIEW", color = Color(0xFF60756E), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            NativeMetric("01", "Site survey", Modifier.weight(1f))
-            NativeMetric("02", "PV design", Modifier.weight(1f))
+
+        Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Text("PROJECT OVERVIEW", color = Color(0xFF60756E), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                NativeMetric("01", "Survey", Modifier.weight(1f))
+                NativeMetric("02", "PV design", Modifier.weight(1f))
+                NativeMetric("03", "Engineering", Modifier.weight(1f))
+                NativeMetric("04", "DPR / BOQ", Modifier.weight(1f))
+            }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            NativeMetric("03", "Engineering", Modifier.weight(1f))
-            NativeMetric("04", "DPR / BOQ", Modifier.weight(1f))
+
+        NativeActionCard(
+            "Continue with site survey",
+            "Start with customer details, location, roof zones and survey evidence.",
+            "Open survey",
+            "site",
+            onNavigate
+        )
+
+        Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Text("ENGINEERING WORKSPACES", color = Color(0xFF60756E), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+            OutlinedTextField(
+                value = search,
+                onValueChange = { search = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(15.dp),
+                placeholder = { Text("Search tools, drawings or reports…", fontSize = 13.sp) },
+                leadingIcon = { Text("⌕", fontSize = 22.sp, color = AccentGreen) }
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("All", "Survey", "Design", "Engineering", "Delivery").forEach { item ->
+                    FilterChip(
+                        selected = category == item,
+                        onClick = { category = item },
+                        label = { Text(item, fontSize = 12.sp) }
+                    )
+                }
+            }
+            if (filtered.isEmpty()) {
+                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
+                    Text("No workspace matches this search.", modifier = Modifier.padding(18.dp), color = Color(0xFF60756E), fontSize = 13.sp)
+                }
+            } else {
+                filtered.chunked(2).forEach { pair ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        pair.forEach { item ->
+                            NativeWorkspaceTile(item.first, item.second, item.third, onNavigate, Modifier.weight(1f))
+                        }
+                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
         }
-        Text("ENGINEERING WORKSPACES", color = Color(0xFF60756E), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-        NativeActionCard("Site survey & GPS", "Capture project details, roof dimensions, site photos and location.", "Open survey", "site", onNavigate)
-        NativeActionCard("PV design & auto layout", "Size the PV array, place modules and export layout schedules.", "Open PV design", "layout", onNavigate)
-        NativeActionCard("CAD / 2D / 3D studio", "Import drawings, build conceptual 3D and export DXF outputs.", "Open CAD studio", "cadstudio", onNavigate)
-        NativeActionCard("Electrical engineering", "Check strings, inverter compatibility, batteries, cables and SLD.", "Open electrical", "electrical", onNavigate)
-        NativeActionCard("Structural analysis", "Build portal frames, review member actions and export STAAD models.", "Open structural", "staad", onNavigate)
-        NativeActionCard("GPS & solar resource", "Capture site coordinates and review solar-resource inputs.", "Open map", "location", onNavigate)
-        NativeActionCard("BOM / BOQ", "Review material quantities, fabrication schedules and cost records.", "Open BOM", "bom", onNavigate)
-        NativeActionCard("Procurement", "Compare vendor quotations and manage purchase records.", "Open procurement", "procurement", onNavigate)
-        NativeActionCard("Construction & commissioning", "Track execution activities, inspections and handover readiness.", "Open construction", "construction", onNavigate)
-        NativeActionCard("DPR & document control", "Generate project reports, backup files and handover documents.", "Open DPR", "dpr", onNavigate)
-        Text("Engineering outputs are preliminary until checked against approved equipment datasheets, applicable standards, site conditions and signed calculations.", color = Color(0xFF60756E), fontSize = 11.sp)
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F1ED))
+        ) {
+            Text(
+                "Engineering outputs remain preliminary until checked against approved datasheets, applicable standards, verified site conditions and qualified engineer sign-off.",
+                modifier = Modifier.padding(14.dp),
+                color = Color(0xFF38574D),
+                fontSize = 11.sp,
+                lineHeight = 16.sp
+            )
+        }
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun NativeWorkspaceTile(
+    title: String,
+    description: String,
+    destination: String,
+    onNavigate: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val symbol = when (destination) {
+        "site", "location" -> "⌖"
+        "layout" -> "▦"
+        "cadstudio" -> "⌗"
+        "shade" -> "☼"
+        "electrical" -> "ϟ"
+        "staad" -> "⌂"
+        "bom" -> "▤"
+        "procurement" -> "⇄"
+        "construction" -> "✓"
+        else -> "▧"
+    }
+    Card(
+        modifier = modifier.height(166.dp),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(13.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFE8F3EE), modifier = Modifier.size(36.dp)) {
+                androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                    Text(symbol, color = AccentGreen, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Text(title, color = Color(0xFF142B28), fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 2)
+            Text(description, color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 14.sp, maxLines = 2)
+            Spacer(Modifier.weight(1f))
+            androidx.compose.material3.TextButton(
+                onClick = { onNavigate(destination) },
+                modifier = Modifier.height(38.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp, vertical = 0.dp)
+            ) {
+                Text("Open workspace  →", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
