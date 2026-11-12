@@ -237,12 +237,16 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
     var selected by remember { mutableStateOf("dashboard") }
     var moreExpanded by remember { mutableStateOf(false) }
     var advancedSite by remember { mutableStateOf(false) }
+    var advancedLayout by remember { mutableStateOf(false) }
     BackHandler(enabled = selected != "dashboard") {
         if (selected == "site" && advancedSite) {
             advancedSite = false
+        } else if (selected == "layout" && advancedLayout) {
+            advancedLayout = false
         } else {
             selected = "dashboard"
             advancedSite = false
+            advancedLayout = false
             onNavigate("dashboard")
         }
     }
@@ -304,6 +308,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                                         moreExpanded = false
                                         selected = key
                                         advancedSite = false
+                                        advancedLayout = false
                                         onNavigate(key)
                                     }
                                 )
@@ -324,6 +329,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                             onClick = {
                                 selected = destination.key
                                 advancedSite = false
+                                advancedLayout = false
                                 onNavigate(destination.key)
                             },
                             icon = { Text(destination.symbol, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
@@ -347,8 +353,15 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                     onNavigate = { destination ->
                         selected = destination
                         advancedSite = false
+                        advancedLayout = false
                         onNavigate(destination)
                     }
+                )
+            } else if (selected == "layout" && !advancedLayout) {
+                NativePvDesignScreen(
+                    browser = browser,
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    onOpenAdvanced = { advancedLayout = true }
                 )
             } else if (selected == "site" && !advancedSite) {
                 NativeSurveyScreen(
@@ -598,6 +611,165 @@ private fun NativeActionCard(
                 Text(action, color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
+    }
+}
+
+
+@Composable
+private fun NativePvDesignScreen(
+    browser: WebView,
+    modifier: Modifier = Modifier,
+    onOpenAdvanced: () -> Unit
+) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("gensolar_native_pv_design", android.content.Context.MODE_PRIVATE) }
+    var capacity by remember { mutableStateOf(prefs.getString("capacity", "100") ?: "100") }
+    var moduleWp by remember { mutableStateOf(prefs.getString("wp", "550") ?: "550") }
+    var moduleLength by remember { mutableStateOf(prefs.getString("moduleLength", "2278") ?: "2278") }
+    var moduleWidth by remember { mutableStateOf(prefs.getString("moduleWidth", "1134") ?: "1134") }
+    var orientation by remember { mutableStateOf(prefs.getString("orientation", "auto") ?: "auto") }
+    var moduleGap by remember { mutableStateOf(prefs.getString("gap", "20") ?: "20") }
+    var modulesPerRow by remember { mutableStateOf(prefs.getString("perRow", "10") ?: "10") }
+    var sunAltitude by remember { mutableStateOf(prefs.getString("sunAlt", "30") ?: "30") }
+    var areaFactor by remember { mutableStateOf(prefs.getString("areaFactor", "1.15") ?: "1.15") }
+    var obstacleClearance by remember { mutableStateOf(prefs.getString("obstacleClearance", "0.5") ?: "0.5") }
+    var circles by remember { mutableStateOf(prefs.getString("obstacleCircles", "") ?: "") }
+    var rectangles by remember { mutableStateOf(prefs.getString("obstacleRectangles", "") ?: "") }
+    var corridorEdge by remember { mutableStateOf(prefs.getString("accessCorridorEdge", "left") ?: "left") }
+    var corridorWidth by remember { mutableStateOf(prefs.getString("accessCorridorWidth", "0.6") ?: "0.6") }
+    var result by remember { mutableStateOf("No PV layout generated in this session.") }
+    var status by remember { mutableStateOf("Inputs are saved locally when you generate a layout.") }
+    val targetModules = ((capacity.toDoubleOrNull() ?: 0.0) * 1000.0 / (moduleWp.toDoubleOrNull() ?: 1.0)).let {
+        if (it.isFinite() && it > 0) kotlin.math.ceil(it).toInt() else 0
+    }
+    val moduleArea = ((moduleLength.toDoubleOrNull() ?: 0.0) / 1000.0) * ((moduleWidth.toDoubleOrNull() ?: 0.0) / 1000.0)
+
+    Column(modifier = modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("PV ARRAY DESIGN", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
+                Text("Size the array. Fit the roof.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Configure modules, capacity and access constraints, then run the existing roof-fit optimizer and DXF / CSV workflow.", color = Color(0xFFD7E8E1), fontSize = 12.sp, lineHeight = 18.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("01  ARRAY CAPACITY", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Target DC capacity (kWp)", capacity, { capacity = it }, Modifier.weight(1f))
+                    SurveyInput("Module rating (Wp)", moduleWp, { moduleWp = it }, Modifier.weight(1f))
+                }
+                Surface(shape = RoundedCornerShape(14.dp), color = Color(0xFFE8F3EE)) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text("TARGET MODULE COUNT", color = Color(0xFF60756E), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Text("$targetModules modules", color = BrandGreen, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                        Text(String.format("%.2f kWp", targetModules * (moduleWp.toDoubleOrNull() ?: 0.0) / 1000.0), color = AccentGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("02  MODULE & ROW GEOMETRY", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Module length (mm)", moduleLength, { moduleLength = it }, Modifier.weight(1f))
+                    SurveyInput("Module width (mm)", moduleWidth, { moduleWidth = it }, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Module gap (mm)", moduleGap, { moduleGap = it }, Modifier.weight(1f))
+                    SurveyInput("Modules per row", modulesPerRow, { modulesPerRow = it }, Modifier.weight(1f))
+                }
+                SurveyInput("Orientation (auto / portrait / landscape)", orientation, { orientation = it })
+                SurveyInput("Sun altitude for pitch (degrees)", sunAltitude, { sunAltitude = it })
+                Surface(shape = RoundedCornerShape(14.dp), color = Color(0xFFF3F6F5)) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                        Text("SINGLE MODULE FOOTPRINT", color = Color(0xFF60756E), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        Text(String.format("%.3f m²", moduleArea), color = BrandGreen, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("03  ROOF ACCESS & OBSTACLES", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                SurveyInput("Planning area factor", areaFactor, { areaFactor = it })
+                SurveyInput("Obstacle clearance (m)", obstacleClearance, { obstacleClearance = it })
+                SurveyInput("Edge corridor (left / right / top / bottom / none)", corridorEdge, { corridorEdge = it })
+                SurveyInput("Corridor width (m)", corridorWidth, { corridorWidth = it })
+                SurveyInput("Circular obstacles: x,y,radius (m)", circles, { circles = it }, minLines = 2)
+                SurveyInput("Rectangular obstacles: x,y,width,height (m)", rectangles, { rectangles = it }, minLines = 2)
+            }
+        }
+        Button(onClick = {
+            val values = linkedMapOf(
+                "capacity" to capacity, "wp" to moduleWp, "moduleLength" to moduleLength,
+                "moduleWidth" to moduleWidth, "orientation" to orientation.lowercase(),
+                "gap" to moduleGap, "perRow" to modulesPerRow, "sunAlt" to sunAltitude,
+                "areaFactor" to areaFactor, "obstacleClearance" to obstacleClearance,
+                "obstacleCircles" to circles, "obstacleRectangles" to rectangles,
+                "accessCorridorEdge" to corridorEdge.lowercase(), "accessCorridorWidth" to corridorWidth
+            )
+            prefs.edit().apply { values.forEach { (key, value) -> putString(key, value) } }.apply()
+            val payload = JSONObject(values).toString()
+            val script = """
+                (function(){
+                  var data = $payload;
+                  var root = document.getElementById('layout');
+                  if (!root) return JSON.stringify({error:'PV layout workspace is unavailable.'});
+                  Object.keys(data).forEach(function(key) {
+                    var field = root.querySelector('[data-k="' + key + '"]');
+                    if (field) {
+                      field.value = data[key];
+                      field.dispatchEvent(new Event('input', {bubbles:true}));
+                      field.dispatchEvent(new Event('change', {bubbles:true}));
+                    }
+                  });
+                  var button = document.getElementById('generateLayout');
+                  if (!button) return JSON.stringify({error:'Layout optimizer button is unavailable.'});
+                  button.click();
+                  if (!window.state || !state.layout) return JSON.stringify({error:'No layout was generated. Check the site survey, roof dimensions and obstacle positions.'});
+                  return JSON.stringify({
+                    count:state.layout.count, kwp:state.layout.kwp,
+                    pitch:state.layout.pitch, orientation:state.layout.orientation,
+                    area:(state.layout.zoneStats||[]).reduce(function(a,z){return a+z.area;},0),
+                    warnings:document.getElementById('layoutWarnings')?.textContent||''
+                  });
+                })()
+            """.trimIndent()
+            browser.evaluateJavascript(script) { raw ->
+                try {
+                    val response = org.json.JSONTokener(raw ?: "{}").nextValue() as? String ?: "{}"
+                    val json = JSONObject(response)
+                    if (json.has("error")) {
+                        status = json.optString("error")
+                    } else {
+                        val count = json.optInt("count")
+                        val kwp = json.optDouble("kwp")
+                        val pitch = json.optDouble("pitch")
+                        val orientationResult = json.optString("orientation")
+                        val area = json.optDouble("area")
+                        result = "$count modules · ${String.format("%.2f", kwp)} kWp · $orientationResult · pitch ${String.format("%.3f", pitch)} m · ${String.format("%.1f", area)} m² surveyed"
+                        status = json.optString("warnings", "Layout generated. Review roof access and structural assumptions.")
+                    }
+                } catch (_: Exception) {
+                    status = "Optimizer response could not be read. Open the detailed workspace to inspect its output."
+                }
+            }
+        }, modifier = Modifier.fillMaxWidth()) { Text("Generate PV layout & sizing") }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("OPTIMIZER OUTPUT", color = AccentGreen, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                Text(result, color = BrandGreen, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text(status, color = Color(0xFF60756E), fontSize = 11.sp, lineHeight = 16.sp)
+            }
+        }
+        androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) {
+            Text("Open detailed PV layout, drawings & exports")
+        }
+        Text("Concept arrangement only. Confirm surveyed geometry, fire access, shade, structural capacity and standards before construction.", color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp)
+        Spacer(Modifier.height(8.dp))
     }
 }
 
