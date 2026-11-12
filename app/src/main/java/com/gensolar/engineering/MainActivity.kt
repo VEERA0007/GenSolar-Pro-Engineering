@@ -841,8 +841,10 @@ private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifi
                   });
                   var button = document.getElementById('calcElectrical');
                   if (!button) return JSON.stringify({error:'Electrical calculation action unavailable.'});
+                  if (typeof state === 'undefined' || !state.layout) return JSON.stringify({error:'Generate a PV layout first.'});
+                  delete state.electrical;
                   button.click();
-                  if (typeof state === 'undefined' || !state.electrical) return JSON.stringify({error:'No result. Generate a PV layout first and verify inputs.'});
+                  if (!state.electrical) return JSON.stringify({error:'No result. Verify module and inverter inputs.'});
                   return JSON.stringify({strings:state.electrical.strings,modules:state.electrical.modules,warning:document.getElementById('electricalWarning')?.textContent||''});
                 })()
             """.trimIndent()
