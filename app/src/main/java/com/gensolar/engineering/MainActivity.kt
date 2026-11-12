@@ -286,6 +286,7 @@ private fun GenSolarApp(
     var advancedCad by remember { mutableStateOf(false) }
     var advancedShade by remember { mutableStateOf(false) }
     var advancedLocation by remember { mutableStateOf(false) }
+    var advancedStaad by remember { mutableStateOf(false) }
     BackHandler(enabled = selected != "dashboard") {
         if (selected == "site" && advancedSite) {
             advancedSite = false
@@ -299,6 +300,8 @@ private fun GenSolarApp(
             advancedShade = false
         } else if (selected == "location" && advancedLocation) {
             advancedLocation = false
+        } else if (selected == "staad" && advancedStaad) {
+            advancedStaad = false
         } else {
             selected = "dashboard"
             advancedSite = false
@@ -307,6 +310,7 @@ private fun GenSolarApp(
             advancedCad = false
             advancedShade = false
             advancedLocation = false
+            advancedStaad = false
             onNavigate("dashboard")
         }
     }
@@ -373,6 +377,7 @@ private fun GenSolarApp(
                                         advancedCad = false
                                         advancedShade = false
                                         advancedLocation = false
+                                        advancedStaad = false
                                         onNavigate(key)
                                     }
                                 )
@@ -398,6 +403,7 @@ private fun GenSolarApp(
                                 advancedCad = false
                                 advancedShade = false
                                 advancedLocation = false
+                                advancedStaad = false
                                 onNavigate(destination.key)
                             },
                             icon = { Text(destination.symbol, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
@@ -426,9 +432,12 @@ private fun GenSolarApp(
                         advancedCad = false
                         advancedShade = false
                         advancedLocation = false
+                        advancedStaad = false
                         onNavigate(destination)
                     }
                 )
+            } else if (selected == "staad" && !advancedStaad) {
+                NativeStaadScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedStaad = true }
             } else if (selected == "location" && !advancedLocation) {
                 NativeLocationScreen(browser, Modifier.fillMaxSize().padding(padding), onRequestGps) { advancedLocation = true }
             } else if (selected == "shade" && !advancedShade) {
@@ -944,6 +953,130 @@ private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifi
     }
 }
 
+
+@Composable
+private fun NativeStaadScreen(browser: WebView, modifier: Modifier = Modifier, onOpenAdvanced: () -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("gensolar_native_staad", android.content.Context.MODE_PRIVATE) }
+    val defaults = listOf(
+        "span" to "20", "length" to "30", "spacing" to "5", "eave" to "6", "rise" to "2",
+        "dead" to "0.25", "live" to "0.75", "uplift" to "0.90", "side" to "0.60", "fy" to "250",
+        "support" to "PINNED", "windFace" to "left",
+        "columnSection" to "ISMB300", "rafterSection" to "ISMB300",
+        "purlinSection" to "ISMC150", "braceSection" to "ISA50X50X6"
+    )
+    val fields = remember { defaults.associate { (key, value) -> key to mutableStateOf(prefs.getString(key, value) ?: value) } }
+    var output by remember { mutableStateOf("No structural model generated in this session.") }
+    var status by remember { mutableStateOf("Sample geometry is provided for initial setup. Verify every load, section and support condition for the actual project.") }
+    val labels = listOf(
+        "span" to "Clear building span (m)", "length" to "Building length (m)",
+        "spacing" to "Target portal spacing (m)", "eave" to "Eave height (m)", "rise" to "Roof rise (m)",
+        "dead" to "Roof dead load (kN/m²)", "live" to "Roof imposed load (kN/m²)",
+        "uplift" to "Roof wind uplift (kN/m²)", "side" to "Side-wall wind pressure (kN/m²)",
+        "fy" to "Steel yield strength fy (MPa)"
+    )
+    fun persist() {
+        val edit = prefs.edit()
+        fields.forEach { (key, value) -> edit.putString(key, value.value) }
+        edit.apply()
+    }
+    fun generate() {
+        val numeric = listOf("span", "length", "spacing", "eave", "rise", "dead", "live", "uplift", "side", "fy")
+        if (numeric.any { fields[it]?.value?.toDoubleOrNull()?.isFinite() != true }) {
+            status = "CHECK INPUTS"
+            output = "All geometry, loading and steel-grade inputs must be valid numbers."
+            return
+        }
+        val payload = JSONObject()
+        val mapping = mapOf(
+            "span" to "staadSpan", "length" to "staadLength", "spacing" to "staadFrameSpacing",
+            "eave" to "staadEaveHeight", "rise" to "staadRoofRise", "dead" to "staadRoofDead",
+            "live" to "staadRoofLive", "uplift" to "staadWindUplift", "side" to "staadWindSide",
+            "fy" to "staadFy", "support" to "staadSupport", "windFace" to "staadWindFace",
+            "columnSection" to "staadColumnSection", "rafterSection" to "staadRafterSection",
+            "purlinSection" to "staadPurlinSection", "braceSection" to "staadBraceSection"
+        )
+        mapping.forEach { (key, domKey) -> payload.put(domKey, fields[key]?.value.orEmpty()) }
+        persist()
+        status = "GENERATING STRUCTURAL MODEL"
+        val expression = "JSON.stringify((function(v){Object.keys(v).forEach(function(k){var e=document.querySelector('[data-k=\\"'+k+'\\"]');if(e){e.value=v[k];e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}});if(typeof save==='function')save();var m=staadGenerate();return {ok:!!m,frames:m?m.frameCount:0,nodes:m?m.nodes.length:0,members:m?m.members.length:0,spacing:m?m.frameSpacing:0,purlins:m?m.purlinCount:0,braces:m?m.braceCount:0,message:document.getElementById('staadStatus')?.textContent||'Model generation failed'};})($payload))"
+        browser.evaluateJavascript("(function(){try{return $expression}catch(e){return JSON.stringify({ok:false,message:e.message})}})()") { raw ->
+            try {
+                val jsonText = org.json.JSONTokener(raw ?: "null").nextValue() as? String ?: "{}"
+                val result = JSONObject(jsonText)
+                if (result.optBoolean("ok")) {
+                    status = "STRUCTURAL MODEL GENERATED"
+                    output = "Portal frames: ${result.optInt("frames")}\nNodes: ${result.optInt("nodes")}\nMembers: ${result.optInt("members")}\nPurlins / eave struts: ${result.optInt("purlins")}\nBracing members: ${result.optInt("braces")}\nActual frame spacing: ${"%.3f".format(java.util.Locale.US, result.optDouble("spacing"))} m"
+                } else {
+                    status = "MODEL GENERATION BLOCKED"
+                    output = result.optString("message", "Check geometry and supported ranges.")
+                }
+            } catch (_: Exception) {
+                status = "ENGINE NOT READY"
+                output = "Open the structural workspace once, then retry model generation."
+            }
+        }
+    }
+    Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("STRUCTURAL ENGINEERING", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("Build the portal-frame model.", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Generate a parametric steel portal frame and hand the model to the integrated STAAD.Pro export and in-app 2D analysis tools.", color = Color(0xFFD7E8E1), fontSize = 12.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("01  GEOMETRY & SUPPORTS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                labels.take(5).forEach { (key, label) -> SurveyInput(label, fields.getValue(key).value, { fields.getValue(key).value = it }) }
+                androidx.compose.material3.Text("Support condition", color = Color(0xFF667A75), fontSize = 11.sp)
+                androidx.compose.material3.SingleChoiceSegmentedButtonRow {
+                    listOf("PINNED", "FIXED").forEachIndexed { index, value ->
+                        androidx.compose.material3.SegmentedButton(
+                            selected = fields.getValue("support").value == value,
+                            onClick = { fields.getValue("support").value = value },
+                            shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(index, 2)
+                        ) { Text(value) }
+                    }
+                }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("02  DESIGN LOAD INPUTS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                labels.drop(5).forEach { (key, label) -> SurveyInput(label, fields.getValue(key).value, { fields.getValue(key).value = it }) }
+                androidx.compose.material3.Text("Windward side", color = Color(0xFF667A75), fontSize = 11.sp)
+                androidx.compose.material3.SingleChoiceSegmentedButtonRow {
+                    listOf("left", "right").forEachIndexed { index, value ->
+                        androidx.compose.material3.SegmentedButton(
+                            selected = fields.getValue("windFace").value == value,
+                            onClick = { fields.getValue("windFace").value = value },
+                            shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(index, 2)
+                        ) { Text(value.uppercase()) }
+                    }
+                }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("03  SECTION TABLE ASSIGNMENTS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                listOf("columnSection" to "Column section name", "rafterSection" to "Rafter section name", "purlinSection" to "Purlin / eave strut section", "braceSection" to "Bracing section name").forEach { (key, label) ->
+                    SurveyInput(label, fields.getValue(key).value, { fields.getValue(key).value = it })
+                }
+                Text("Section labels are sample placeholders. Confirm exact section-table names and properties in STAAD.Pro before analysis or export.", color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(status, color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                Text(output, color = Color(0xFF173B32), fontSize = 13.sp, lineHeight = 20.sp)
+                Button(onClick = { generate() }, modifier = Modifier.fillMaxWidth()) { Text("Generate structural model") }
+                Button(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) { Text("Open STAAD solver, take-off & export workspace") }
+            }
+        }
+        Text("The inbuilt solver covers 2D in-plane portal frames only. Longitudinal bracing, 3D effects, connections, P-Delta analysis and certified IS 800 design require further analysis in STAAD.Pro and qualified engineering review.", color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp)
+    }
+}
 
 @Composable
 private fun NativeLocationScreen(
