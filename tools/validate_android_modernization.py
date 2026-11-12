@@ -56,5 +56,10 @@ for destination in ("location", "bom", "procurement", "construction", "dpr"):
 solver = ROOT / "app/src/main/assets/structural_solver.js"
 require(solver.exists() and "GenSolarStructuralSolver" in solver.read_text(encoding="utf-8"), "Inbuilt structural solver asset missing")
 require("staadRunAnalysis" in html and "staadAnalysisSchedule" in html, "Inbuilt structural analysis UI is not wired")
+shade = ROOT / "app/src/main/assets/shade_engine.js"
+require(shade.exists() and "GenSolarShadeEngine" in shade.read_text(encoding="utf-8"), "Solar shade engine asset missing")
+require("GenSolarShadeEngine.assess" in html and "GenSolarShadeEngine.dayProfile" in html, "Solar shade engine is not wired to the UI")
+require("obstructionWidthDeg" in html and "shadeInterval" in html, "Directional obstruction controls or day profile interval missing")
 subprocess.run(["node", str(ROOT / "tools/test_structural_solver.js")], cwd=ROOT, check=True)
+subprocess.run(["node", str(ROOT / "tools/test_shade_engine.js")], cwd=ROOT, check=True)
 print(f"Android modernization checks passed: Kotlin 2.0.21, Compose Material 3, Java 17, secure local WebView bridge, {len(audit.ids)} unique HTML IDs and all native navigation targets.")
