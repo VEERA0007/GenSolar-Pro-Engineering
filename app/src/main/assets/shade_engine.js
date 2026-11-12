@@ -9,7 +9,7 @@ function solarPosition(date,time,latitude,longitude,timezoneOffsetMinutes){
  if(month<1||month>12||day<1||day>31||hour>23||minute>59)throw new Error('Invalid date or local time');
  if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180)throw new Error('Latitude or longitude is outside its valid range');
  if(!Number.isFinite(timezoneOffsetMinutes)||Math.abs(timezoneOffsetMinutes)>840)throw new Error('Invalid timezone offset');
- const utc=Date.UTC(year,month-1,day,hour,minute)+timezoneOffsetMinutes*60000;
+ const utc=Date.UTC(year,month-1,day,hour,minute)-timezoneOffsetMinutes*60000;
  const dt=new Date(utc), doy=Math.floor((Date.UTC(dt.getUTCFullYear(),dt.getUTCMonth(),dt.getUTCDate())-Date.UTC(dt.getUTCFullYear(),0,0))/86400000);
  const utcHour=dt.getUTCHours()+dt.getUTCMinutes()/60+dt.getUTCSeconds()/3600;
  const gamma=2*Math.PI/365*(doy-1+(utcHour-12)/24);
