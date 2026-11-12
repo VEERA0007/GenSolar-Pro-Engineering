@@ -16,6 +16,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import org.json.JSONObject
 import androidx.activity.addCallback
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -235,9 +236,15 @@ class MainActivity : ComponentActivity() {
 private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
     var selected by remember { mutableStateOf("dashboard") }
     var moreExpanded by remember { mutableStateOf(false) }
+    var advancedSite by remember { mutableStateOf(false) }
     BackHandler(enabled = selected != "dashboard") {
-        selected = "dashboard"
-        onNavigate("dashboard")
+        if (selected == "site" && advancedSite) {
+            advancedSite = false
+        } else {
+            selected = "dashboard"
+            advancedSite = false
+            onNavigate("dashboard")
+        }
     }
     val context = LocalContext.current
     val destinations = listOf(
@@ -296,6 +303,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                                     onClick = {
                                         moreExpanded = false
                                         selected = key
+                                        advancedSite = false
                                         onNavigate(key)
                                     }
                                 )
@@ -315,6 +323,7 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                             selected = selected == destination.key,
                             onClick = {
                                 selected = destination.key
+                                advancedSite = false
                                 onNavigate(destination.key)
                             },
                             icon = { Text(destination.symbol, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
@@ -337,8 +346,15 @@ private fun GenSolarApp(browser: WebView, onNavigate: (String) -> Unit) {
                     modifier = Modifier.fillMaxSize().padding(padding),
                     onNavigate = { destination ->
                         selected = destination
+                        advancedSite = false
                         onNavigate(destination)
                     }
+                )
+            } else if (selected == "site" && !advancedSite) {
+                NativeSurveyScreen(
+                    browser = browser,
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    onOpenAdvanced = { advancedSite = true }
                 )
             } else {
                 AndroidView(
@@ -583,6 +599,153 @@ private fun NativeActionCard(
             }
         }
     }
+}
+
+@Composable
+private fun NativeSurveyScreen(
+    browser: WebView,
+    modifier: Modifier = Modifier,
+    onOpenAdvanced: () -> Unit
+) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("gensolar_native_survey", android.content.Context.MODE_PRIVATE) }
+    var customer by remember { mutableStateOf(prefs.getString("customer", "") ?: "") }
+    var siteName by remember { mutableStateOf(prefs.getString("site", "") ?: "") }
+    var stateName by remember { mutableStateOf(prefs.getString("state", "Telangana") ?: "Telangana") }
+    var district by remember { mutableStateOf(prefs.getString("district", "") ?: "") }
+    var latitude by remember { mutableStateOf(prefs.getString("lat", "") ?: "") }
+    var longitude by remember { mutableStateOf(prefs.getString("lon", "") ?: "") }
+    var systemType by remember { mutableStateOf(prefs.getString("system", "On-grid") ?: "On-grid") }
+    var mountingType by remember { mutableStateOf(prefs.getString("mount", "RCC rooftop") ?: "RCC rooftop") }
+    var length by remember { mutableStateOf(prefs.getString("length", "30") ?: "30") }
+    var width by remember { mutableStateOf(prefs.getString("width", "20") ?: "20") }
+    var setback by remember { mutableStateOf(prefs.getString("setback", "1") ?: "1") }
+    var walkway by remember { mutableStateOf(prefs.getString("walkway", "0.6") ?: "0.6") }
+    var notes by remember { mutableStateOf(prefs.getString("surveyNotes", "") ?: "") }
+    var saveMessage by remember { mutableStateOf("Draft is stored on this device when you save.") }
+    val grossArea = (length.toDoubleOrNull() ?: 0.0) * (width.toDoubleOrNull() ?: 0.0)
+
+    Column(
+        modifier = modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = BrandGreen)
+        ) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("FIELD SURVEY", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
+                Text("Capture the project correctly.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Customer, site coordinates and usable roof dimensions. Data is saved offline and synced to the engineering workspace.", color = Color(0xFFD7E8E1), fontSize = 12.sp, lineHeight = 18.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("01  PROJECT DETAILS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                SurveyInput("Customer / project", customer, { customer = it })
+                SurveyInput("Site / plant name", siteName, { siteName = it })
+                SurveyInput("State", stateName, { stateName = it })
+                SurveyInput("District / city", district, { district = it })
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("02  SITE LOCATION", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Latitude", latitude, { latitude = it }, Modifier.weight(1f))
+                    SurveyInput("Longitude", longitude, { longitude = it }, Modifier.weight(1f))
+                }
+                Text("Enter decimal GPS coordinates. Example: 17.3850, 78.4867.", color = Color(0xFF667A75), fontSize = 10.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("03  SYSTEM & ROOF", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                SurveyInput("System type (On-grid / Off-grid / Hybrid)", systemType, { systemType = it })
+                SurveyInput("Mounting type", mountingType, { mountingType = it })
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Length (m)", length, { length = it }, Modifier.weight(1f))
+                    SurveyInput("Width (m)", width, { width = it }, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Edge setback (m)", setback, { setback = it }, Modifier.weight(1f))
+                    SurveyInput("Walkway width (m)", walkway, { walkway = it }, Modifier.weight(1f))
+                }
+                Surface(shape = RoundedCornerShape(14.dp), color = Color(0xFFE8F3EE)) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text("GROSS ROOF AREA", color = Color(0xFF60756E), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Text(String.format("%.2f m²", grossArea), color = BrandGreen, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                        Text(String.format("%.1f sq.ft", grossArea * 10.7639), color = AccentGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                SurveyInput("Survey notes / site observations", notes, { notes = it }, minLines = 3)
+            }
+        }
+        Button(
+            onClick = {
+                val values = linkedMapOf(
+                    "customer" to customer, "site" to siteName, "state" to stateName,
+                    "district" to district, "lat" to latitude, "lon" to longitude,
+                    "system" to systemType, "mount" to mountingType, "length" to length,
+                    "width" to width, "setback" to setback, "walkway" to walkway,
+                    "surveyNotes" to notes
+                )
+                prefs.edit().apply { values.forEach { (key, value) -> putString(key, value) } }.apply()
+                val payload = JSONObject(values).toString()
+                val script = """
+                    (function(){
+                      var data = $payload;
+                      var root = document.getElementById('site');
+                      if (!root) return false;
+                      Object.keys(data).forEach(function(key) {
+                        var field = root.querySelector('[data-k="' + key + '"]');
+                        if (field) {
+                          field.value = data[key];
+                          field.dispatchEvent(new Event('input', {bubbles:true}));
+                          field.dispatchEvent(new Event('change', {bubbles:true}));
+                        }
+                      });
+                      var save = document.getElementById('saveSurvey');
+                      if (!save) return false;
+                      save.click();
+                      return true;
+                    })()
+                """.trimIndent()
+                browser.evaluateJavascript(script) { result ->
+                    saveMessage = if (result == "true") "Saved offline and transferred to the engineering survey." else "Saved on this device. Open the detailed survey to retry workspace transfer."
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Save survey to project") }
+        Text(saveMessage, color = Color(0xFF60756E), fontSize = 11.sp)
+        androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) {
+            Text("Open advanced survey & structural tools")
+        }
+        Text("Engineering values are preliminary until verified against site measurements, approved drawings and applicable standards.", color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp)
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun SurveyInput(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    minLines: Int = 1
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.fillMaxWidth(),
+        label = { Text(label, fontSize = 11.sp) },
+        singleLine = minLines == 1,
+        minLines = minLines,
+        shape = RoundedCornerShape(13.dp)
+    )
 }
 
 private data class NativeDestination(val key: String, val label: String, val symbol: String)
