@@ -51,6 +51,7 @@ require("Your solar EPC command centre" in kotlin and "PROJECT OVERVIEW" in kotl
 require("FIELD SURVEY" in kotlin and "gensolar_native_survey" in kotlin and "saveSurvey" in kotlin and "JSONObject(values)" in kotlin, "Native offline-first survey persistence or project sync missing")
 require("PV ARRAY DESIGN" in kotlin and "gensolar_native_pv_design" in kotlin and "generateLayout" in kotlin and "NativePvDesignScreen(" in kotlin, "Native PV design screen or optimizer integration missing")
 require("ELECTRICAL ENGINEERING" in kotlin and "gensolar_native_electrical" in kotlin and "calcElectrical" in kotlin and "NativeElectricalScreen(" in kotlin, "Native electrical string validation screen or calculator integration missing")
+require("delete state.electrical" in kotlin and "!state.layout" in kotlin, "Electrical bridge must require a fresh PV layout and clear stale calculation results")
 require("typeof state !== 'undefined' ||" not in kotlin and "typeof state === 'undefined' || !state.layout" in kotlin and "delete state.layout" in kotlin, "PV optimizer bridge must clear stale results and detect the page-global state safely")
 require("BackHandler(enabled = selected != \"dashboard\")" in kotlin, "Android back navigation must return from workspaces to Home")
 require('browser.evaluateJavascript(' in kotlin and 'if (typeof go === \'function\') { go(' in kotlin, "Native workspace navigation must call the shared workspace router")
