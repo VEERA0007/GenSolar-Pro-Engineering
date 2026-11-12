@@ -1,7 +1,7 @@
 package com.gensolar.engineering
 
 import android.Manifest
-import android.app.Activity
+import androidx.activity.ComponentActivity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -57,7 +57,7 @@ private val BrandGreen = Color(0xFF103C34)
 private val AccentGreen = Color(0xFF087F5B)
 private val Canvas = Color(0xFFF3F6F5)
 
-class MainActivity : Activity() {
+class MainActivity : ComponentActivity() {
     private var webView: WebView? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var geoCallback: GeolocationPermissions.Callback? = null
