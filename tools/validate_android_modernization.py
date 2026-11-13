@@ -48,7 +48,7 @@ for destination in ("dashboard", "site", "location", "layout", "electrical", "dp
     require(destination in audit.foot_destinations, "native bottom navigation target missing from web workspace: " + destination)
 require("STAAD Structural" in html and "cadstudio" in html, "STAAD and CAD workspace navigation must remain available")
 require("window.GenSolarEpcBridge = Object.freeze" in html and all(x in html for x in ("getProjectSummary", "getCadSnapshot", "saveProject", "clearLayout", "clearElectrical", "generateStaad", "buildBom", "setBom")), "Controlled native EPC JavaScript bridge is incomplete")
-require("bridge.buildBom()" in kotlin and "bridge.setBom(rows)" in kotlin and "selected == \\"bom\\" && !advancedBom" in kotlin, "Native BOM screen must build, edit and persist the shared project schedule")
+require("bridge.buildBom()" in kotlin and "bridge.setBom(rows)" in kotlin and 'selected == "bom" && !advancedBom' in kotlin, "Native BOM screen must build, edit and persist the shared project schedule")
 require((ROOT / "tools/test_bom_generation.js").exists(), "BOM quantity and rate-preservation regression test missing")
 require("Your solar EPC command centre" in kotlin and "PROJECT OVERVIEW" in kotlin and "OutlinedTextField(" in kotlin and "FilterChip(" in kotlin and "NativeWorkspaceTile(" in kotlin, "Native Compose dashboard, search, filters or workspace tiles missing")
 require("FIELD SURVEY" in kotlin and "gensolar_native_survey" in kotlin and "saveSurvey" in kotlin and "JSONObject(values)" in kotlin, "Native offline-first survey persistence or project sync missing")
