@@ -337,7 +337,7 @@ private fun GenSolarApp(
             advancedStaad = false
             advancedBom = false
         } else if (selected == "bom" && advancedBom) {
-        advancedBom = false
+            advancedBom = false
         } else {
             selected = "dashboard"
             advancedSite = false
