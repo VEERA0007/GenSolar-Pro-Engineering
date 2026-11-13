@@ -561,7 +561,19 @@ function cable(){save();const mode=state.project.cableMode||'dc',material=state.
 const pass=q.voltageDropPass&&(!q.ampacitySpecified||q.ampacityPass);$('cableMetrics').innerHTML=metric('Voltage drop',q.drop.toFixed(2)+' V')+metric('Voltage-drop ratio',q.percent.toFixed(2)+'%')+metric('Minimum calculated area',q.requiredArea.toFixed(2)+' mm²')+metric('Next standard size',q.recommended?q.recommended+' mm²':'Above 300 mm²')+metric('Derated ampacity',q.ampacitySpecified?q.deratedAmpacity.toFixed(1)+' A':'Not entered')+metric('Ampacity requirement',q.ampacitySpecified?(q.ampacityPass?'PASS':'FAIL')+' · base ≥ '+q.requiredBaseAmpacity.toFixed(1)+' A':'Manufacturer value required')+metric('Overall cable screen','<span class="'+(pass?'good':'bad')+'">'+(pass?'Within entered limits':'Review required')+'</span>');
 $('cableWarning').textContent='Model: '+(mode==='dc'?'DC two-conductor loop':mode==='1ph'?'single-phase AC': 'three-phase AC')+'; '+(material==='cu'?'copper':'aluminium')+' resistivity corrected from 20°C to '+val('cableTemp')+'°C. AC reactance component: '+q.reactanceDrop.toFixed(3)+' V. Ampacity factors multiply the manufacturer base rating (combined factor '+q.derating.toFixed(3)+'). '+(q.ampacitySpecified?'Derated ampacity '+q.deratedAmpacity.toFixed(1)+' A vs design current '+val('cableCurrent')+' A. ':'Enter the manufacturer base ampacity to complete this check. ')+'Voltage-drop area estimate is resistance-based; final selection must check actual cable R/X at operating temperature, installation method, ambient/soil temperature, grouping, harmonics, short-circuit withstand and protective-device coordination. No automatic code-table ampacity is assumed.';
 state.cableDesign=q;save();}
-function buildBom(){if(!state.layout){alert('Generate PV layout first.');return}const l=state.layout,p=state.project;state.bom=[['PV modules','Wp '+p.wp,'Nos',l.count,0],['Grid inverter','AC '+p.acKw+' kW','Nos',1,0],['Mounting rails','Preliminary rail lines','Nos',l.rows*2,0],['Mounting supports','Preliminary; engineer verify','Nos',Math.ceil(l.count/2)*2,0],['DC solar cable','Route survey required','m',Math.round(val('cableLength')*2*1.1),0],['AC cable','Route survey required','m',Math.round(val('cableLength')*1.1),0],['PV string fuse','Preliminary '+(state.protection?.fuse||'TBC')+' A; 2 per string','Nos',state.electrical?.strings?state.electrical.strings*2:0,0],['DC isolator','Per MPPT; preliminary '+(state.protection?.dcSwitch||'TBC')+' A','Nos',Math.max(1,Math.floor(val('mpptCount'))),0],['AC breaker / MCCB','Preliminary '+(state.protection?.acBreaker||'TBC')+' A','Nos',1,0],['DC / AC SPD','Type and Uc/Ucpv to be engineered','Set',2,0],['Earthing conductor','Preliminary min '+(state.protection?.earthRequired?state.protection.earthRequired.toFixed(2):'TBC')+' mm²','m',Math.round(val('cableLength')*1.1),0],['Cable tray / conduit','Route survey required','m',Math.round(val('cableLength')*1.1),0]];renderBom()}
+function buildBom(){
+if(!state.layout){alert('Generate PV layout first.');return false}
+const l=state.layout,p=state.project||{},count=Number(l.count),rows=Number(l.rows),cableLength=val('cableLength'),mpptCount=val('mpptCount'),wp=Number(p.wp),acKw=Number(p.acKw);
+if(!Number.isInteger(count)||count<=0||!Number.isInteger(rows)||rows<0||!Number.isFinite(wp)||wp<=0||!Number.isFinite(acKw)||acKw<=0||!Number.isFinite(cableLength)||cableLength<=0||!Number.isInteger(mpptCount)||mpptCount<=0){
+alert('BOM generation requires a valid PV module count, row count, module rating, inverter capacity, positive cable route length and positive integer MPPT count.');
+return false;
+}
+const previous=Array.isArray(state.bom)?state.bom:[];
+const generated=[['PV modules','Wp '+p.wp,'Nos',count,0],['Grid inverter','AC '+p.acKw+' kW','Nos',1,0],['Mounting rails','Preliminary rail lines','Nos',rows*2,0],['Mounting supports','Preliminary; engineer verify','Nos',Math.ceil(count/2)*2,0],['DC solar cable','Route survey required','m',Math.round(cableLength*2*1.1),0],['AC cable','Route survey required','m',Math.round(cableLength*1.1),0],['PV string fuse','Preliminary '+(state.protection?.fuse||'TBC')+' A; 2 per string','Nos',state.electrical?.strings?state.electrical.strings*2:0,0],['DC isolator','Per MPPT; preliminary '+(state.protection?.dcSwitch||'TBC')+' A','Nos',mpptCount,0],['AC breaker / MCCB','Preliminary '+(state.protection?.acBreaker||'TBC')+' A','Nos',1,0],['DC / AC SPD','Type and Uc/Ucpv to be engineered','Set',2,0],['Earthing conductor','Preliminary min '+(state.protection?.earthRequired?state.protection.earthRequired.toFixed(2):'TBC')+' mm²','m',Math.round(cableLength*1.1),0],['Cable tray / conduit','Route survey required','m',Math.round(cableLength*1.1),0]];
+state.bom=generated.map(function(row){const old=previous.find(function(item){return Array.isArray(item)&&item[0]===row[0]&&item[1]===row[1]&&item[2]===row[2]});const rate=old?Number(old[4]):0;if(Number.isFinite(rate)&&rate>=0)row[4]=rate;return row});
+renderBom();
+return save();
+}
 function renderBom(){let total=0;$('bomTable').innerHTML='<table><thead><tr><th>Item</th><th>Specification</th><th>Unit</th><th>Qty</th><th>Rate ₹</th><th>Amount ₹</th></tr></thead><tbody>'+state.bom.map((r,i)=>{let amount=Number(r[3])*Number(r[4]);total+=amount;return '<tr>'+r.slice(0,4).map(v=>'<td>'+v+'</td>').join('')+'<td><input data-rate="'+i+'" type="number" min="0" value="'+r[4]+'" style="width:90px"></td><td>'+amount.toLocaleString('en-IN')+'</td></tr>'}).join('')+'</tbody></table>';document.querySelectorAll('[data-rate]').forEach(e=>e.onchange=()=>{state.bom[+e.dataset.rate][4]=Number(e.value);renderBom();save()});$('bomTotals').innerHTML=metric('Preliminary subtotal','₹'+total.toLocaleString('en-IN'))+metric('Items',state.bom.length)}
 function buildFabricationSchedule(){if(!state.layout||!Array.isArray(state.layout.modules)||!state.layout.modules.length){alert('Generate PV layout first.');return}const modules=state.layout.modules;const groups=new Map();for(const m of modules){const x=Number(m.x),y=Number(m.y),w=Number(m.w),h=Number(m.h);if(![x,y,w,h].every(Number.isFinite)||w<=0||h<=0)continue;const key=y.toFixed(3);if(!groups.has(key))groups.set(key,[]);groups.get(key).push({x,y,w,h})}const rows=[...groups.entries()].sort((a,b)=>Number(a[0])-Number(b[0])).map(([key,items],i)=>{const start=Math.min(...items.map(m=>m.x)),end=Math.max(...items.map(m=>m.x+m.w));return {row:i+1,modules:items.length,start,end,lengthM:end-start,railQty:2,totalRailM:2*(end-start)}});if(!rows.length){alert('No valid module geometry found.');return}const total=rows.reduce((n,r)=>n+r.totalRailM,0);state.fabricationSchedule={rows,totalRailM:total,railPieces:rows.reduce((n,r)=>n+r.railQty,0),moduleCount:rows.reduce((n,r)=>n+r.modules,0),generatedAt:new Date().toISOString(),assumptions:'Two continuous rail lines per module row; no splice, overhang, gap, support or structural allowances.'};renderFabricationSchedule();save()}
 function renderFabricationSchedule(){const s=state.fabricationSchedule;if(!s){$('fabricationTable').textContent='Generate the PV layout first.';$('fabricationTotals').innerHTML='';return}$('fabricationTable').innerHTML='<table><thead><tr><th>Row</th><th>Modules</th><th>Start X (m)</th><th>End X (m)</th><th>Cut length (m)</th><th>Rail qty</th><th>Total (m)</th></tr></thead><tbody>'+s.rows.map(r=>'<tr><td>'+r.row+'</td><td>'+r.modules+'</td><td>'+r.start.toFixed(3)+'</td><td>'+r.end.toFixed(3)+'</td><td>'+r.lengthM.toFixed(3)+'</td><td>'+r.railQty+'</td><td>'+r.totalRailM.toFixed(3)+'</td></tr>').join('')+'</tbody></table>';$('fabricationTotals').innerHTML=metric('Module count',s.moduleCount)+metric('Rail pieces (preliminary)',s.railPieces)+metric('Total rail length',s.totalRailM.toFixed(2)+' m')+'<p class="muted">'+s.assumptions+'</p>'}
@@ -1060,6 +1072,65 @@ $('cadLayer').onchange=draw;$('cadSnap').onchange=draw;
 const footer=document.querySelector('.foot');if(footer&&!footer.querySelector('[data-foot="cadstudio"]')){const b=document.createElement('button');b.dataset.foot='cadstudio';b.innerHTML='<b>⌗</b>CAD / 3D';b.onclick=openStudio;footer.insertBefore(b,footer.lastElementChild)}
 document.querySelectorAll('[data-open="cadstudio"]').forEach(b=>b.onclick=openStudio);
 load();setTool('select');draw();
+window.GenSolarEpcBridge = Object.freeze({
+  version: 1,
+  navigate: function(destination) {
+    const allowed = ['dashboard','site','location','layout','shade','draw','cadstudio','electrical','staad','bom','procurement','construction','dpr'];
+    if (!allowed.includes(destination)) return false;
+    go(destination);
+    return true;
+  },
+  getProjectSummary: function() {
+    return JSON.parse(JSON.stringify({
+      meta: state.meta || {},
+      project: state.project || {},
+      layout: state.layout || null,
+      electrical: state.electrical || null,
+      protection: state.protection || null,
+      bom: Array.isArray(state.bom) ? state.bom : []
+    }));
+  },
+  getCadSnapshot: function() {
+    return JSON.parse(JSON.stringify({building:model.building||{},entities:model.entities||[]}));
+  },
+  saveProject: function() {
+    return save();
+  },
+  clearLayout: function() {
+    delete state.layout;
+    delete state.electrical;
+    delete state.protection;
+    delete state.sldSvg;
+    return true;
+  },
+  clearElectrical: function() {
+    delete state.electrical;
+    delete state.protection;
+    delete state.sldSvg;
+    return true;
+  },
+  generateStaad: function() {
+    return staadGenerate();
+  },
+  buildBom: function() {
+    return buildBom();
+  },
+  getBom: function() {
+    return JSON.parse(JSON.stringify(Array.isArray(state.bom) ? state.bom : []));
+  },
+  setBom: function(rows) {
+    if (!Array.isArray(rows)) throw new Error('BOM must be an array');
+    const normalized = rows.map(function(row) {
+      if (!Array.isArray(row) || row.length < 5) throw new Error('Each BOM line must contain item, specification, unit, quantity and rate');
+      const quantity = Number(row[3]), rate = Number(row[4]);
+      if (!Number.isFinite(quantity) || quantity < 0 || !Number.isFinite(rate) || rate < 0) throw new Error('BOM quantities and rates must be finite non-negative values');
+      return [String(row[0]),String(row[1]),String(row[2]),quantity,rate];
+    });
+    state.bom = normalized;
+    renderBom();
+    return save();
+  }
+});
 window.GenSolarStudio={open:openStudio,save,exportDxf:dxf,getModel:()=>JSON.parse(JSON.stringify(model))};
 })();
 </script></body></html>
