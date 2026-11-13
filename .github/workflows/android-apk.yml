@@ -1465,6 +1465,8 @@ jobs:
           assert.equal(circle.radius,500);
           console.log("PV DXF round-trip passed: explicit millimetre units, roof zones, modules, obstacles, access corridors and geometry scale");
           JS
+      - name: Test BOM generation and rate preservation
+        run: node tools/test_bom_generation.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
