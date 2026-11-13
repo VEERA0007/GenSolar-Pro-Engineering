@@ -36,7 +36,7 @@ require("jvmTarget = '17'" in APP_GRADLE, "Kotlin bytecode target must be Java 1
 require(KOTLIN.exists(), "Kotlin MainActivity.kt missing")
 require(not (ROOT / "app/src/main/java/com/gensolar/engineering/MainActivity.java").exists(), "Legacy Java Activity must not coexist with Kotlin launcher")
 kotlin = KOTLIN.read_text(encoding="utf-8")
-for marker in ("class MainActivity : ComponentActivity()", "setContent {", "NativeDashboard(", "NativeSurveyScreen(", "NativePvDesignScreen(", "NativeElectricalScreen(", "NativeCadScreen(", "NativeShadeScreen(", "NativeLocationScreen(", "NativeStaadScreen(", "SurveyInput(", "NativeActionCard(", "NativeMetric(", "AndroidView(", "NavigationBar(", "onShowFileChooser", "onGeolocationPermissionsShowPrompt", "GenSolarNative", "MIXED_CONTENT_NEVER_ALLOW", "allowUniversalAccessFromFileURLs = false"):
+for marker in ("class MainActivity : ComponentActivity()", "setContent {", "NativeDashboard(", "NativeSurveyScreen(", "NativePvDesignScreen(", "NativeElectricalScreen(", "NativeCadScreen(", "NativeShadeScreen(", "NativeLocationScreen(", "NativeStaadScreen(", "NativeBomScreen(", "SurveyInput(", "NativeActionCard(", "NativeMetric(", "AndroidView(", "NavigationBar(", "Intent.ACTION_CREATE_DOCUMENT", "exportTextFile", "onExportFile", "onShowFileChooser", "onGeolocationPermissionsShowPrompt", "GenSolarNative", "MIXED_CONTENT_NEVER_ALLOW", "allowUniversalAccessFromFileURLs = false"):
     require(marker in kotlin, "Kotlin native shell missing: " + marker)
 require('android:name=".MainActivity"' in MANIFEST, "Manifest launcher must resolve to Kotlin MainActivity")
 html = HTML.read_text(encoding="utf-8")
@@ -47,6 +47,9 @@ require(not duplicates, "duplicate HTML IDs: " + ", ".join(duplicates))
 for destination in ("dashboard", "site", "location", "layout", "electrical", "dpr"):
     require(destination in audit.foot_destinations, "native bottom navigation target missing from web workspace: " + destination)
 require("STAAD Structural" in html and "cadstudio" in html, "STAAD and CAD workspace navigation must remain available")
+require("window.GenSolarEpcBridge = Object.freeze" in html and all(x in html for x in ("getProjectSummary", "getCadSnapshot", "saveProject", "clearLayout", "clearElectrical", "generateStaad", "buildBom", "setBom")), "Controlled native EPC JavaScript bridge is incomplete")
+require("bridge.buildBom()" in kotlin and "bridge.setBom(rows)" in kotlin and "selected == \\"bom\\" && !advancedBom" in kotlin, "Native BOM screen must build, edit and persist the shared project schedule")
+require((ROOT / "tools/test_bom_generation.js").exists(), "BOM quantity and rate-preservation regression test missing")
 require("Your solar EPC command centre" in kotlin and "PROJECT OVERVIEW" in kotlin and "OutlinedTextField(" in kotlin and "FilterChip(" in kotlin and "NativeWorkspaceTile(" in kotlin, "Native Compose dashboard, search, filters or workspace tiles missing")
 require("FIELD SURVEY" in kotlin and "gensolar_native_survey" in kotlin and "saveSurvey" in kotlin and "JSONObject(values)" in kotlin, "Native offline-first survey persistence or project sync missing")
 require("PV ARRAY DESIGN" in kotlin and "gensolar_native_pv_design" in kotlin and "generateLayout" in kotlin and "NativePvDesignScreen(" in kotlin, "Native PV design screen or optimizer integration missing")
@@ -54,11 +57,11 @@ require("ELECTRICAL ENGINEERING" in kotlin and "gensolar_native_electrical" in k
 require("CAD & 3D ENGINEERING" in kotlin and "gensolar_native_cad" in kotlin and "cadCreateBuilding" in kotlin and "NativeCadScreen(" in kotlin, "Native CAD building model screen or shared CAD engine integration missing")
 require("SOLAR RESOURCE & SHADE" in kotlin and "gensolar_native_shade" in kotlin and "GenSolarShadeEngine.assess($input)" in kotlin and "GenSolarShadeEngine.dayProfile($input,30)" in kotlin and 'selected == "shade"' in kotlin, "Native shade screen, offline input persistence, solar calculation bridge or day-profile integration missing")
 require("SITE GPS & SOLAR RESOURCE" in kotlin and "gensolar_native_location" in kotlin and "requestNativeGps" in kotlin and "onNativeGps(latitude: Double" in kotlin and "navigator.geolocation.getCurrentPosition" in kotlin and 'selected == "location"' in kotlin, "Native GPS/resource screen, Android geolocation bridge or project synchronization missing")
-require("STRUCTURAL ENGINEERING" in kotlin and "gensolar_native_staad" in kotlin and "staadGenerate()" in kotlin and "staadSpan" in kotlin and 'selected == "staad"' in kotlin, "Native STAAD geometry/load workspace or structural model-generation bridge missing")
+require("STRUCTURAL ENGINEERING" in kotlin and "gensolar_native_staad" in kotlin and "bridge.generateStaad()" in kotlin and "staadSpan" in kotlin and 'selected == "staad"' in kotlin, "Native STAAD geometry/load workspace or structural model-generation bridge missing")
 require("delete state.electrical" in kotlin and "!state.layout" in kotlin, "Electrical bridge must require a fresh PV layout and clear stale calculation results")
-require("typeof state !== 'undefined' ||" not in kotlin and "typeof state === 'undefined' || !state.layout" in kotlin and "delete state.layout" in kotlin, "PV optimizer bridge must clear stale results and detect the page-global state safely")
+require("bridge.clearLayout()" in kotlin and "bridge.getProjectSummary()" in kotlin and "project.layout" in kotlin, "PV optimizer must clear stale results and read the shared project through the controlled bridge")
 require("BackHandler(enabled = selected != \"dashboard\")" in kotlin, "Android back navigation must return from workspaces to Home")
-require('browser.evaluateJavascript(' in kotlin and 'if (typeof go === \'function\') { go(' in kotlin, "Native workspace navigation must call the shared workspace router")
+require('browser.evaluateJavascript(' in kotlin and "window.GenSolarEpcBridge.navigate" in kotlin, "Native workspace navigation must call the controlled shared workspace router")
 for destination in ("location", "bom", "procurement", "construction", "dpr"):
     require(f'"{destination}"' in kotlin, "native dashboard or More menu destination missing: " + destination)
 
