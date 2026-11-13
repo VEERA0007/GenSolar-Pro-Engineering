@@ -3,21 +3,23 @@
 ## Current application architecture
 
 - Native Android host and navigation: Kotlin 2.0.21 with Jetpack Compose and Material 3.
-- EPC engineering workspace: offline-first HTML/CSS/JavaScript asset hosted in an Android WebView; the native Compose shell owns the app bar and primary navigation while the existing engineering views remain intact.
-- Engineering calculation core: pure Java/Kotlin-compatible calculation classes and tested JavaScript engineering modules; keep calculation inputs/units explicit and validation independent from UI.
-- Python: CI engineering-quality gates, source audits, regression fixtures and future deterministic engineering/report automation. Python is not presented as an Android runtime language.
-- Local project persistence: existing workspace browser storage and native WebView storage; robust database/revision synchronization remains future work.
+- EPC engineering workspace: offline-first HTML/CSS/JavaScript asset hosted in an Android WebView while the native Compose shell owns app navigation and native entry screens. The WebView remains the host for existing tested calculation engines and advanced legacy workspaces during the staged migration.
+- Native Compose workspaces: Home, site survey, PV design, electrical, CAD/building setup, shade analysis, GPS/solar resource, STAAD structural inputs and BOM/BOQ. Native BOM rate editing and CSV export use Android's document-creation flow.
+- Controlled JavaScript bridge: `window.GenSolarEpcBridge` is created inside the EPC runtime and exposes explicit navigation, project/CAD snapshots, save, stale-result invalidation, STAAD generation and BOM read/write methods. Kotlin must not reference private IIFE variables/functions such as `state`, `model`, `save` or `staadGenerate` directly. Add new bridge methods deliberately and cover them in the Python modernization validator.
+- Engineering calculation core: pure Java/Kotlin-compatible calculation classes and tested JavaScript engineering modules; keep calculation inputs/units explicit and validation independent from UI. Do not replace a tested solver with a UI approximation.
+- Python: CI engineering-quality gates, source audits, regression fixtures and deterministic engineering/report automation. Python is not presented as an Android runtime language.
+- Local project persistence: existing workspace browser storage and project-library snapshots remain the source of truth while native Compose screens read/write through the bridge; robust database/revision synchronization remains future work.
 - Network: optional for map tiles and externally sourced resources; core workspace remains available offline.
 - Build: GitHub Actions, JDK 17, Gradle 8.9, AGP 8.7.3, Kotlin 2.0.21, Compose BOM 2024.12.01 and Material 3 1.3.1.
 
 ## Native UI / UX modernization
 
-- Compose Material 3 app bar and bottom navigation provide native entry points for Home, Survey, PV Design and CAD / 3D.
-- A native More menu exposes GPS / Map, Electrical, STAAD Structural, BOM / BOQ, Procurement, Construction and DPR.
-- The existing EPC screens are retained inside the WebView to avoid breaking engineering workflows during the UI migration.
-- The native WebView bridge is limited to report printing. File selection and location permission requests use Android activity-result APIs.
+- Compose Material 3 app bar, bottom navigation, dashboard and native workspace forms provide the primary Android interaction surface.
+- Native Compose screens are connected to the existing engineering data through `window.GenSolarEpcBridge`; the calculation engines and advanced fabrication/vendor/procurement/construction/DPR views remain in the WebView until their native replacements are complete.
+- BOM generation validates source inputs, preserves previously entered rates for matching material lines, persists the schedule in the shared offline project and exports CSV using Android `ACTION_CREATE_DOCUMENT`.
+- File selection and location permission requests use Android activity-result APIs. Native CSV export writes through `ContentResolver` after the user selects a destination.
 - Local WebView access is retained for bundled offline assets; mixed content and universal/file-origin cross-access are disabled.
-- Python CI checks guard Kotlin/Compose setup, launcher wiring, WebView security settings, HTML ID uniqueness and navigation targets.
+- Python CI checks guard Kotlin/Compose setup, launcher wiring, bridge contracts, WebView security settings, HTML ID uniqueness and navigation targets. Node regression tests cover BOM quantity derivation, invalid-input guards, rate preservation and save behavior.
 
 
 ## Calculation definitions
