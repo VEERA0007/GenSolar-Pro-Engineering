@@ -79,6 +79,8 @@ class MainActivity : ComponentActivity() {
     private var nativeGpsCallback: ((Double, Double, Double) -> Unit)? = null
     private var nativeGpsErrorCallback: ((String) -> Unit)? = null
     private lateinit var filePicker: androidx.activity.result.ActivityResultLauncher<Intent>
+    private lateinit var exportDocument: androidx.activity.result.ActivityResultLauncher<Intent>
+    private var pendingExport: Pair<String, String>? = null
     private lateinit var locationPermission: androidx.activity.result.ActivityResultLauncher<Array<String>>
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,6 +95,20 @@ class MainActivity : ComponentActivity() {
             } else null
             callback.onReceiveValue(uris)
             fileCallback = null
+        }
+        exportDocument = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val export = pendingExport
+            pendingExport = null
+            val uri = if (result.resultCode == RESULT_OK) result.data?.data else null
+            if (export == null || uri == null) return@registerForActivityResult
+            try {
+                val stream = contentResolver.openOutputStream(uri)
+                    ?: throw IllegalStateException("The selected destination could not be opened.")
+                stream.use { it.write(export.second.toByteArray(Charsets.UTF_8)) }
+                Toast.makeText(this, "Saved ${export.first}", Toast.LENGTH_LONG).show()
+            } catch (error: Exception) {
+                Toast.makeText(this, "Export failed: ${error.message}", Toast.LENGTH_LONG).show()
+            }
         }
         locationPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
             val granted = grants.values.any { it }
@@ -218,8 +234,23 @@ class MainActivity : ComponentActivity() {
             GenSolarApp(
                 browser = browser,
                 onNavigate = ::navigateWorkspace,
-                onRequestGps = ::requestNativeGps
+                onRequestGps = ::requestNativeGps,
+                onExportFile = ::exportTextFile
             )
+        }
+    }
+
+    private fun exportTextFile(fileName: String, content: String, mimeType: String) {
+        pendingExport = fileName to content
+        try {
+            exportDocument.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = mimeType
+                putExtra(Intent.EXTRA_TITLE, fileName)
+            })
+        } catch (error: Exception) {
+            pendingExport = null
+            Toast.makeText(this, "Unable to start export: ${error.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -253,7 +284,7 @@ class MainActivity : ComponentActivity() {
         // Use the workspace's own router. Footer buttons do not exist for every view
         // (notably BOM and STAAD), so selector-based navigation silently failed there.
         browser.evaluateJavascript(
-            "if (typeof go === 'function') { go('$destination'); }",
+            "if (window.GenSolarEpcBridge) { window.GenSolarEpcBridge.navigate('$destination'); }",
             null
         )
     }
@@ -276,7 +307,8 @@ class MainActivity : ComponentActivity() {
 private fun GenSolarApp(
     browser: WebView,
     onNavigate: (String) -> Unit,
-    onRequestGps: ((Double, Double, Double) -> Unit, (String) -> Unit) -> Unit
+    onRequestGps: ((Double, Double, Double) -> Unit, (String) -> Unit) -> Unit,
+    onExportFile: (String, String, String) -> Unit
 ) {
     var selected by remember { mutableStateOf("dashboard") }
     var moreExpanded by remember { mutableStateOf(false) }
@@ -287,6 +319,7 @@ private fun GenSolarApp(
     var advancedShade by remember { mutableStateOf(false) }
     var advancedLocation by remember { mutableStateOf(false) }
     var advancedStaad by remember { mutableStateOf(false) }
+    var advancedBom by remember { mutableStateOf(false) }
     BackHandler(enabled = selected != "dashboard") {
         if (selected == "site" && advancedSite) {
             advancedSite = false
@@ -302,6 +335,9 @@ private fun GenSolarApp(
             advancedLocation = false
         } else if (selected == "staad" && advancedStaad) {
             advancedStaad = false
+                                        advancedBom = false
+        } else if (selected == "bom" && advancedBom) {
+            advancedBom = false
         } else {
             selected = "dashboard"
             advancedSite = false
@@ -311,6 +347,7 @@ private fun GenSolarApp(
             advancedShade = false
             advancedLocation = false
             advancedStaad = false
+                                        advancedBom = false
             onNavigate("dashboard")
         }
     }
@@ -378,6 +415,7 @@ private fun GenSolarApp(
                                         advancedShade = false
                                         advancedLocation = false
                                         advancedStaad = false
+                                        advancedBom = false
                                         onNavigate(key)
                                     }
                                 )
@@ -404,6 +442,7 @@ private fun GenSolarApp(
                                 advancedShade = false
                                 advancedLocation = false
                                 advancedStaad = false
+                                        advancedBom = false
                                 onNavigate(destination.key)
                             },
                             icon = { Text(destination.symbol, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
@@ -433,6 +472,7 @@ private fun GenSolarApp(
                         advancedShade = false
                         advancedLocation = false
                         advancedStaad = false
+                                        advancedBom = false
                         onNavigate(destination)
                     }
                 )
@@ -457,6 +497,13 @@ private fun GenSolarApp(
                     browser = browser,
                     modifier = Modifier.fillMaxSize().padding(padding),
                     onOpenAdvanced = { advancedSite = true }
+                )
+            } else if (selected == "bom" && !advancedBom) {
+                NativeBomScreen(
+                    browser = browser,
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    onOpenAdvanced = { advancedBom = true },
+                    onExportCsv = { name, csv -> onExportFile(name, csv, "text/csv") }
                 )
             } else {
                 AndroidView(
@@ -817,13 +864,16 @@ private fun NativePvDesignScreen(
                   });
                   var button = document.getElementById('generateLayout');
                   if (!button) return JSON.stringify({error:'Layout optimizer button is unavailable.'});
-                  if (typeof state !== 'undefined') delete state.layout;
+                  var bridge = window.GenSolarEpcBridge;
+                  if (!bridge) return JSON.stringify({error:'Native project bridge is unavailable.'});
+                  bridge.clearLayout();
                   button.click();
-                  if (typeof state === 'undefined' || !state.layout) return JSON.stringify({error:'No layout was generated. Check the site survey, roof dimensions and obstacle positions.'});
+                  var project = bridge.getProjectSummary();
+                  if (!project.layout) return JSON.stringify({error:'No layout was generated. Check the site survey, roof dimensions and obstacle positions.'});
                   return JSON.stringify({
-                    count:state.layout.count, kwp:state.layout.kwp,
-                    pitch:state.layout.pitch, orientation:state.layout.orientation,
-                    area:(state.layout.zoneStats||[]).reduce(function(a,z){return a+z.area;},0),
+                    count:project.layout.count, kwp:project.layout.kwp,
+                    pitch:project.layout.pitch, orientation:project.layout.orientation,
+                    area:(project.layout.zoneStats||[]).reduce(function(a,z){return a+z.area;},0),
                     warnings:document.getElementById('layoutWarnings')?.textContent||''
                   });
                 })()
@@ -921,11 +971,14 @@ private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifi
                   });
                   var button = document.getElementById('calcElectrical');
                   if (!button) return JSON.stringify({error:'Electrical calculation action unavailable.'});
-                  if (typeof state === 'undefined' || !state.layout) return JSON.stringify({error:'Generate a PV layout first.'});
-                  delete state.electrical;
+                  var bridge = window.GenSolarEpcBridge;
+                  if (!bridge) return JSON.stringify({error:'Native project bridge is unavailable.'});
+                  if (!bridge.getProjectSummary().layout) return JSON.stringify({error:'Generate a PV layout first.'});
+                  bridge.clearElectrical();
                   button.click();
-                  if (!state.electrical) return JSON.stringify({error:'No result. Verify module and inverter inputs.'});
-                  return JSON.stringify({strings:state.electrical.strings,modules:state.electrical.modules,warning:document.getElementById('electricalWarning')?.textContent||''});
+                  var project = bridge.getProjectSummary();
+                  if (!project.electrical) return JSON.stringify({error:'No result. Verify module and inverter inputs.'});
+                  return JSON.stringify({strings:project.electrical.strings,modules:project.electrical.modules,warning:document.getElementById('electricalWarning')?.textContent||''});
                 })()
             """.trimIndent()
             browser.evaluateJavascript(script) { raw ->
@@ -999,7 +1052,7 @@ private fun NativeStaadScreen(browser: WebView, modifier: Modifier = Modifier, o
         mapping.forEach { (key, domKey) -> payload.put(domKey, fields[key]?.value.orEmpty()) }
         persist()
         status = "GENERATING STRUCTURAL MODEL"
-        val expression = "JSON.stringify((function(v){Object.keys(v).forEach(function(k){var e=document.querySelector('[data-k='+k+']');if(e){e.value=v[k];e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}});if(typeof save==='function')save();var m=staadGenerate();return {ok:!!m,frames:m?m.frameCount:0,nodes:m?m.nodes.length:0,members:m?m.members.length:0,spacing:m?m.frameSpacing:0,purlins:m?m.purlinCount:0,braces:m?m.braceCount:0,message:document.getElementById('staadStatus')?.textContent||'Model generation failed'};})($payload))"
+        val expression = "JSON.stringify((function(v){Object.keys(v).forEach(function(k){var e=document.querySelector('[data-k='+k+']');if(e){e.value=v[k];e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}});var bridge=window.GenSolarEpcBridge;if(!bridge)return {ok:false,message:'Native project bridge is unavailable'};if(!bridge.saveProject())return {ok:false,message:'Project save failed'};var m=bridge.generateStaad();return {ok:!!m,frames:m?m.frameCount:0,nodes:m?m.nodes.length:0,members:m?m.members.length:0,spacing:m?m.frameSpacing:0,purlins:m?m.purlinCount:0,braces:m?m.braceCount:0,message:document.getElementById('staadStatus')?.textContent||'Model generation failed'};})($payload))"
         browser.evaluateJavascript("(function(){try{return $expression}catch(e){return JSON.stringify({ok:false,message:e.message})}})()") { raw ->
             try {
                 val jsonText = org.json.JSONTokener(raw ?: "null").nextValue() as? String ?: "{}"
@@ -1115,7 +1168,7 @@ private fun NativeLocationScreen(
             .put("gpsAccuracy", accuracy).put("ghi", ghi).put("dni", dni).put("dhi", dhi).put("gti", gti)
             .put("yield", annualYield).put("resourceSource", resourceSource)
         browser.evaluateJavascript(
-            "(function(v){Object.keys(v).forEach(function(k){var e=document.querySelector('[data-k='+k+']');if(e){e.value=v[k];e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}});if(typeof save==='function')save();var b=document.getElementById('pinCoordinates');if(b)b.click();return 'synced';})($values)",
+            "(function(v){Object.keys(v).forEach(function(k){var e=document.querySelector('[data-k='+k+']');if(e){e.value=v[k];e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}});var bridge=window.GenSolarEpcBridge;if(!bridge||!bridge.saveProject())return 'save-failed';var b=document.getElementById('pinCoordinates');if(b)b.click();return 'synced';})($values)",
             null
         )
         status = "SAVED OFFLINE & SYNCED TO PROJECT"
@@ -1355,8 +1408,11 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
                   }
                   var button=document.getElementById('cadCreateBuilding');
                   if(!button) return JSON.stringify({error:'Parametric building action is unavailable.'});
+                  var bridge=window.GenSolarEpcBridge;
+                  if(!bridge) return JSON.stringify({error:'Native project bridge is unavailable.'});
                   button.click();
-                  if(typeof model==='undefined'||!model.building||!model.entities) return JSON.stringify({error:'CAD model was not created.'});
+                  var model=bridge.getCadSnapshot();
+                  if(!model.building||!model.entities) return JSON.stringify({error:'CAD model was not created.'});
                   var roof=model.entities.filter(function(e){return e.layer==='ROOF'&&e.type==='rect'}).slice(-1)[0];
                   return JSON.stringify({entities:model.entities.length,height:model.building.height,thickness:model.building.thickness,width:roof?roof.w:0,length:roof?roof.h:0});
                 })()
@@ -1515,6 +1571,176 @@ private fun NativeSurveyScreen(
 }
 
 @Composable
+
+@Composable
+private fun NativeBomScreen(
+    browser: WebView,
+    modifier: Modifier = Modifier,
+    onOpenAdvanced: () -> Unit,
+    onExportCsv: (String, String) -> Unit
+) {
+    var items by remember { mutableStateOf(emptyList<NativeBomLine>()) }
+    var projectSummary by remember { mutableStateOf("No saved BOM loaded.") }
+    var status by remember { mutableStateOf("Load a saved BOM or build one from the active PV layout.") }
+    val currency = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "IN"))
+    val total = items.sumOf { it.quantity * (it.rate.toDoubleOrNull() ?: 0.0) }
+
+    fun applyBomResponse(raw: String?) {
+        try {
+            val response = org.json.JSONTokener(raw ?: "{}").nextValue() as? String ?: "{}"
+            val json = JSONObject(response)
+            if (json.has("error")) {
+                status = json.optString("error")
+                return
+            }
+            val rows = json.optJSONArray("items") ?: org.json.JSONArray()
+            val loaded = (0 until rows.length()).mapNotNull { index ->
+                val row = rows.optJSONArray(index) ?: return@mapNotNull null
+                if (row.length() < 5) return@mapNotNull null
+                NativeBomLine(
+                    name = row.optString(0),
+                    specification = row.optString(1),
+                    unit = row.optString(2),
+                    quantity = row.optDouble(3, 0.0),
+                    rate = row.optDouble(4, 0.0).toString()
+                )
+            }
+            items = loaded
+            val projectName = json.optString("projectName", "Active project")
+            val modules = json.optInt("modules")
+            val kwp = json.optDouble("kwp")
+            val strings = json.optInt("strings")
+            projectSummary = "$projectName · $modules modules · ${String.format(java.util.Locale.US, "%.2f", kwp)} kWp · $strings strings"
+            status = if (loaded.isEmpty()) "No BOM line items are saved for this project." else "Loaded ${loaded.size} material groups from the active project."
+        } catch (_: Exception) {
+            status = "Could not read the project BOM. Open the detailed workspace to inspect the saved data."
+        }
+    }
+
+    fun loadSavedBom() {
+        browser.evaluateJavascript(
+            "(function(){try{var bridge=window.GenSolarEpcBridge;if(!bridge)return JSON.stringify({error:'Native project bridge is unavailable.'});var project=bridge.getProjectSummary();return JSON.stringify({items:project.bom||[],projectName:project.project&&project.project.customer||'Active project',modules:project.layout&&project.layout.count||0,kwp:project.layout&&project.layout.kwp||0,strings:project.electrical&&project.electrical.strings||0});}catch(e){return JSON.stringify({error:e.message});}})()"
+        ) { raw -> applyBomResponse(raw) }
+    }
+
+    fun buildFromProject() {
+        status = "BUILDING BOM FROM CURRENT DESIGN"
+        browser.evaluateJavascript(
+            "(function(){try{var bridge=window.GenSolarEpcBridge;if(!bridge)return JSON.stringify({error:'Native project bridge is unavailable.'});var before=bridge.getProjectSummary();if(!before.layout)return JSON.stringify({error:'Generate a PV layout first.'});if(!bridge.buildBom())return JSON.stringify({error:'BOM generation or offline save failed. Check the project inputs and device storage.'});var project=bridge.getProjectSummary();return JSON.stringify({items:project.bom||[],projectName:project.project&&project.project.customer||'Active project',modules:project.layout&&project.layout.count||0,kwp:project.layout&&project.layout.kwp||0,strings:project.electrical&&project.electrical.strings||0});}catch(e){return JSON.stringify({error:e.message||'BOM generation failed'});}})()"
+        ) { raw -> applyBomResponse(raw) }
+    }
+
+    fun saveRates() {
+        if (items.isEmpty()) {
+            status = "Build or load a BOM before saving rates."
+            return
+        }
+        val rows = org.json.JSONArray()
+        items.forEach { item ->
+            val rate = item.rate.toDoubleOrNull()
+            if (rate == null || !rate.isFinite() || rate < 0) {
+                status = "Enter a valid non-negative rate for ${item.name}."
+                return
+            }
+            rows.put(org.json.JSONArray().put(item.name).put(item.specification).put(item.unit).put(item.quantity).put(rate))
+        }
+        browser.evaluateJavascript(
+            "(function(rows){try{var bridge=window.GenSolarEpcBridge;if(!bridge)return 'BRIDGE_UNAVAILABLE';return bridge.setBom(rows)?'SAVED':'SAVE_FAILED';}catch(e){return 'ERROR:'+e.message;}})($rows)"
+        ) { raw ->
+            val result = try { org.json.JSONTokener(raw ?: "\"ERROR\"").nextValue() as? String ?: "ERROR" } catch (_: Exception) { "ERROR" }
+            status = when {
+                result == "SAVED" -> "Rates saved to the active project offline."
+                result == "BRIDGE_UNAVAILABLE" -> "Project bridge is unavailable. Reopen the workspace and retry."
+                result.startsWith("ERROR:") -> result.removePrefix("ERROR:")
+                else -> "Project save failed. Check device storage and retry."
+            }
+        }
+    }
+
+    fun exportCsv() {
+        if (items.isEmpty()) {
+            status = "Build or load a BOM before exporting."
+            return
+        }
+        val table = listOf(listOf("Item", "Specification", "Unit", "Quantity", "Rate (INR)", "Amount (INR)")) +
+            items.map { item ->
+                val rate = item.rate.toDoubleOrNull() ?: 0.0
+                listOf(item.name, item.specification, item.unit, item.quantity.toString(), rate.toString(), (item.quantity * rate).toString())
+            }
+        val csv = table.joinToString("\r\n") { row ->
+            row.joinToString(",") { value -> "\"" + value.replace("\"", "\"\"") + "\"" }
+        } + "\r\n"
+        onExportCsv("GenSolar-BOM.csv", csv)
+    }
+
+    Column(
+        modifier = modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("BOM / BOQ", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Text("Turn design outputs into a cost schedule.", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Material quantities come from the active PV layout and shared electrical project data. Rates remain editable and are saved to the same offline project.", color = Color(0xFFD7E8E1), fontSize = 12.sp, lineHeight = 18.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("DESIGN BASIS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                Text(projectSummary, color = BrandGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    Button(onClick = ::loadSavedBom, modifier = Modifier.weight(1f)) { Text("Load saved BOM") }
+                    androidx.compose.material3.OutlinedButton(onClick = ::buildFromProject, modifier = Modifier.weight(1f)) { Text("Build from design") }
+                }
+                Text(status, color = Color(0xFF60756E), fontSize = 11.sp, lineHeight = 16.sp)
+            }
+        }
+        if (items.isEmpty()) {
+            Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                Text("No material schedule is loaded. Generate a PV layout before building the preliminary BOM.", modifier = Modifier.padding(16.dp), color = Color(0xFF667A75), fontSize = 12.sp)
+            }
+        } else {
+            Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("PRELIMINARY COST SUMMARY", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(currency.format(total), color = BrandGreen, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("${items.size} material groups · rates excluding taxes, freight and installation unless entered in the rate.", color = Color(0xFF667A75), fontSize = 10.sp)
+                }
+            }
+            items.forEachIndexed { index, item ->
+                Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                    Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(item.name, color = BrandGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text(item.specification, color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 14.sp)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("${if (item.quantity % 1.0 == 0.0) item.quantity.toInt() else String.format(java.util.Locale.US, "%.2f", item.quantity)} ${item.unit}", color = BrandGreen, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text(currency.format(item.quantity * (item.rate.toDoubleOrNull() ?: 0.0)), color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        OutlinedTextField(
+                            value = item.rate,
+                            onValueChange = { next -> items = items.toMutableList().also { it[index] = item.copy(rate = next) } },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Rate per ${item.unit} (₹)", fontSize = 11.sp) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                }
+            }
+            Button(onClick = ::saveRates, modifier = Modifier.fillMaxWidth()) { Text("Save rates to project") }
+            androidx.compose.material3.OutlinedButton(onClick = ::exportCsv, modifier = Modifier.fillMaxWidth()) { Text("Export BOM CSV") }
+        }
+        androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) {
+            Text("Open detailed BOM, fabrication and vendor tools")
+        }
+        Text("Quantities are preliminary allowances. Structural member sizes, support spans, protection ratings, cable routes, earthing and final procurement quantities require project-specific engineering review.", color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp)
+    }
+}
+
 private fun SurveyInput(
     label: String,
     value: String,
@@ -1532,5 +1758,7 @@ private fun SurveyInput(
         shape = RoundedCornerShape(13.dp)
     )
 }
+
+private data class NativeBomLine(val name: String, val specification: String, val unit: String, val quantity: Double, val rate: String)
 
 private data class NativeDestination(val key: String, val label: String, val symbol: String)
