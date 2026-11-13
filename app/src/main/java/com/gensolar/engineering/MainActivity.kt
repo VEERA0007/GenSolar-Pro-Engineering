@@ -335,9 +335,9 @@ private fun GenSolarApp(
             advancedLocation = false
         } else if (selected == "staad" && advancedStaad) {
             advancedStaad = false
-                                        advancedBom = false
-        } else if (selected == "bom" && advancedBom) {
             advancedBom = false
+        } else if (selected == "bom" && advancedBom) {
+        advancedBom = false
         } else {
             selected = "dashboard"
             advancedSite = false
@@ -347,7 +347,7 @@ private fun GenSolarApp(
             advancedShade = false
             advancedLocation = false
             advancedStaad = false
-                                        advancedBom = false
+            advancedBom = false
             onNavigate("dashboard")
         }
     }
@@ -442,7 +442,7 @@ private fun GenSolarApp(
                                 advancedShade = false
                                 advancedLocation = false
                                 advancedStaad = false
-                                        advancedBom = false
+                                advancedBom = false
                                 onNavigate(destination.key)
                             },
                             icon = { Text(destination.symbol, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
@@ -472,7 +472,7 @@ private fun GenSolarApp(
                         advancedShade = false
                         advancedLocation = false
                         advancedStaad = false
-                                        advancedBom = false
+                        advancedBom = false
                         onNavigate(destination)
                     }
                 )
@@ -1167,11 +1167,13 @@ private fun NativeLocationScreen(
         val values = JSONObject().put("lat", latitude).put("lon", longitude).put("elevation", elevation)
             .put("gpsAccuracy", accuracy).put("ghi", ghi).put("dni", dni).put("dhi", dhi).put("gti", gti)
             .put("yield", annualYield).put("resourceSource", resourceSource)
+        status = "SAVING GPS AND RESOURCE DATA"
         browser.evaluateJavascript(
-            "(function(v){Object.keys(v).forEach(function(k){var e=document.querySelector('[data-k='+k+']');if(e){e.value=v[k];e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}});var bridge=window.GenSolarEpcBridge;if(!bridge||!bridge.saveProject())return 'save-failed';var b=document.getElementById('pinCoordinates');if(b)b.click();return 'synced';})($values)",
-            null
-        )
-        status = "SAVED OFFLINE & SYNCED TO PROJECT"
+            "(function(v){Object.keys(v).forEach(function(k){var e=document.querySelector('[data-k='+k+']');if(e){e.value=v[k];e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}});var bridge=window.GenSolarEpcBridge;if(!bridge||!bridge.saveProject())return 'save-failed';var b=document.getElementById('pinCoordinates');if(b)b.click();return 'synced';})($values)"
+        ) { raw ->
+            val result = try { org.json.JSONTokener(raw ?: "\"save-failed\"").nextValue() as? String ?: "save-failed" } catch (_: Exception) { "save-failed" }
+            status = if (result == "synced") "SAVED OFFLINE & SYNCED TO PROJECT" else "PROJECT SAVE FAILED · $result"
+        }
     }
     Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
