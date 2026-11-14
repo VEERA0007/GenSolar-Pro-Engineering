@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
@@ -520,6 +521,11 @@ private fun GenSolarApp(
                     onOpenAdvanced = { advancedProcurement = true },
                     onExportCsv = { name, csv -> onExportFile(name, csv, "text/csv") }
                 )
+            } else if (selected == "handover") {
+                NativeHandoverScreen(
+                    browser = browser,
+                    modifier = Modifier.fillMaxSize().padding(padding)
+                )
             } else if (selected == "commissioning") {
                 NativeCommissioningScreen(
                     browser = browser,
@@ -573,7 +579,8 @@ private fun NativeDashboard(modifier: Modifier = Modifier, onNavigate: (String) 
         Triple("Procurement", "Vendor quotations and purchase tracking.", "procurement"),
         Triple("Construction & QA", "Site progress, inspections and commissioning.", "construction"),
         Triple("DPR & handover", "Reports, drawing register and handover pack.", "dpr"),
-        Triple("Commissioning & QA", "Electrical tests, measured results and corrective actions.", "commissioning")
+        Triple("Commissioning & QA", "Electrical tests, measured results and corrective actions.", "commissioning"),
+        Triple("Customer handover", "Acceptance checklist, EPC handover and close-out records.", "handover")
     )
     val filtered = workspaces.filter { item ->
         val matchesSearch = search.isBlank() || (item.first + " " + item.second).contains(search, ignoreCase = true)
@@ -1779,6 +1786,122 @@ private fun NativeProcurementScreen(
 }
 
 
+
+
+@Composable
+private fun NativeHandoverScreen(browser: WebView, modifier: Modifier = Modifier) {
+    val checklistLabels = listOf(
+        "As-built PV layout and approved drawings",
+        "Final SLD and protection schedule",
+        "Equipment datasheets and serial number schedule",
+        "Commissioning and electrical test records",
+        "Operating and maintenance manual",
+        "Warranty certificates and supplier contacts",
+        "DISCOM / utility approvals and meter records",
+        "Safety instructions and emergency shutdown procedure",
+        "Training and customer demonstration",
+        "Open defects and corrective actions disclosed"
+    )
+    var customer by remember { mutableStateOf("") }
+    var site by remember { mutableStateOf("") }
+    var date by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
+    var installer by remember { mutableStateOf("") }
+    var customerRep by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf("Draft") }
+    var observations by remember { mutableStateOf("") }
+    var packageRef by remember { mutableStateOf("") }
+    var checks by remember { mutableStateOf(List(10) { false }) }
+    var message by remember { mutableStateOf("Handover and acceptance records are saved in the active project.") }
+
+    fun refresh() {
+        browser.evaluateJavascript("(function(){var b=window.GenSolarEpcBridge;return b?JSON.stringify(b.getHandover()):'{}'})()") { raw ->
+            try {
+                val encoded = org.json.JSONTokener(raw ?: "\"{}\"").nextValue() as? String ?: "{}"
+                val h = JSONObject(encoded)
+                customer = h.optString("customer", "")
+                site = h.optString("site", "")
+                date = h.optString("date", java.time.LocalDate.now().toString())
+                installer = h.optString("installer", "")
+                customerRep = h.optString("customerRep", "")
+                status = h.optString("status", "Draft")
+                observations = h.optString("observations", "")
+                packageRef = h.optString("package", "")
+                val checklist = h.optJSONObject("checklist") ?: JSONObject()
+                checks = List(10) { i -> checklist.optBoolean(i.toString(), false) }
+            } catch (_: Exception) { message = "Unable to load the handover register." }
+        }
+    }
+    LaunchedEffect(Unit) { refresh() }
+
+    fun toggle(index: Int, checked: Boolean) {
+        browser.evaluateJavascript("window.GenSolarEpcBridge.updateHandoverChecklist($index,$checked)") { raw ->
+            if (raw == "true") {
+                checks = checks.toMutableList().also { it[index] = checked }
+                message = "Checklist item saved."
+            } else message = "Checklist update could not be saved."
+        }
+    }
+    fun save() {
+        val payload = JSONObject().put("customer", customer.trim()).put("site", site.trim())
+            .put("date", date.trim()).put("installer", installer.trim()).put("customerRep", customerRep.trim())
+            .put("status", status).put("observations", observations.trim()).put("package", packageRef.trim())
+        browser.evaluateJavascript("window.GenSolarEpcBridge.saveHandover(" + payload + ")") { raw ->
+            message = if (raw == "true") "Customer handover record saved." else
+                "Save rejected. Enter customer, site, valid date and installer. Accepted requires customer representative and all checklist items."
+            if (raw == "true") refresh()
+        }
+    }
+
+    val completed = checks.count { it }
+    Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("PROJECT CLOSE-OUT", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Text("Customer handover & acceptance", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Record the handover package, customer acknowledgement and completion evidence before closing an EPC project.", color = Color(0xFFD7E8E1), fontSize = 12.sp, lineHeight = 18.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("HANDOVER PARTICULARS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                SurveyInput("Customer / organisation", customer, { customer = it })
+                SurveyInput("Project / site", site, { site = it })
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SurveyInput("Handover date (YYYY-MM-DD)", date, { date = it }, Modifier.weight(1f))
+                    SurveyInput("Package reference", packageRef, { packageRef = it }, Modifier.weight(1f))
+                }
+                SurveyInput("Installer / EPC representative", installer, { installer = it })
+                SurveyInput("Customer representative", customerRep, { customerRep = it })
+                Text("ACCEPTANCE STATUS", color = Color(0xFF60756E), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    listOf("Draft", "Pending customer review", "Accepted with observations", "Accepted", "Rejected").forEach { item ->
+                        FilterChip(selected = status == item, onClick = { status = item }, label = { Text(item, fontSize = 10.sp) })
+                    }
+                }
+                SurveyInput("Customer observations / outstanding items", observations, { observations = it }, minLines = 3)
+                Button(onClick = { save() }, modifier = Modifier.fillMaxWidth()) { Text("Save handover record") }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("HANDOVER DOCUMENT CHECKLIST", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = .8.sp)
+                    Spacer(Modifier.weight(1f))
+                    Text("$completed / 10", color = BrandGreen, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+                checklistLabels.forEachIndexed { index, label ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = checks[index], onCheckedChange = { toggle(index, it) })
+                        Text(label, color = Color(0xFF24413B), fontSize = 11.sp, lineHeight = 15.sp)
+                    }
+                }
+                Text("Accepted status is blocked until all ten checklist items are complete and a customer representative is recorded.", color = Color(0xFF60756E), fontSize = 10.sp, lineHeight = 15.sp)
+            }
+        }
+        Text(message, color = Color(0xFF60756E), fontSize = 11.sp, lineHeight = 16.sp)
+        Text("Customer acceptance is a project record only. It does not replace utility approvals, statutory certificates, safety close-out or professional engineering sign-off.", color = Color(0xFF60756E), fontSize = 10.sp, lineHeight = 15.sp)
+    }
+}
 
 @Composable
 private fun NativeCommissioningScreen(
