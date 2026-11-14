@@ -2097,7 +2097,7 @@ private fun NativeProcurementScreen(
                             FilterChip(
                                 selected = receiptItem.equals(itemName, true),
                                 onClick = { receiptItem = itemName },
-                                label = { Text(itemName + " · Balance " + "%.2f".format((itemQty - itemReceived).coerceAtLeast(0.0)) + " " + itemUnit, fontSize = 10.sp) }
+                                label = { Text(itemName + " · " + "%.2f".format(itemReceived) + "/" + "%.2f".format(itemQty) + " received · " + "%.2f".format((itemQty - itemReceived).coerceAtLeast(0.0)) + " " + itemUnit + " balance", fontSize = 10.sp) }
                             )
                         }
                     }
