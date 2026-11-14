@@ -1174,6 +1174,47 @@ window.GenSolarEpcBridge = Object.freeze({
     if (typeof renderSimple === 'function') renderSimple('poList',state.pos);
     return true;
   },
+  getDprData: function() {
+    return JSON.parse(JSON.stringify({
+      project: state.project || {},
+      documents: Array.isArray(state.project.dprDocuments) ? state.project.dprDocuments : [],
+      bom: Array.isArray(state.bom) ? state.bom : [],
+      activities: Array.isArray(state.activities) ? state.activities : [],
+      procurement: {purchaseOrders:Array.isArray(state.pos)?state.pos:[],receipts:Array.isArray(state.goodsReceipts)?state.goodsReceipts:[]},
+      meta: state.meta || {}
+    }));
+  },
+  saveDprDetails: function(input) {
+    const v = input || {};
+    const fields = ['dprProjectName','dprCustomer','dprSite','dprCapacity','dprOwner','dprRevision'];
+    const values = {};
+    for (const key of fields) values[key] = String(v[key] || '').trim();
+    if (!values.dprProjectName || !values.dprCustomer || !values.dprSite || !values.dprOwner || !values.dprRevision) return false;
+    const capacity = Number(values.dprCapacity);
+    if (!Number.isFinite(capacity) || capacity <= 0) return false;
+    const previous = Object.assign({}, state.project || {});
+    state.project = Object.assign({}, previous, values);
+    if (!save()) { state.project = previous; return false; }
+    return true;
+  },
+  upsertDprDocument: function(input) {
+    const v = input || {};
+    const name = String(v.name || '').trim(), revision = String(v.revision || '').trim();
+    const owner = String(v.owner || '').trim(), date = String(v.date || ''), status = String(v.status || '');
+    if (!name || !revision || !owner || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date + 'T00:00:00Z').toISOString().slice(0,10) !== date) return false;
+    if (!['Draft','In review','Approved','Issued'].includes(status)) return false;
+    const docs = Array.isArray(state.project.dprDocuments) ? state.project.dprDocuments : [];
+    const index = docs.findIndex(row => Array.isArray(row) && String(row[0]).toLowerCase() === name.toLowerCase() && String(row[1]).toLowerCase() === revision.toLowerCase());
+    const row = [name,revision,status,owner,date];
+    if (index >= 0) {
+      const old = docs[index]; docs[index] = row;
+      if (!save()) { docs[index] = old; return false; }
+    } else {
+      docs.push(row); state.project.dprDocuments = docs;
+      if (!save()) { docs.pop(); return false; }
+    }
+    return true;
+  },
   getProjectSummary: function() {
     return JSON.parse(JSON.stringify({
       meta: state.meta || {},
