@@ -1101,18 +1101,23 @@ jobs:
             pair(0,"LWPOLYLINE"),pair(8,"BOUNDARY"),pair(70,1),pair(10,0),pair(20,0),
               pair(10,1000),pair(20,0),pair(10,1000),pair(20,500),
             pair(0,"POINT"),pair(8,"SURVEY"),pair(10,250),pair(20,125),
+            pair(0,"POLYLINE"),pair(8,"LEGACY_BOUNDARY"),pair(66,1),pair(70,1),
+            pair(0,"VERTEX"),pair(8,"LEGACY_BOUNDARY"),pair(10,100),pair(20,100),
+            pair(0,"VERTEX"),pair(8,"LEGACY_BOUNDARY"),pair(10,900),pair(20,100),
+            pair(0,"VERTEX"),pair(8,"LEGACY_BOUNDARY"),pair(10,900),pair(20,400),
+            pair(0,"SEQEND"),
             pair(0,"LINE"),pair(8,"BROKEN"),pair(10,"bad"),pair(20,0),pair(11,10),pair(21,10),
             pair(0,"ENDSEC"),pair(0,"EOF")
           ].join("\n")+"\n";
           const parsed=parseDxf(dxf);
-          assert.equal(parsed.entities.length,4,"malformed entities must be skipped");
+          assert.equal(parsed.entities.length,5,"malformed entities must be skipped and legacy POLYLINE must import");
           assert.equal(parsed.units,4);
           assert.equal(parsed.unitName,"Millimetres");
-          assert.deepEqual(parsed.layers,["BOUNDARY","OBSTACLES","ROOF","SURVEY"]);
+          assert.deepEqual(parsed.layers,["BOUNDARY","LEGACY_BOUNDARY","OBSTACLES","ROOF","SURVEY"]);
           assert.equal(parsed.counts.LINE,1);
           assert.equal(parsed.counts.CIRCLE,1);
           assert.equal(parsed.counts.LWPOLYLINE,1);
-          assert.equal(parsed.counts.POINT,1);
+          assert.equal(parsed.counts.POINT,1);\n          assert.equal(parsed.counts.POLYLINE,1);\n          const legacy=parsed.entities.find(x=>x.type==="POLYLINE");\n          assert.equal(legacy.closed,true);\n          assert.equal(legacy.vertices.length,3);
           const poly=parsed.entities.find(x=>x.type==="LWPOLYLINE");
           assert.equal(poly.closed,true);
           assert.equal(poly.vertices.length,3);
@@ -1122,7 +1127,7 @@ jobs:
           assert.match(summary,/4 layers/);
           assert.match(summary,/Millimetres/);
           assert.equal(parseDxf("not a valid drawing").entities.length,0,"invalid input must produce no supported geometry");
-          console.log("DXF import tests passed: LINE/CIRCLE/LWPOLYLINE/POINT, layer metadata, INSUNITS, closed polygons, extents and malformed-entity filtering");
+          console.log("DXF import tests passed: LINE/CIRCLE/LWPOLYLINE/POLYLINE/VERTEX/POINT, layer metadata, INSUNITS, closed polygons, extents and malformed-entity filtering");
           JS
           node /tmp/gensolar-dxf-import.js
       - name: Test imported DXF SVG preview and untrusted layer labels
@@ -1150,11 +1155,11 @@ jobs:
           const html=renderImportedDxf(data);
           for(const tag of ["<svg","<line","<circle","<path","<polyline","Imported DXF drawing preview"])
             assert.ok(html.includes(tag),"Missing preview output: "+tag);
-          assert.ok(html.includes("&lt;img src=x onerror=alert(1)&gt;"),"Layer labels must be HTML-escaped");
+          assert.ok(html.includes("<polygon")||html.includes("<polyline"),"Legacy and lightweight polylines must render");\n          assert.ok(html.includes("&lt;img src=x onerror=alert(1)&gt;"),"Layer labels must be HTML-escaped");
           assert.ok(!html.includes("<img src=x onerror=alert(1)>"),"Untrusted layer text must not become markup");
           assert.ok(html.includes('viewBox="0 0 900 540"'),"Preview must use the fixed viewBox");
           assert.match(renderImportedDxf({bounds:null,layers:[],entities:[]}),/No supported DXF geometry/);
-          console.log("DXF SVG preview passed: LINE/CIRCLE/ARC/LWPOLYLINE/POINT rendering, fit-to-view, empty drawing and escaped layer labels");
+          console.log("DXF SVG preview passed: LINE/CIRCLE/ARC/LWPOLYLINE/POLYLINE/POINT rendering, fit-to-view, empty drawing and escaped layer labels");
           JS
           node /tmp/gensolar-dxf-preview.js
       - name: Test persistent CAD layer visibility
@@ -1230,24 +1235,24 @@ jobs:
             {type:"TEXT",layer:"ROOF_ZONE_LABELS",x:100,y:200,height:180,rotation:15,text:"Main roof EL 6.25 m"},
             {type:"MTEXT",layer:"NOTES",x:300,y:400,height:120,rotation:0,text:"PV layout\\PRevision 3"}
           ]});
-          assert.equal(result.count,6);
+          assert.equal(result.count,7);
           assert.equal(model.entities[0].b.x,1,"DXF millimetres must convert to metres");
           assert.equal(model.entities[0].b.y,.5);
           assert.equal(model.entities[1].type,"poly");assert.equal(model.entities[1].closed,true);
           assert.equal(model.entities[2].r,.1);
           assert.ok(model.entities[3].points.length>=8,"ARC should be approximated by a CAD polyline");
-          assert.equal(model.entities[4].type,"text","DXF TEXT must become editable CAD text");
-          assert.equal(model.entities[4].x,.1,"DXF text insertion point must convert from mm to metres");
-          assert.equal(model.entities[4].height,.18,"DXF text height must convert from mm to metres");
-          assert.equal(model.entities[4].rotation,15,"DXF text rotation must be retained");
-          assert.equal(model.entities[5].type,"text","DXF MTEXT must become editable CAD text");
-          assert.equal(model.entities[5].text,"PV layout\\PRevision 3","MTEXT paragraph codes must be retained for CAD preview");
+          assert.equal(model.entities[4].type,"poly","Legacy POLYLINE must convert to editable CAD polygon");\n          assert.equal(model.entities[4].closed,true);\n          assert.equal(model.entities[5].type,"text","DXF TEXT must become editable CAD text");
+          assert.equal(model.entities[5].x,.1,"DXF text insertion point must convert from mm to metres");
+          assert.equal(model.entities[5].height,.18,"DXF text height must convert from mm to metres");
+          assert.equal(model.entities[5].rotation,15,"DXF text rotation must be retained");
+          assert.equal(model.entities[6].type,"text","DXF MTEXT must become editable CAD text");
+          assert.equal(model.entities[6].text,"PV layout\\PRevision 3","MTEXT paragraph codes must be retained for CAD preview");
           assert.equal(layerRefreshes,1,"Imported CAD layers must immediately refresh the visibility controls");
           assert.equal(draws,1);assert.equal(models,1);assert.equal(saves,1);
           const before=model.entities.length;
           const unsupported=context.gensolarImportDxf({units:0,entities:[{type:"LINE",layer:"0",x1:0,y1:0,x2:10,y2:10}]});
           assert.equal(unsupported.count,0);assert.equal(model.entities.length,before,"Unitless geometry must not be silently scaled");
-          console.log("DXF-to-CAD handoff passed: mm-to-m conversion, line/polyline/circle/arc/TEXT/MTEXT import, text scaling/rotation, redraw/save and unitless rejection");
+          console.log("DXF-to-CAD handoff passed: mm-to-m conversion, line/polyline/circle/arc/legacy POLYLINE/TEXT/MTEXT import, text scaling/rotation, redraw/save and unitless rejection");
           JS
           node /tmp/gensolar-dxf-handoff.js
       - name: Test 3D CAD layer visibility
