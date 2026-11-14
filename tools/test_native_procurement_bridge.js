@@ -10,6 +10,18 @@ const context={window:{},state:{project:{},pos:[],vendors:[],poHistory:[],goodsR
 vm.createContext(context);vm.runInContext(html.slice(start,end),context);
 const b=context.window.GenSolarEpcBridge;
 
+const rfq={ref:'GS-RFQ-001',item:'550 W mono TOPCon PV module',qty:120,unit:'Nos',dueDate:'2026-12-01',suppliers:['Vendor A','Vendor B']};
+assert.equal(b.createRfq(rfq),true);
+assert.equal(b.getProcurement().rfqs.length,1);
+assert.deepEqual(Array.from(b.getProcurement().rfqs[0]).slice(0,5),['GS-RFQ-001','550 W mono TOPCon PV module',120,'Nos','2026-12-01']);
+assert.deepEqual(Array.from(b.getProcurement().rfqs[0][5]),['Vendor A','Vendor B']);
+for(const patch of [{ref:''},{item:''},{qty:0},{qty:-1},{unit:''},{dueDate:'2026-02-30'},{suppliers:[]},{suppliers:['Vendor A','vendor a']}]) assert.equal(b.createRfq({...rfq,...patch}),false);
+assert.equal(b.createRfq({...rfq,ref:'gs-rfq-001'}),false,'RFQ references are case-insensitive unique');
+saved=false;
+assert.equal(b.createRfq({...rfq,ref:'GS-RFQ-002'}),false);
+assert.equal(b.getProcurement().rfqs.length,1,'failed RFQ save rolls back the request');
+saved=true;
+
 const quote = {name:'Module Supplier',amount:125000,deliveryDays:5,notes:'Tier-1 modules'};
 assert.equal(b.createVendorQuote(quote),true);
 assert.equal(b.getProcurement().vendors.length,1);
@@ -38,4 +50,4 @@ saved=false;
 assert.equal(b.createGoodsReceipt({...receipt,qty:1}),false);
 assert.equal(b.getProcurement().receipts.length,2);
 assert.equal(b.getProcurement().purchaseOrders[0][4],'Received');
-console.log('Native procurement bridge tests passed: PO creation, duplicate/field validation, receipt reconciliation, status automation and rollback.');
+console.log('Native procurement bridge tests passed: RFQ creation, supplier invite validation, duplicate references, RFQ save rollback, PO creation, receipt reconciliation, status automation and rollback.');
