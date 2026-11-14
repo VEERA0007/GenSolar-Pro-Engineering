@@ -115,7 +115,7 @@ A green CI build verifies only the checks configured in GitHub Actions and APK p
 ## Current build verification state
 
 - **Current main HEAD:** [12af457af3fdcee778796cd8085323d360d320fa](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/12af457af3fdcee778796cd8085323d360d320fa).
-- **Latest successful workflow:** [Build #487](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43637134669), source commit `31a8f1c1cb90e9d4c53d871e4060962031f5d93` (multi-line PO/BOM import). Later procurement changes are under CI validation in Build #510; no APK from those newer changes is marked verified yet.
+- **Latest successful workflow:** [Build #487](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43637134669), source commit `31a8f1c1cb90e9d4e9f5d46d266da37815223649` (multi-line PO/BOM import). Later procurement changes are under CI validation in Build #510; no APK from those newer changes is marked verified yet.
 
 - CI validates the configured checks and packaging. It does not replace physical Android device testing, field validation or qualified engineering review.
 
