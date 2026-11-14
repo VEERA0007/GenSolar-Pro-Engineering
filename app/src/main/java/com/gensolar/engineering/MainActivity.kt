@@ -1725,6 +1725,7 @@ private fun NativeProcurementScreen(
     var deliveryDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
     var receiptPo by remember { mutableStateOf("") }
     var receiptQty by remember { mutableStateOf("") }
+    var receiptItem by remember { mutableStateOf("") }
     var receiver by remember { mutableStateOf("") }
     var receiptDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
     var rows by remember { mutableStateOf(listOf<List<String>>()) }
@@ -1932,6 +1933,16 @@ private fun NativeProcurementScreen(
         }
         val ordered = selectedPo.getOrNull(5)?.toDoubleOrNull()
         val poUnit = selectedPo.getOrNull(6)?.takeIf { it.isNotBlank() } ?: unit
+        val selectedLines = try { org.json.JSONArray(selectedPo.getOrElse(8) { "[]" }) } catch (_: Exception) { org.json.JSONArray() }
+        val selectedLine = if (selectedLines.length() > 0) (0 until selectedLines.length()).mapNotNull { selectedLines.optJSONObject(it) }.firstOrNull { it.optString("item").equals(receiptItem, true) } else null
+        if (selectedLines.length() > 0 && selectedLine == null) {
+            message = "Select a material line before recording this receipt."
+            return
+        }
+        if (selectedLine != null && quantity > selectedLine.optDouble("qty") - receipts.filter { it.getOrElse(0) { "" } == receiptPo && it.getOrElse(8) { "" }.equals(receiptItem, true) }.sumOf { it.getOrElse(1) { "0" }.toDoubleOrNull() ?: 0.0 } + 1e-9) {
+            message = "Receipt exceeds the remaining balance for " + receiptItem + "."
+            return
+        }
         if (ordered != null && ordered > 0.0) {
             val alreadyReceived = receipts.filter {
                 it.getOrElse(0) { "" } == receiptPo &&
@@ -1947,7 +1958,7 @@ private fun NativeProcurementScreen(
             .put("poRef", receiptPo).put("qty", quantity)
             .put("unit", poUnit)
             .put("date", receiptDate.trim()).put("condition", "Good")
-            .put("receiver", receiver.trim()).put("documentRef", "").put("remarks", "")
+            .put("receiver", receiver.trim()).put("documentRef", "").put("remarks", "").put("item", receiptItem.trim())
         browser.evaluateJavascript("window.GenSolarEpcBridge.createGoodsReceipt(" + payload + ")") { result ->
             if (result == "true") {
                 message = "Goods receipt saved and PO balance reconciled."
@@ -2074,6 +2085,22 @@ private fun NativeProcurementScreen(
                 } else {
                     Text("Purchase order: " + receiptPo, color = Color(0xFF60756E), fontSize = 12.sp)
                     val selectedReceiptOrder = rows.firstOrNull { it.getOrElse(0) { "" } == receiptPo }
+                    val receiptLines = try { org.json.JSONArray(selectedReceiptOrder?.getOrElse(8) { "[]" } ?: "[]") } catch (_: Exception) { org.json.JSONArray() }
+                    if (receiptLines.length() > 0) {
+                        Text("SELECT MATERIAL LINE", color = AccentGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        for (lineIndex in 0 until receiptLines.length()) {
+                            val line = receiptLines.optJSONObject(lineIndex) ?: continue
+                            val itemName = line.optString("item")
+                            val itemQty = line.optDouble("qty")
+                            val itemUnit = line.optString("unit")
+                            val itemReceived = receipts.filter { it.getOrElse(0) { "" } == receiptPo && it.getOrElse(8) { "" }.equals(itemName, true) }.sumOf { it.getOrElse(1) { "0" }.toDoubleOrNull() ?: 0.0 }
+                            FilterChip(
+                                selected = receiptItem.equals(itemName, true),
+                                onClick = { receiptItem = itemName },
+                                label = { Text(itemName + " · Balance " + "%.2f".format((itemQty - itemReceived).coerceAtLeast(0.0)) + " " + itemUnit, fontSize = 10.sp) }
+                            )
+                        }
+                    }
                     val orderedReceiptQty = selectedReceiptOrder?.getOrNull(5)?.toDoubleOrNull() ?: 0.0
                     val receiptUnit = selectedReceiptOrder?.getOrNull(6)?.takeIf { it.isNotBlank() } ?: "Nos"
                     val receivedReceiptQty = receipts.filter {
