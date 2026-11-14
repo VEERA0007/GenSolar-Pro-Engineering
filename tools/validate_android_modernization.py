@@ -50,9 +50,10 @@ require("STAAD Structural" in html and "cadstudio" in html, "STAAD and CAD works
 native_lines = kotlin.splitlines()
 native_bom_index = next((i for i, line in enumerate(native_lines) if line.strip() == "private fun NativeBomScreen("), -1)
 survey_input_index = next((i for i, line in enumerate(native_lines) if line.strip() == "private fun SurveyInput("), -1)
-require(native_bom_index > 0 and native_lines[native_bom_index - 1].strip() == "@Composable", "NativeBomScreen must have one @Composable annotation")
-require(survey_input_index > 0 and native_lines[survey_input_index - 1].strip() == "@Composable", "SurveyInput must have one @Composable annotation")
-require(native_bom_index < 2 or native_lines[native_bom_index - 2].strip() != "@Composable", "duplicate @Composable annotation before NativeBomScreen")
+native_bom_annotations = [line.strip() for line in native_lines[:native_bom_index] if line.strip()][-2:]
+survey_input_annotations = [line.strip() for line in native_lines[:survey_input_index] if line.strip()][-2:]
+require(native_bom_annotations and native_bom_annotations[-1] == "@Composable" and (len(native_bom_annotations) == 1 or native_bom_annotations[-2] != "@Composable"), "NativeBomScreen must have exactly one @Composable annotation")
+require(survey_input_annotations and survey_input_annotations[-1] == "@Composable" and (len(survey_input_annotations) == 1 or survey_input_annotations[-2] != "@Composable"), "SurveyInput must have exactly one @Composable annotation")
 require("window.GenSolarEpcBridge = Object.freeze" in html and all(x in html for x in ("getProjectSummary", "getCadSnapshot", "saveProject", "clearLayout", "clearElectrical", "generateStaad", "buildBom", "setBom")), "Controlled native EPC JavaScript bridge is incomplete")
 require("bridge.buildBom()" in kotlin and "bridge.setBom(rows)" in kotlin and 'selected == "bom" && !advancedBom' in kotlin, "Native BOM screen must build, edit and persist the shared project schedule")
 require((ROOT / "tools/test_bom_generation.js").exists(), "BOM quantity and rate-preservation regression test missing")
