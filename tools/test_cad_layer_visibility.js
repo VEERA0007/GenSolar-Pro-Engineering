@@ -1,0 +1,17 @@
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const source=fs.readFileSync("app/src/main/assets/index.html","utf8");
+const start=source.indexOf("function renderLayerVisibility()");
+const end=source.indexOf("\nfunction save(){",start);
+assert.ok(start>=0&&end>start,"CAD layer visibility function must exist");
+const fn=source.slice(start,end);
+const box={innerHTML:"",querySelectorAll:()=>[]};
+const $=id=>id==="cadLayerVisibility"?box:null;
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const model={entities:[{layer:"CUSTOM<script>alert(1)</script>"}],hiddenLayers:[]};
+new Function("$","model","esc",fn)($,model,esc);
+assert.ok(box.innerHTML.includes("ROOF_ZONES"),"Roof-zone layer visibility must be available");
+assert.ok(box.innerHTML.includes("ACCESS_CORRIDORS"),"Access-corridor layer visibility must be available");
+assert.ok(box.innerHTML.includes("CUSTOM&lt;script&gt;alert(1)&lt;/script&gt;"),"Imported custom layers must be HTML escaped");
+assert.ok(!box.innerHTML.includes("<script>alert(1)</script>"),"Untrusted layer names must never inject markup");
+console.log("Dynamic CAD layer visibility and untrusted-layer escaping tests passed.");
