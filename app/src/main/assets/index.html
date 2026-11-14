@@ -1313,10 +1313,23 @@ window.GenSolarEpcBridge = Object.freeze({
     if (!['Good','Short received','Damaged','Quarantined'].includes(condition)) return false;
     const ordered = Number(po[5]), tracked = Number.isFinite(ordered) && ordered > 0, poUnit = String(po[6] || '').trim();
     if (tracked && unit.toLowerCase() !== poUnit.toLowerCase()) return false;
+    const poLines = Array.isArray(po[8]) ? po[8] : [];
+    const item = String(v.item || '').trim();
+    let lineOrdered = null;
+    if (poLines.length) {
+      const line = poLines.find(entry => String(entry && entry.item || '').trim().toLowerCase() === item.toLowerCase());
+      if (!item || !line) return false;
+      if (String(line.unit || '').trim().toLowerCase() !== unit.toLowerCase()) return false;
+      lineOrdered = Number(line.qty);
+      if (!Number.isFinite(lineOrdered) || lineOrdered <= 0) return false;
+    }
     state.goodsReceipts = Array.isArray(state.goodsReceipts) ? state.goodsReceipts : [];
-    const previous = state.goodsReceipts.filter(row => String(row[0]) === ref && (!tracked || String(row[2] || '').trim().toLowerCase() === poUnit.toLowerCase())).reduce((sum,row) => sum + (Number(row[1]) || 0), 0);
+    const matchingReceipts = state.goodsReceipts.filter(row => String(row[0]) === ref && (!tracked || String(row[2] || '').trim().toLowerCase() === poUnit.toLowerCase()));
+    const previous = matchingReceipts.reduce((sum,row) => sum + (Number(row[1]) || 0), 0);
+    const previousItem = matchingReceipts.filter(row => String(row[8] || '').trim().toLowerCase() === item.toLowerCase()).reduce((sum,row) => sum + (Number(row[1]) || 0), 0);
+    if (lineOrdered !== null && previousItem + qty > lineOrdered + 1e-9) return false;
     if (tracked && previous + qty > ordered + 1e-9) return false;
-    const oldStatus = po[4], row = [ref,qty,unit,date,condition,receiver,documentRef,remarks];
+    const oldStatus = po[4], row = [ref,qty,unit,date,condition,receiver,documentRef,remarks,item];
     state.goodsReceipts.push(row);
     state.poHistory = Array.isArray(state.poHistory) ? state.poHistory : [];
     const historyLength = state.poHistory.length;
