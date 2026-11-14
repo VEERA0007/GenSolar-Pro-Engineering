@@ -78,6 +78,8 @@ jobs:
         run: node tools/test_cad_json_exchange.js
       - name: Test shared EPC and CAD project-state bridge
         run: node tools/test_shared_project_state_bridge.js
+      - name: Test CAD DXF units and roof-zone export
+        run: node tools/test_cad_dxf_export.js
       - name: Test STAAD portal frame model and STAAD.Pro export
         run: |
           python3 - <<'PY'
