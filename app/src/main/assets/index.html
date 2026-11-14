@@ -1188,7 +1188,8 @@ window.GenSolarEpcBridge = Object.freeze({
     const qty = Number(v.qty), unit = String(v.unit || '').trim(), dueDate = String(v.dueDate || '');
     const suppliers = Array.isArray(v.suppliers) ? v.suppliers.map(x => String(x || '').trim()).filter(Boolean) : [];
     if (!ref || !item || !Number.isFinite(qty) || qty <= 0 || !unit || suppliers.length === 0) return false;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || !Number.isFinite(Date.parse(dueDate)) || new Date(dueDate + 'T00:00:00Z').toISOString().slice(0,10) !== dueDate) return false;
+    const dueParts = dueDate.split('-').map(Number), dueUtc = dueParts.length === 3 ? new Date(Date.UTC(dueParts[0], dueParts[1] - 1, dueParts[2])) : new Date(NaN);
+    if (dueDate.length !== 10 || dueParts.length !== 3 || !dueParts.every(Number.isInteger) || dueUtc.toISOString?.().slice(0,10) !== dueDate || !Number.isFinite(dueUtc.getTime())) return false;
     const unique = new Set(suppliers.map(x => x.toLowerCase()));
     if (unique.size !== suppliers.length) return false;
     state.rfqs = Array.isArray(state.rfqs) ? state.rfqs : [];
