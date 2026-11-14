@@ -1717,6 +1717,7 @@ private fun NativeProcurementScreen(
     var rfqRows by remember { mutableStateOf(listOf<List<String>>()) }
     var vendorRows by remember { mutableStateOf(listOf<List<String>>()) }
     var amount by remember { mutableStateOf("") }
+    var poRfqRef by remember { mutableStateOf("") }
     var orderedQty by remember { mutableStateOf("") }
     var unit by remember { mutableStateOf("Nos") }
     var deliveryDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
@@ -1853,10 +1854,11 @@ private fun NativeProcurementScreen(
             .put("ref", ref.trim()).put("vendor", supplier.trim())
             .put("amount", orderValue).put("qty", quantity)
             .put("unit", unit.trim()).put("date", deliveryDate.trim()).put("status", "Ordered")
+            .put("rfqRef", poRfqRef.trim())
         browser.evaluateJavascript("window.GenSolarEpcBridge.createPurchaseOrder(" + payload + ")") { result ->
             if (result == "true") {
                 message = "Purchase order saved."
-                ref = ""; supplier = ""; amount = ""; orderedQty = ""
+                ref = ""; supplier = ""; amount = ""; poRfqRef = ""; orderedQty = ""
                 refresh()
             } else message = "PO not saved. Check for a duplicate reference or invalid order details."
         }
@@ -1966,7 +1968,8 @@ private fun NativeProcurementScreen(
                                 onClick = {
                                     supplier = row.getOrElse(0) { "" }
                                     amount = quote.toString()
-                                    message = "Quotation selected for PO. Complete the PO reference, quantity, unit and delivery date before saving."
+                                    poRfqRef = row.getOrElse(4) { "" }
+                                    message = if (poRfqRef.isNotBlank()) "RFQ-linked quotation selected. The source RFQ will be validated when the PO is saved." else "Quotation selected for PO. Complete the PO reference, quantity, unit and delivery date before saving."
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) { Text("Use this quotation in purchase order") }
@@ -2008,6 +2011,7 @@ private fun NativeProcurementScreen(
                 Text("NEW PURCHASE ORDER", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
                 SurveyInput("PO / RFQ reference", ref, { ref = it })
                 SurveyInput("Supplier / vendor", supplier, { supplier = it })
+                SurveyInput("Source RFQ reference (validated)", poRfqRef, { poRfqRef = it })
                 Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     SurveyInput("Order value (₹)", amount, { amount = it }, Modifier.weight(1f))
                     SurveyInput("Ordered quantity", orderedQty, { orderedQty = it }, Modifier.weight(1f))
@@ -2053,6 +2057,7 @@ private fun NativeProcurementScreen(
                     }
                     val selectedOrder = rows.firstOrNull { it.getOrElse(0) { "" } == lifecyclePo }
                     Text("Current status: " + (selectedOrder?.getOrElse(4) { "Unknown" } ?: "Select a purchase order"), color = BrandGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    selectedOrder?.getOrNull(7)?.takeIf { it.isNotBlank() }?.let { Text("Source RFQ: " + it, color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf("Draft", "RFQ sent", "Approved", "Ordered", "On hold", "Cancelled").forEach { value ->
                             FilterChip(selected = nextPoStatus == value, onClick = { nextPoStatus = value }, label = { Text(value, fontSize = 10.sp) })
