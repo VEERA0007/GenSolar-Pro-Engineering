@@ -1177,10 +1177,26 @@ window.GenSolarEpcBridge = Object.freeze({
   getProcurement: function() {
     return JSON.parse(JSON.stringify({
       purchaseOrders: Array.isArray(state.pos) ? state.pos : [],
+      rfqs: Array.isArray(state.rfqs) ? state.rfqs : [],
       vendors: Array.isArray(state.vendors) ? state.vendors : [],
       history: Array.isArray(state.poHistory) ? state.poHistory : [],
       receipts: Array.isArray(state.goodsReceipts) ? state.goodsReceipts : []
     }));
+  },
+  createRfq: function(input) {
+    const v = input || {}, ref = String(v.ref || '').trim(), item = String(v.item || '').trim();
+    const qty = Number(v.qty), unit = String(v.unit || '').trim(), dueDate = String(v.dueDate || '');
+    const suppliers = Array.isArray(v.suppliers) ? v.suppliers.map(x => String(x || '').trim()).filter(Boolean) : [];
+    if (!ref || !item || !Number.isFinite(qty) || qty <= 0 || !unit || suppliers.length === 0) return false;
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate) || !Number.isFinite(Date.parse(dueDate)) || new Date(dueDate + 'T00:00:00Z').toISOString().slice(0,10) !== dueDate) return false;
+    const unique = new Set(suppliers.map(x => x.toLowerCase()));
+    if (unique.size !== suppliers.length) return false;
+    state.rfqs = Array.isArray(state.rfqs) ? state.rfqs : [];
+    if (state.rfqs.some(row => Array.isArray(row) && String(row[0] || '').trim().toLowerCase() === ref.toLowerCase())) return false;
+    const row = [ref,item,qty,unit,dueDate,suppliers,'Issued'];
+    state.rfqs.push(row);
+    if (!save()) { state.rfqs.pop(); return false; }
+    return true;
   },
   createVendorQuote: function(input) {
     const v = input || {}, name = String(v.name || '').trim(), amount = Number(v.amount);
