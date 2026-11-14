@@ -1730,6 +1730,7 @@ private fun NativeProcurementScreen(
     var receiptDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
     var rows by remember { mutableStateOf(listOf<List<String>>()) }
     var receipts by remember { mutableStateOf(listOf<List<String>>()) }
+    var stockLedgerRows by remember { mutableStateOf(listOf<List<String>>()) }
     var lifecyclePo by remember { mutableStateOf("") }
     var nextPoStatus by remember { mutableStateOf("RFQ sent") }
     var poHistory by remember { mutableStateOf(listOf<List<String>>()) }
@@ -1763,6 +1764,11 @@ private fun NativeProcurementScreen(
                 }.filter { it.size >= 3 && it[0].isNotBlank() && (it.getOrNull(1)?.toDoubleOrNull() ?: 0.0) > 0.0 }
                     .sortedWith(compareBy<List<String>> { it.getOrNull(1)?.toDoubleOrNull() ?: Double.MAX_VALUE }.thenBy { it.getOrNull(2)?.toIntOrNull() ?: Int.MAX_VALUE })
                 val grn = data.optJSONArray("receipts") ?: org.json.JSONArray()
+                val stockLedger = data.optJSONArray("stockLedger") ?: org.json.JSONArray()
+                stockLedgerRows = (0 until stockLedger.length()).map { i ->
+                    val row = stockLedger.optJSONArray(i) ?: org.json.JSONArray()
+                    (0 until row.length()).map { j -> row.optString(j, "") }
+                }
                 rows = (0 until pos.length()).map { i ->
                     val row = pos.optJSONArray(i) ?: org.json.JSONArray()
                     (0 until row.length()).map { j -> row.optString(j, "") }
@@ -2126,6 +2132,26 @@ private fun NativeProcurementScreen(
                     SurveyInput("Receipt date (YYYY-MM-DD)", receiptDate, { receiptDate = it })
                     SurveyInput("Received by", receiver, { receiver = it })
                     Button(onClick = { saveReceipt() }, modifier = Modifier.fillMaxWidth()) { Text("Save goods receipt") }
+                }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("MATERIAL STOCK LEDGER", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                Text("Available stock counts only Good-condition receipts. Damaged and quarantined quantities remain separate for inspection.", color = Color(0xFF60756E), fontSize = 10.sp)
+                if (stockLedgerRows.isEmpty()) {
+                    Text("No item-wise PO receipts recorded yet.", color = Color(0xFF60756E), fontSize = 11.sp)
+                } else {
+                    stockLedgerRows.forEach { stock ->
+                        Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F6F5))) {
+                            Column(Modifier.fillMaxWidth().padding(11.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(stock.getOrElse(1) { "" } + " · " + stock.getOrElse(0) { "" }, color = BrandGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("Ordered: " + stock.getOrElse(3) { "0" } + " " + stock.getOrElse(2) { "" } + " · Received: " + stock.getOrElse(4) { "0" }, color = Color(0xFF60756E), fontSize = 10.sp)
+                                Text("Available (Good): " + stock.getOrElse(5) { "0" } + " · Short: " + stock.getOrElse(6) { "0" } + " · Damaged: " + stock.getOrElse(7) { "0" } + " · Quarantined: " + stock.getOrElse(8) { "0" }, color = Color(0xFF60756E), fontSize = 10.sp)
+                                Text("Pending delivery: " + stock.getOrElse(9) { "0" } + " " + stock.getOrElse(2) { "" }, color = AccentGreen, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
                 }
             }
         }
