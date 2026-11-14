@@ -68,6 +68,8 @@ jobs:
         run: python3 tools/validate_android_modernization.py
       - name: Test roof zone pitch-corrected surface area
         run: node tools/test_roof_zone_surface_area.js
+      - name: Test PV layout allocation across roof zones
+        run: node tools/test_multi_roof_layout.js
       - name: Test STAAD portal frame model and STAAD.Pro export
         run: |
           python3 - <<'PY'
