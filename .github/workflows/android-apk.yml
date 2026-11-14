@@ -1226,20 +1226,28 @@ jobs:
             {type:"LINE",layer:"ROOF",x1:0,y1:0,x2:1000,y2:500},
             {type:"LWPOLYLINE",layer:"ROOF",vertices:[{x:0,y:0},{x:1000,y:0},{x:1000,y:500}],closed:true},
             {type:"CIRCLE",layer:"OBSTACLES",x:500,y:250,radius:100},
-            {type:"ARC",layer:"GENERAL",x:500,y:250,radius:200,startAngle:0,endAngle:90}
+            {type:"ARC",layer:"GENERAL",x:500,y:250,radius:200,startAngle:0,endAngle:90},
+            {type:"TEXT",layer:"ROOF_ZONE_LABELS",x:100,y:200,height:180,rotation:15,text:"Main roof EL 6.25 m"},
+            {type:"MTEXT",layer:"NOTES",x:300,y:400,height:120,rotation:0,text:"PV layout\\PRevision 3"}
           ]});
-          assert.equal(result.count,4);
+          assert.equal(result.count,6);
           assert.equal(model.entities[0].b.x,1,"DXF millimetres must convert to metres");
           assert.equal(model.entities[0].b.y,.5);
           assert.equal(model.entities[1].type,"poly");assert.equal(model.entities[1].closed,true);
           assert.equal(model.entities[2].r,.1);
           assert.ok(model.entities[3].points.length>=8,"ARC should be approximated by a CAD polyline");
+          assert.equal(model.entities[4].type,"text","DXF TEXT must become editable CAD text");
+          assert.equal(model.entities[4].x,.1,"DXF text insertion point must convert from mm to metres");
+          assert.equal(model.entities[4].height,.18,"DXF text height must convert from mm to metres");
+          assert.equal(model.entities[4].rotation,15,"DXF text rotation must be retained");
+          assert.equal(model.entities[5].type,"text","DXF MTEXT must become editable CAD text");
+          assert.equal(model.entities[5].text,"PV layout\\PRevision 3","MTEXT paragraph codes must be retained for CAD preview");
           assert.equal(layerRefreshes,1,"Imported CAD layers must immediately refresh the visibility controls");
           assert.equal(draws,1);assert.equal(models,1);assert.equal(saves,1);
           const before=model.entities.length;
           const unsupported=context.gensolarImportDxf({units:0,entities:[{type:"LINE",layer:"0",x1:0,y1:0,x2:10,y2:10}]});
           assert.equal(unsupported.count,0);assert.equal(model.entities.length,before,"Unitless geometry must not be silently scaled");
-          console.log("DXF-to-CAD handoff passed: mm-to-m conversion, line/polyline/circle/arc import, redraw/save and unitless rejection");
+          console.log("DXF-to-CAD handoff passed: mm-to-m conversion, line/polyline/circle/arc/TEXT/MTEXT import, text scaling/rotation, redraw/save and unitless rejection");
           JS
           node /tmp/gensolar-dxf-handoff.js
       - name: Test 3D CAD layer visibility
