@@ -1719,6 +1719,7 @@ private fun NativeProcurementScreen(
     var amount by remember { mutableStateOf("") }
     var poRfqRef by remember { mutableStateOf("") }
     var orderedQty by remember { mutableStateOf("") }
+    var poLineItems by remember { mutableStateOf("") }
     var unit by remember { mutableStateOf("Nos") }
     var deliveryDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
     var receiptPo by remember { mutableStateOf("") }
@@ -1832,20 +1833,35 @@ private fun NativeProcurementScreen(
     }
 
     fun savePo() {
-        val orderValue = amount.trim().toDoubleOrNull()
-        val quantity = orderedQty.trim().toDoubleOrNull()
-        if (ref.isBlank() || supplier.isBlank() || unit.isBlank()) {
-            message = "Enter the PO reference, supplier and unit."
+        if (ref.isBlank() || supplier.isBlank()) {
+            message = "Enter the PO reference and supplier."
             return
         }
-        if (orderValue == null || !orderValue.isFinite() || orderValue <= 0.0) {
-            message = "Order value must be a valid amount greater than zero."
+        val lines = poLineItems.lineSequence().map { it.trim() }.filter { it.isNotBlank() }.mapIndexed { index, line ->
+            val parts = line.split("|").map { it.trim() }
+            if (parts.size != 4 || parts[0].isBlank() || parts[2].isBlank()) {
+                message = "Line ${index + 1}: use Description | Quantity | Unit | Rate."
+                return
+            }
+            val lineQty = parts[1].toDoubleOrNull()
+            val lineRate = parts[3].toDoubleOrNull()
+            if (lineQty == null || !lineQty.isFinite() || lineQty <= 0.0 || lineRate == null || !lineRate.isFinite() || lineRate <= 0.0) {
+                message = "Line ${index + 1}: quantity and rate must be greater than zero."
+                return
+            }
+            JSONObject().put("item", parts[0]).put("qty", lineQty).put("unit", parts[2]).put("rate", lineRate)
+        }.toList()
+        if (lines.isEmpty() || lines.size > 30) {
+            message = "Add between 1 and 30 valid PO material lines."
             return
         }
-        if (quantity == null || !quantity.isFinite() || quantity <= 0.0) {
-            message = "Ordered quantity must be a valid number greater than zero."
+        val units = lines.map { it.getString("unit").lowercase() }.distinct()
+        if (units.size != 1) {
+            message = "Use one common unit per PO for accurate goods-receipt reconciliation."
             return
         }
+        val quantity = lines.sumOf { it.getDouble("qty") }
+        val orderValue = lines.sumOf { it.getDouble("qty") * it.getDouble("rate") }
         if (!isValidIsoDate(deliveryDate)) {
             message = "Enter a valid delivery date in YYYY-MM-DD format."
             return
@@ -1853,12 +1869,12 @@ private fun NativeProcurementScreen(
         val payload = JSONObject()
             .put("ref", ref.trim()).put("vendor", supplier.trim())
             .put("amount", orderValue).put("qty", quantity)
-            .put("unit", unit.trim()).put("date", deliveryDate.trim()).put("status", "Ordered")
-            .put("rfqRef", poRfqRef.trim())
+            .put("unit", lines.first().getString("unit")).put("date", deliveryDate.trim()).put("status", "Ordered")
+            .put("rfqRef", poRfqRef.trim()).put("lines", org.json.JSONArray(lines))
         browser.evaluateJavascript("window.GenSolarEpcBridge.createPurchaseOrder(" + payload + ")") { result ->
             if (result == "true") {
                 message = "Purchase order saved."
-                ref = ""; supplier = ""; amount = ""; poRfqRef = ""; orderedQty = ""
+                ref = ""; supplier = ""; amount = ""; poRfqRef = ""; orderedQty = ""; poLineItems = ""
                 refresh()
             } else message = "PO not saved. Check for a duplicate reference or invalid order details."
         }
@@ -2012,12 +2028,12 @@ private fun NativeProcurementScreen(
                 SurveyInput("PO / RFQ reference", ref, { ref = it })
                 SurveyInput("Supplier / vendor", supplier, { supplier = it })
                 SurveyInput("Source RFQ reference (validated)", poRfqRef, { poRfqRef = it })
+                SurveyInput(
+                    "Material lines — Description | Quantity | Unit | Rate (one line per item)",
+                    poLineItems, { poLineItems = it }, minLines = 4
+                )
+                Text("Example: 550W solar module | 20 | Nos | 8500. Multiple lines are totalled automatically. Keep one common unit per PO for receipt reconciliation.", color = Color(0xFF60756E), fontSize = 10.sp, lineHeight = 14.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    SurveyInput("Order value (₹)", amount, { amount = it }, Modifier.weight(1f))
-                    SurveyInput("Ordered quantity", orderedQty, { orderedQty = it }, Modifier.weight(1f))
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    SurveyInput("Unit", unit, { unit = it }, Modifier.weight(1f))
                     SurveyInput("Expected date (YYYY-MM-DD)", deliveryDate, { deliveryDate = it }, Modifier.weight(1f))
                 }
                 Button(onClick = { savePo() }, modifier = Modifier.fillMaxWidth()) { Text("Save purchase order") }
