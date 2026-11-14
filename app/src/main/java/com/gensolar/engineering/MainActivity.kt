@@ -2140,6 +2140,7 @@ private fun NativeProcurementScreen(
                     val qty = row.getOrElse(5) { "0" }.toDoubleOrNull() ?: 0.0
                     val unitName = row.getOrElse(6) { "" }
                     val received = receipts.filter { it.getOrElse(0) { "" } == key && it.getOrElse(2) { "" }.equals(unitName, true) }.sumOf { it.getOrElse(1) { "0" }.toDoubleOrNull() ?: 0.0 }
+                    val poLines = try { org.json.JSONArray(row.getOrElse(8) { "[]" }) } catch (_: Exception) { org.json.JSONArray() }
                     val poStatus = row.getOrElse(4) { "" }
                     val expectedDelivery = try { java.time.LocalDate.parse(row.getOrElse(3) { "" }) } catch (_: Exception) { null }
                     val today = java.time.LocalDate.now()
@@ -2163,6 +2164,17 @@ private fun NativeProcurementScreen(
                         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             Text(key, color = BrandGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             Text(row.getOrElse(1) { "" } + " • ₹" + row.getOrElse(2) { "" }, color = Color(0xFF60756E), fontSize = 11.sp)
+                            if (poLines.length() > 0) {
+                                Text("MATERIAL LINE BREAKDOWN", color = AccentGreen, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
+                                for (lineIndex in 0 until poLines.length()) {
+                                    val line = poLines.optJSONObject(lineIndex) ?: continue
+                                    Text(
+                                        "• " + line.optString("item") + " — " + line.optString("qty") + " " + line.optString("unit") +
+                                            " × ₹" + line.optString("rate") + " = ₹" + line.optString("amount"),
+                                        color = Color(0xFF60756E), fontSize = 10.sp
+                                    )
+                                }
+                            }
                             Text("Ordered " + qty + " " + unitName + " | Received " + received + " | Balance " + maxOf(0.0, qty - received), color = Color(0xFF60756E), fontSize = 10.sp)
                             Text("Status: " + poStatus + " • Delivery: " + row.getOrElse(3) { "" }, color = AccentGreen, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                             Text("Delivery alert: " + deliveryHealth, color = deliveryColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
