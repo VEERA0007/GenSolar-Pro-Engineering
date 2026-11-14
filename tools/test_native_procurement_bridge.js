@@ -73,6 +73,17 @@ assert.equal(b.createGoodsReceipt({poRef:'GS-PO-MULTI-001',item:'550 W PV module
 assert.equal(b.createGoodsReceipt({poRef:'GS-PO-MULTI-001',item:'Unknown material',qty:1,unit:'Nos',date:'2026-12-06',condition:'Good',receiver:'Store Manager'}),false,'receipt rejects materials not present on the PO');
 assert.equal(b.createGoodsReceipt({poRef:'GS-PO-MULTI-001',item:'DC cable',qty:5,unit:'m',date:'2026-12-06',condition:'Good',receiver:'Store Manager'}),false,'receipt enforces the selected material unit');
 assert.equal(b.createGoodsReceipt({poRef:'GS-PO-MULTI-001',item:'DC cable',qty:5,unit:'Nos',date:'2026-12-06',condition:'Good',receiver:'Store Manager'}),true,'separate material line receipts are tracked independently');
+const stockLedger=b.getProcurement().stockLedger;
+assert.equal(stockLedger.length,3,'stock ledger contains one row for each PO material line');
+const moduleStock=stockLedger.find(row=>row[1]==='550 W PV module');
+assert.equal(moduleStock[3],20);
+assert.equal(moduleStock[4],12);
+assert.equal(moduleStock[5],12,'Good receipts count as available stock');
+assert.equal(moduleStock[9],8,'stock ledger calculates pending delivery by item');
+const cableStock=stockLedger.find(row=>row[1]==='DC cable');
+assert.equal(cableStock[4],5);
+assert.equal(cableStock[5],5);
+
 
 assert.equal(b.createPurchaseOrder({...multiLinePo,ref:'GS-PO-MULTI-002',lines:[]}),false,'empty line list is rejected');
 assert.equal(b.createPurchaseOrder({...multiLinePo,ref:'GS-PO-MULTI-003',lines:Array.from({length:31},(_,i)=>({item:'Item '+i,qty:1,unit:'Nos',rate:1}))}),false,'more than 30 lines are rejected');
