@@ -1,6 +1,6 @@
 const assert=require("node:assert/strict");const fs=require("node:fs");const vm=require("node:vm");
 const html=fs.readFileSync("app/src/main/assets/index.html","utf8");
-function extract(name){const start=html.indexOf("function "+name+"(");assert.notEqual(start,-1,"Missing "+name);const end=html.indexOf("\\nfunction ",start+1);return html.slice(start,end<0?html.length:end)}
+function extract(name){const start=html.indexOf("function "+name+"(");assert.notEqual(start,-1,"Missing "+name);const end=html.indexOf("\nfunction ",start+1);return html.slice(start,end<0?html.length:end)}
 const ids=["receiptPoRef","receiptQty","receiptUnit","receiptDate","receiptCondition","receiptReceiver","receiptDocument","receiptRemarks","receiptStatusMessage","goodsReceiptList"];
 const elements=Object.fromEntries(ids.map(id=>[id,{value:"",innerHTML:"",textContent:""}]));
 elements.receiptPoRef.value="PO-100";elements.receiptQty.value="12";elements.receiptUnit.value="Nos";elements.receiptDate.value="2026-12-01";elements.receiptCondition.value="Good";elements.receiptReceiver.value="Storekeeper";
