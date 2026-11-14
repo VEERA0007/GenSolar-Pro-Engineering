@@ -520,6 +520,12 @@ private fun GenSolarApp(
                     onOpenAdvanced = { advancedProcurement = true },
                     onExportCsv = { name, csv -> onExportFile(name, csv, "text/csv") }
                 )
+            } else if (selected == "dpr") {
+                NativeDprScreen(
+                    browser = browser,
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    onExport = { name, content, mime -> onExportFile(name, content, mime) }
+                )
             } else if (selected == "construction" && !advancedConstruction) {
                 NativeConstructionScreen(
                     browser = browser,
@@ -1762,6 +1768,185 @@ private fun NativeProcurementScreen(
         Text(message, color = Color(0xFF60756E), fontSize = 11.sp, lineHeight = 16.sp)
         androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) { Text("Open detailed purchasing workspace") }
         Text("Supplier approval, physical inspection and commercial acceptance remain project-team controls.", color = Color(0xFF60756E), fontSize = 10.sp, lineHeight = 15.sp)
+    }
+}
+
+
+@Composable
+private fun NativeDprScreen(
+    browser: WebView,
+    modifier: Modifier = Modifier,
+    onExport: (String, String, String) -> Unit
+) {
+    var projectName by remember { mutableStateOf("") }
+    var customer by remember { mutableStateOf("") }
+    var site by remember { mutableStateOf("") }
+    var capacity by remember { mutableStateOf("") }
+    var owner by remember { mutableStateOf("") }
+    var revision by remember { mutableStateOf("R0") }
+    var documentName by remember { mutableStateOf("") }
+    var documentRevision by remember { mutableStateOf("R0") }
+    var documentOwner by remember { mutableStateOf("") }
+    var documentDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
+    var documentStatus by remember { mutableStateOf("Draft") }
+    var documents by remember { mutableStateOf(listOf<List<String>>()) }
+    var bom by remember { mutableStateOf(listOf<List<String>>()) }
+    var activities by remember { mutableStateOf(listOf<List<String>>()) }
+    var message by remember { mutableStateOf("DPR details and document revisions are stored in the active project.") }
+
+    fun refresh() {
+        browser.evaluateJavascript("(function(){var b=window.GenSolarEpcBridge;return b?JSON.stringify(b.getDprData()):'{}'})()") { raw ->
+            try {
+                val encoded = org.json.JSONTokener(raw ?: "\"{}\"").nextValue() as? String ?: "{}"
+                val data = JSONObject(encoded)
+                val p = data.optJSONObject("project") ?: JSONObject()
+                projectName = p.optString("dprProjectName", "")
+                customer = p.optString("dprCustomer", "")
+                site = p.optString("dprSite", "")
+                capacity = p.optString("dprCapacity", "")
+                owner = p.optString("dprOwner", "")
+                revision = p.optString("dprRevision", "R0")
+                fun readRows(key: String): List<List<String>> {
+                    val array = data.optJSONArray(key) ?: org.json.JSONArray()
+                    return (0 until array.length()).map { i ->
+                        val row = array.optJSONArray(i) ?: org.json.JSONArray()
+                        (0 until row.length()).map { j -> row.optString(j, "") }
+                    }
+                }
+                documents = readRows("documents")
+                bom = readRows("bom")
+                activities = readRows("activities")
+            } catch (_: Exception) {
+                message = "Unable to load DPR records from the project."
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) { refresh() }
+
+    fun saveDetails() {
+        val payload = JSONObject()
+            .put("dprProjectName", projectName.trim())
+            .put("dprCustomer", customer.trim())
+            .put("dprSite", site.trim())
+            .put("dprCapacity", capacity.trim())
+            .put("dprOwner", owner.trim())
+            .put("dprRevision", revision.trim())
+        browser.evaluateJavascript("window.GenSolarEpcBridge.saveDprDetails(" + payload + ")") { result ->
+            message = if (result == "true") "DPR project details saved." else "Save rejected. Enter all project details and a positive capacity."
+            if (result == "true") refresh()
+        }
+    }
+
+    fun saveDocument() {
+        val payload = JSONObject()
+            .put("name", documentName.trim())
+            .put("revision", documentRevision.trim())
+            .put("status", documentStatus)
+            .put("owner", documentOwner.trim())
+            .put("date", documentDate.trim())
+        browser.evaluateJavascript("window.GenSolarEpcBridge.upsertDprDocument(" + payload + ")") { result ->
+            message = if (result == "true") {
+                documentName = ""
+                documentOwner = ""
+                "Document revision saved to register."
+            } else "Document rejected. Check name, revision, owner, status and valid date."
+            if (result == "true") refresh()
+        }
+    }
+
+    val csvCell: (String) -> String = { value -> "\"" + value.replace("\"", "\"\"") + "\"" }
+    val documentCsv = buildString {
+        appendLine("Document,Revision,Status,Owner,Date")
+        documents.forEach { row -> appendLine(row.map(csvCell).joinToString(",")) }
+    }
+    val dprText = buildString {
+        appendLine("GENSOLAR PRO ENGINEERING")
+        appendLine("DETAILED PROJECT REPORT")
+        appendLine("Project: " + projectName)
+        appendLine("Customer: " + customer)
+        appendLine("Site: " + site)
+        appendLine("Plant capacity: " + capacity + " kW")
+        appendLine("Prepared by: " + owner)
+        appendLine("Revision: " + revision)
+        appendLine("")
+        appendLine("MATERIAL / BOQ SCHEDULE")
+        appendLine("Item | Specification | Unit | Quantity | Rate")
+        bom.forEach { row -> appendLine(row.joinToString(" | ")) }
+        appendLine("")
+        appendLine("CONSTRUCTION ACTIVITY SCHEDULE")
+        activities.forEach { row -> appendLine(row.joinToString(" | ")) }
+        appendLine("")
+        appendLine("DRAWING & DOCUMENT REGISTER")
+        documents.forEach { row -> appendLine(row.joinToString(" | ")) }
+        appendLine("")
+        appendLine("Engineering calculations, drawings, approvals and site measurements must be attached and reviewed before issue.")
+    }
+
+    Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("DPR & DOCUMENT CONTROL", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Text("Project report and revision register.", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Maintain project particulars, track drawing revisions and export a working DPR snapshot from saved project schedules.", color = Color(0xFFD7E8E1), fontSize = 12.sp, lineHeight = 18.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("PROJECT PARTICULARS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                SurveyInput("Project name", projectName, { projectName = it })
+                SurveyInput("Customer / client", customer, { customer = it })
+                SurveyInput("Site / location", site, { site = it })
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Capacity (kW)", capacity, { capacity = it }, Modifier.weight(1f))
+                    SurveyInput("Revision", revision, { revision = it }, Modifier.weight(1f))
+                }
+                SurveyInput("Prepared by / owner", owner, { owner = it })
+                Button(onClick = { saveDetails() }, modifier = Modifier.fillMaxWidth()) { Text("Save DPR particulars") }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("DRAWING & DOCUMENT REGISTER", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                SurveyInput("Document / drawing name", documentName, { documentName = it })
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Revision", documentRevision, { documentRevision = it }, Modifier.weight(1f))
+                    SurveyInput("Issue date", documentDate, { documentDate = it }, Modifier.weight(1f))
+                }
+                SurveyInput("Responsible owner", documentOwner, { documentOwner = it })
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    listOf("Draft", "In review", "Approved", "Issued").forEach { item ->
+                        FilterChip(selected = documentStatus == item, onClick = { documentStatus = item }, label = { Text(item, fontSize = 10.sp) })
+                    }
+                }
+                Button(onClick = { saveDocument() }, modifier = Modifier.fillMaxWidth()) { Text("Save document revision") }
+                if (documents.isEmpty()) Text("No drawings or documents registered yet.", color = Color(0xFF60756E), fontSize = 12.sp)
+                documents.forEach { row ->
+                    Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F6F5))) {
+                        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(row.getOrElse(0) { "" }, color = BrandGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Rev " + row.getOrElse(1) { "" } + " • " + row.getOrElse(2) { "" }, color = AccentGreen, fontSize = 11.sp)
+                            Text(row.getOrElse(3) { "" } + " • " + row.getOrElse(4) { "" }, color = Color(0xFF60756E), fontSize = 10.sp)
+                        }
+                    }
+                }
+                androidx.compose.material3.OutlinedButton(onClick = { onExport("GenSolar-document-register.csv", documentCsv, "text/csv") }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Export document register (CSV)")
+                }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("DPR SNAPSHOT", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                Text("Included saved data: " + bom.size + " BOQ lines • " + activities.size + " construction activities • " + documents.size + " document revisions", color = Color(0xFF60756E), fontSize = 11.sp)
+                androidx.compose.material3.OutlinedButton(onClick = { refresh() }, modifier = Modifier.fillMaxWidth()) { Text("Refresh project snapshot") }
+                Button(onClick = { onExport("GenSolar-DPR-" + (revision.ifBlank { "R0" }) + ".txt", dprText, "text/plain") }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Export DPR snapshot (TXT)")
+                }
+            }
+        }
+        Text(message, color = Color(0xFF60756E), fontSize = 11.sp, lineHeight = 16.sp)
+        Text("This is a working DPR snapshot, not a signed engineering report. Attach approved drawings, site evidence, calculations, statutory approvals and professional sign-off before customer issue.", color = Color(0xFF60756E), fontSize = 10.sp, lineHeight = 15.sp)
     }
 }
 
