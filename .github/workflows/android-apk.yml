@@ -1106,6 +1106,10 @@ jobs:
             pair(0,"VERTEX"),pair(8,"LEGACY_BOUNDARY"),pair(10,900),pair(20,100),
             pair(0,"VERTEX"),pair(8,"LEGACY_BOUNDARY"),pair(10,900),pair(20,400),
             pair(0,"SEQEND"),
+            pair(0,"POLYLINE"),pair(8,"UNSUPPORTED_3D"),pair(66,1),pair(70,9),
+            pair(0,"VERTEX"),pair(8,"UNSUPPORTED_3D"),pair(10,10),pair(20,10),pair(30,50),
+            pair(0,"VERTEX"),pair(8,"UNSUPPORTED_3D"),pair(10,20),pair(20,20),pair(30,60),
+            pair(0,"SEQEND"),
             pair(0,"LINE"),pair(8,"BROKEN"),pair(10,"bad"),pair(20,0),pair(11,10),pair(21,10),
             pair(0,"ENDSEC"),pair(0,"EOF")
           ].join("\n")+"\n";
@@ -1131,7 +1135,7 @@ jobs:
           assert.match(summary,/5 layers/);
           assert.match(summary,/Millimetres/);
           assert.equal(parseDxf("not a valid drawing").entities.length,0,"invalid input must produce no supported geometry");
-          console.log("DXF import tests passed: LINE/CIRCLE/LWPOLYLINE/POLYLINE/VERTEX/POINT, layer metadata, INSUNITS, closed polygons, extents and malformed-entity filtering");
+          console.log("DXF import tests passed: LINE/CIRCLE/LWPOLYLINE/2D POLYLINE, 3D POLYLINE and mesh rejection, VERTEX/POINT, layer metadata, INSUNITS, closed polygons, extents and malformed-entity filtering");
           JS
           node /tmp/gensolar-dxf-import.js
       - name: Test imported DXF SVG preview and untrusted layer labels
