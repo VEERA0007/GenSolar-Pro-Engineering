@@ -1720,6 +1720,7 @@ private fun NativeProcurementScreen(
     var poRfqRef by remember { mutableStateOf("") }
     var orderedQty by remember { mutableStateOf("") }
     var poLineItems by remember { mutableStateOf("") }
+    var bomRows by remember { mutableStateOf(listOf<List<String>>()) }
     var unit by remember { mutableStateOf("Nos") }
     var deliveryDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
     var receiptPo by remember { mutableStateOf("") }
@@ -1749,6 +1750,11 @@ private fun NativeProcurementScreen(
                         } else row.optString(j, "")
                     }
                 }
+                val bomArray = data.optJSONArray("bom") ?: org.json.JSONArray()
+                bomRows = (0 until bomArray.length()).map { i ->
+                    val row = bomArray.optJSONArray(i) ?: org.json.JSONArray()
+                    (0 until row.length()).map { j -> row.optString(j, "") }
+                }.filter { it.size >= 5 && it[0].isNotBlank() }
                 val vendorArray = data.optJSONArray("vendors") ?: org.json.JSONArray()
                 vendorRows = (0 until vendorArray.length()).map { i ->
                     val row = vendorArray.optJSONArray(i) ?: org.json.JSONArray()
@@ -2030,6 +2036,25 @@ private fun NativeProcurementScreen(
                 SurveyInput("PO / RFQ reference", ref, { ref = it })
                 SurveyInput("Supplier / vendor", supplier, { supplier = it })
                 SurveyInput("Source RFQ reference (validated)", poRfqRef, { poRfqRef = it })
+                Text("IMPORT FROM PROJECT BOM", color = AccentGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+                if (bomRows.isEmpty()) {
+                    Text("Generate or save the project BOM first to import material quantities.", color = Color(0xFF60756E), fontSize = 10.sp)
+                } else {
+                    bomRows.take(20).forEach { bom ->
+                        val itemName = bom.getOrElse(0) { "" } + if (bom.getOrElse(1) { "" }.isNotBlank()) " • " + bom[1] else ""
+                        val qty = bom.getOrElse(3) { "0" }
+                        val bomUnit = bom.getOrElse(2) { "Nos" }
+                        val rate = bom.getOrElse(4) { "0" }
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = {
+                                val imported = itemName + " | " + qty + " | " + bomUnit + " | " + rate
+                                poLineItems = if (poLineItems.isBlank()) imported else poLineItems.trimEnd() + "\n" + imported
+                                message = "BOM material added to the PO lines. Verify its supplier rate before saving."
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("＋ " + bom[0] + "  ·  " + qty + " " + bomUnit + "  ·  ₹" + rate, fontSize = 10.sp) }
+                    }
+                }
                 SurveyInput(
                     "Material lines — Description | Quantity | Unit | Rate (one line per item)",
                     poLineItems, { poLineItems = it }, minLines = 4
