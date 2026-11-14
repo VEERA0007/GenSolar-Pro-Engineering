@@ -1,10 +1,10 @@
 # GenSolar Pro Engineering — Build Progress
 
-Last assessed: 2026-11-14 (native RFQ and PO lifecycle integrated; Build #461 is validating the current main branch)
+Last assessed: 2026-11-15 (RFQ → supplier quotation → purchase-order traceability integrated; Build #468 passed all 80 workflow steps and APK artifact verification)
 
 ## Overall completion estimate: 48.6%
 
-This is a feature-scope estimate, not an APK build percentage, release-readiness claim or engineering certification. The 14 required workspaces in `REFERENCE_REQUIREMENTS.md` are equally weighted (1/14 each). Each score reflects implemented and testable scope within that workspace; partially implemented items receive partial credit. The native supplier quotation workspace and bridge regression tests are verified by GitHub Actions Build #451: all workflow tests, Kotlin/HTML validation, APK build, APK verification and artifact upload succeeded. The debug APK is 9,265,736 bytes (about 8.83 MiB); its workflow artifact ZIP is 8,857,010 bytes (about 8.45 MiB). Build #342's APK was 9,104,692 bytes, so the new APK is 161,044 bytes larger. This is a successful debug build, not a release or physical-device certification.
+This is a feature-scope estimate, not an APK build percentage, release-readiness claim or engineering certification. The 14 required workspaces in `REFERENCE_REQUIREMENTS.md` are equally weighted (1/14 each). Each score reflects implemented and testable scope within that workspace; partially implemented items receive partial credit. The native supplier quotation workspace and RFQ → quotation → PO traceability are verified by GitHub Actions Build #468: all 80 workflow steps, Kotlin/HTML validation, configured engineering regressions, APK build, APK verification and artifact upload succeeded. The debug APK is 9,265,736 bytes (about 8.83 MiB); its workflow artifact ZIP is 8,857,010 bytes (about 8.45 MiB). Build #342's APK was 9,104,692 bytes, so the new APK is 161,044 bytes larger. This is a successful debug build, not a release or physical-device certification.
 
 | Required workspace | Estimated completion | Current evidence / principal gap |
 |---|---:|---|
@@ -19,11 +19,11 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 | 3D engineering | 30% | Conceptual 3D roof/building and PV visualization with independent layer visibility; multi-roof parametric model, structural components and synchronized drawing sections remain |
 | Structural and wind | 58% | Native Compose STAAD geometry/load inputs connected through the controlled bridge to the existing portal-frame model and STAAD export; complete code verification and engineer-reviewed release remain |
 | Electrical | 68% | Native Compose string-validation inputs connected to the existing temperature, MPPT, cable, protection and battery screening; full topology, coordination, earthing/lightning, transformer/HT and complete SLD remain |
-| Procurement and construction | 49% | Native BOM/BOQ, RFQ creation, supplier quotation comparison, PO creation/status lifecycle, goods receipt reconciliation and audit-history export are integrated; BOM-linked multi-line purchasing, delivery tracking, construction inspections and field QA remain |
+| Procurement and construction | 50% | Native BOM/BOQ, RFQ creation, invited-supplier quotation traceability, RFQ-validated PO creation, PO status lifecycle, goods receipt reconciliation and audit-history export are integrated; BOM-linked multi-line purchasing, delivery tracking, construction inspections and field QA remain |
 | Documents | 55% | DPR, schedules, PDF/print and backup foundations; revision-controlled drawing register, signatures, acceptance and cross-workspace snapshot assurance remain |
 | Quality and verification | 58% | CI HTML/Kotlin checks, engineering Node regressions, controlled-bridge validation and new BOM quantity/rate-preservation tests; latest push run, instrumented Android tests and broader end-to-end/offline/performance verification remain |
 
-**Calculation:** arithmetic mean of the 14 workspace scores = 48.50%, reported as **48.5%**.
+**Calculation:** arithmetic mean of the 14 workspace scores = 48.57%, reported as **48.6%**.
 
 ## Latest implementation (2026-11-13)
 
@@ -101,3 +101,20 @@ A green CI build verifies only the checks configured in GitHub Actions and APK p
 5. Integrate procurement, construction, QA, commissioning and document revision control around one project revision.
 6. Pass the expanded automated suite, then Android device tests for offline launch, persistence, file import/export, GPS, print, rotation and relaunch.
 7. Publish a release APK only after all release gates pass. Structural/electrical outputs still require qualified professional review where applicable.
+
+
+## Latest implementation (2026-11-15 — RFQ-to-PO traceability)
+
+- Supplier quotations can optionally reference an existing RFQ. When linked, the bridge rejects unknown RFQs and suppliers who were not invited; supplier matching is case-insensitive.
+- Purchase orders can optionally reference the source RFQ. A linked PO is accepted only when the RFQ exists, the supplier was invited, and that same supplier has a quotation linked to that same RFQ.
+- The native Compose quotation form captures the RFQ reference and shows the link on quotation cards. The native PO form carries the source RFQ reference forward from the selected quotation and displays it in the PO lifecycle register.
+- Regression coverage includes invited/uninvited suppliers, unknown RFQs, case-insensitive supplier matching, missing linked quote, mismatched RFQ references and successful quote-to-PO traceability.
+- Source commits: [RFQ-linked quotations](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/499adcef3c2523bcd1fab20f0adf501178310815), [native quote RFQ field](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/3878d803fd639a70ab22d2c1a61fb5e431258f7c), [quotation validation tests](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/8793945bd49fd16908c2ab91fc890f747d9e1991), [PO source-RFQ validation](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/36a3b0b5f919594fce831a3b7b14107b45b1879a), [native PO traceability](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/d2d07b752ed52b82555dd9f0c81ecfa128e6e654), and [end-to-end bridge tests](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/ea51869a305502aa63bdd8efe634d1a35b01a412).
+- Build #468: [successful Android APK workflow](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43629176625), source commit `ea51869a305502aa63bdd8efe634d1a35b01a412`; all 80 steps passed. The verified APK is 9,283,171 bytes; SHA-256 `13c3063833f84ae904fa95d83cc7917b4838386c6acacc5e4fe1ec8fa13a1189`.
+- Build #467 also passed on the immediately preceding PO UI commit. Build #468 includes the final procurement bridge regression suite and is the latest verified APK.
+
+## Current build verification state
+
+- **Current main HEAD:** [ea51869a305502aa63bdd8efe634d1a35b01a412](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/ea51869a305502aa63bdd8efe634d1a35b01a412).
+- **Latest successful APK:** [Build #468](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43629176625), run ID 43629176625. All 80 workflow steps passed; artifact ID 14127855258. Extracted APK: 9,283,171 bytes; SHA-256 `13c3063833f84ae904fa95d83cc7917b4838386c6acacc5e4fe1ec8fa13a1189`.
+- CI validates the configured checks and packaging. It does not replace physical Android device testing, field validation or qualified engineering review.
