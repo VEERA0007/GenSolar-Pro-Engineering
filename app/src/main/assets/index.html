@@ -1202,10 +1202,18 @@ window.GenSolarEpcBridge = Object.freeze({
   createVendorQuote: function(input) {
     const v = input || {}, name = String(v.name || '').trim(), amount = Number(v.amount);
     const days = Number(v.deliveryDays), notes = String(v.notes || '').trim();
+    const rfqRef = String(v.rfqRef || '').trim();
     if (!name || !Number.isFinite(amount) || amount <= 0 || !Number.isInteger(days) || days < 0) return false;
     state.vendors = Array.isArray(state.vendors) ? state.vendors : [];
     if (state.vendors.some(row => Array.isArray(row) && String(row[0] || '').trim().toLowerCase() === name.toLowerCase())) return false;
-    const row = [name, amount, days, notes];
+    if (rfqRef) {
+      const rfq = (Array.isArray(state.rfqs) ? state.rfqs : []).find(row =>
+        Array.isArray(row) && String(row[0] || '').trim().toLowerCase() === rfqRef.toLowerCase()
+      );
+      const invited = rfq && Array.isArray(rfq[5]) ? rfq[5] : [];
+      if (!rfq || !invited.some(supplier => String(supplier).trim().toLowerCase() === name.toLowerCase())) return false;
+    }
+    const row = [name, amount, days, notes, rfqRef];
     state.vendors.push(row);
     if (!save()) { state.vendors.pop(); return false; }
     if (typeof renderVendorTable === 'function') renderVendorTable();
