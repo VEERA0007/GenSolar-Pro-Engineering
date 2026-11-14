@@ -120,6 +120,20 @@ assert.equal(moduleStock[9],8,'stock ledger calculates pending delivery by item'
 const cableStock=stockLedger.find(row=>row[1]==='DC cable');
 assert.equal(cableStock[4],5);
 assert.equal(cableStock[5],5);
+assert.equal(b.createStockIssue({issueRef:'GS-ISS-001',poRef:'GS-PO-MULTI-001',item:'550 W PV module',qty:4,date:'2026-12-07',issuedTo:'Site Engineer',workPackage:'Module mounting',remarks:'Roof block A'}),true,'stock issue consumes only available Good-condition material');
+assert.equal(b.getProcurement().stockIssues.length,1);
+let issuedModule=b.getProcurement().stockLedger.find(row=>row[1]==='550 W PV module');
+assert.equal(issuedModule[10],4,'stock ledger totals material issued to site');
+assert.equal(issuedModule[11],8,'on-hand stock equals Good receipts less material issues');
+assert.equal(b.createStockIssue({issueRef:'GS-ISS-002',poRef:'GS-PO-MULTI-001',item:'550 W PV module',qty:9,date:'2026-12-07',issuedTo:'Site Engineer',workPackage:'Module mounting'}),false,'stock issue cannot exceed available on-hand quantity');
+assert.equal(b.createStockIssue({issueRef:'GS-ISS-003',poRef:'GS-PO-MULTI-001',item:'Unknown item',qty:1,date:'2026-12-07',issuedTo:'Site Engineer',workPackage:'Module mounting'}),false,'stock issue rejects unknown PO material');
+assert.equal(b.createStockIssue({issueRef:'GS-ISS-001',poRef:'GS-PO-MULTI-001',item:'550 W PV module',qty:1,date:'2026-12-07',issuedTo:'Site Engineer',workPackage:'Module mounting'}),false,'stock issue references must be unique');
+assert.equal(b.createStockIssue({issueRef:'GS-ISS-004',poRef:'GS-PO-MULTI-001',item:'550 W PV module',qty:1,date:'2026-02-30',issuedTo:'Site Engineer',workPackage:'Module mounting'}),false,'stock issue date must be a real ISO date');
+saved=false;
+assert.equal(b.createStockIssue({issueRef:'GS-ISS-005',poRef:'GS-PO-MULTI-001',item:'550 W PV module',qty:1,date:'2026-12-07',issuedTo:'Site Engineer',workPackage:'Module mounting'}),false,'failed stock issue persistence is rejected');
+assert.equal(b.getProcurement().stockIssues.length,1,'failed stock issue save rolls back inventory issue');
+saved=true;
+
 
 
 assert.equal(b.createPurchaseOrder({...multiLinePo,ref:'GS-PO-MULTI-002',lines:[]}),false,'empty line list is rejected');
