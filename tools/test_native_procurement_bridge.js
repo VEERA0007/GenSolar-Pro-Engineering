@@ -67,6 +67,13 @@ assert.equal(multiSaved[5],50,'PO quantity is the sum of line quantities for a c
 assert.equal(multiSaved[6],'Nos');
 assert.equal(multiSaved[8].length,3,'material line breakdown persists on the PO');
 assert.equal(multiSaved[8][0].amount,170000);
+assert.equal(b.createGoodsReceipt({poRef:'GS-PO-MULTI-001',item:'550 W PV module',qty:12,unit:'Nos',date:'2026-12-06',condition:'Good',receiver:'Store Manager'}),true,'item-wise receipt is accepted for a valid PO material');
+assert.equal(b.getProcurement().receipts.at(-1)[8],'550 W PV module','receipt stores the received material identity');
+assert.equal(b.createGoodsReceipt({poRef:'GS-PO-MULTI-001',item:'550 W PV module',qty:9,unit:'Nos',date:'2026-12-06',condition:'Good',receiver:'Store Manager'}),false,'item-wise receipt cannot exceed its material line quantity');
+assert.equal(b.createGoodsReceipt({poRef:'GS-PO-MULTI-001',item:'Unknown material',qty:1,unit:'Nos',date:'2026-12-06',condition:'Good',receiver:'Store Manager'}),false,'receipt rejects materials not present on the PO');
+assert.equal(b.createGoodsReceipt({poRef:'GS-PO-MULTI-001',item:'DC cable',qty:5,unit:'m',date:'2026-12-06',condition:'Good',receiver:'Store Manager'}),false,'receipt enforces the selected material unit');
+assert.equal(b.createGoodsReceipt({poRef:'GS-PO-MULTI-001',item:'DC cable',qty:5,unit:'Nos',date:'2026-12-06',condition:'Good',receiver:'Store Manager'}),true,'separate material line receipts are tracked independently');
+
 assert.equal(b.createPurchaseOrder({...multiLinePo,ref:'GS-PO-MULTI-002',lines:[]}),false,'empty line list is rejected');
 assert.equal(b.createPurchaseOrder({...multiLinePo,ref:'GS-PO-MULTI-003',lines:Array.from({length:31},(_,i)=>({item:'Item '+i,qty:1,unit:'Nos',rate:1}))}),false,'more than 30 lines are rejected');
 assert.equal(b.createPurchaseOrder({...multiLinePo,ref:'GS-PO-MULTI-004',lines:[{item:'Panel',qty:1,unit:'Nos',rate:10},{item:'Cable',qty:1,unit:'m',rate:5}]}),false,'mixed units are rejected to protect legacy receipt reconciliation');
