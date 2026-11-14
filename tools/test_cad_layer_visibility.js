@@ -9,7 +9,7 @@ const box={innerHTML:"",querySelectorAll:()=>[]};
 const $=id=>id==="cadLayerVisibility"?box:null;
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const model={entities:[{layer:"CUSTOM<script>alert(1)</script>"}],hiddenLayers:[]};
-new Function("$","model","esc",fn)($,model,esc);
+new Function("$","model","esc",fn+";renderLayerVisibility();")($,model,esc);
 assert.ok(box.innerHTML.includes("ROOF_ZONES"),"Roof-zone layer visibility must be available");
 assert.ok(box.innerHTML.includes("ACCESS_CORRIDORS"),"Access-corridor layer visibility must be available");
 assert.ok(box.innerHTML.includes("CUSTOM&lt;script&gt;alert(1)&lt;/script&gt;"),"Imported custom layers must be HTML escaped");
