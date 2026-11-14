@@ -1480,6 +1480,8 @@ jobs:
         run: node tools/test_commissioning_register.js
       - name: Test construction activity validation and safe rendering
         run: node tools/test_construction_activity.js
+      - name: Test native construction project bridge
+        run: node tools/test_native_construction_bridge.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK

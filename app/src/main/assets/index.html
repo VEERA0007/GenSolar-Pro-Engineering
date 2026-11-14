@@ -1096,6 +1096,33 @@ window.GenSolarEpcBridge = Object.freeze({
     go(destination);
     return true;
   },
+  getActivities: function() {
+    return JSON.parse(JSON.stringify(Array.isArray(state.activities) ? state.activities : []));
+  },
+  createActivity: function(input) {
+    const value = input || {}, name = String(value.name || '').trim(), owner = String(value.owner || '').trim();
+    const start = String(value.start || ''), days = Number(value.days), status = String(value.status || 'Not started');
+    const progress = Number(value.progress ?? 0), allowed = ['Not started','In progress','Completed','On hold'];
+    if (!name || !owner || !/^\\d{4}-\\d{2}-\\d{2}$/.test(start) || !Number.isFinite(Date.parse(start)) || new Date(start + 'T00:00:00Z').toISOString().slice(0,10) !== start) return false;
+    if (!Number.isInteger(days) || days < 1 || !allowed.includes(status) || !Number.isInteger(progress) || progress < 0 || progress > 100) return false;
+    if ((status === 'Completed' && progress !== 100) || (status === 'Not started' && progress !== 0)) return false;
+    const finish = activityPlannedFinish(start, days); if (!finish) return false;
+    state.activities = Array.isArray(state.activities) ? state.activities : [];
+    state.activities.push([name,owner,start,days,status,finish,progress]);
+    if (!save()) { state.activities.pop(); return false; }
+    if (typeof renderActivitySchedule === 'function') renderActivitySchedule();
+    return true;
+  },
+  updateActivity: function(index, status, progress) {
+    const row = (Array.isArray(state.activities) ? state.activities : [])[index], value = Number(progress);
+    const allowed = ['Not started','In progress','Completed','On hold'];
+    if (!Array.isArray(row) || !allowed.includes(String(status)) || !Number.isInteger(value) || value < 0 || value > 100) return false;
+    if ((status === 'Completed' && value !== 100) || (status === 'Not started' && value !== 0)) return false;
+    const oldStatus = row[4], oldProgress = row[6]; row[4] = String(status); row[6] = value;
+    if (!save()) { row[4] = oldStatus; row[6] = oldProgress; return false; }
+    if (typeof renderActivitySchedule === 'function') renderActivitySchedule();
+    return true;
+  },
   getProjectSummary: function() {
     return JSON.parse(JSON.stringify({
       meta: state.meta || {},
