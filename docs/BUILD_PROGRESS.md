@@ -1,10 +1,10 @@
 # GenSolar Pro Engineering — Build Progress
 
-Last assessed: 2026-11-14 (procurement quote comparison verified by successful Android APK build #447)
+Last assessed: 2026-11-14 (native supplier quotation workspace verified by successful Android APK build #451)
 
-## Overall completion estimate: 48.4%
+## Overall completion estimate: 48.5%
 
-This is a feature-scope estimate, not an APK build percentage, release-readiness claim or engineering certification. The 14 required workspaces in `REFERENCE_REQUIREMENTS.md` are equally weighted (1/14 each). Each score reflects implemented and testable scope within that workspace; partially implemented items receive partial credit. The latest procurement supplier-comparison implementation and regression tests are verified by GitHub Actions Build #447: all workflow tests, Kotlin/HTML validation, APK build, APK verification and artifact upload succeeded. The debug APK workflow artifact ZIP is 8,846,540 bytes (about 8.44 MiB), compared with 8,696,643 bytes (about 8.30 MiB) in Build #342. This is a successful debug build, not a release or physical-device certification.
+This is a feature-scope estimate, not an APK build percentage, release-readiness claim or engineering certification. The 14 required workspaces in `REFERENCE_REQUIREMENTS.md` are equally weighted (1/14 each). Each score reflects implemented and testable scope within that workspace; partially implemented items receive partial credit. The native supplier quotation workspace and bridge regression tests are verified by GitHub Actions Build #451: all workflow tests, Kotlin/HTML validation, APK build, APK verification and artifact upload succeeded. The debug APK is 9,265,736 bytes (about 8.83 MiB); its workflow artifact ZIP is 8,857,010 bytes (about 8.45 MiB). Build #342's APK was 9,104,692 bytes, so the new APK is 161,044 bytes larger. This is a successful debug build, not a release or physical-device certification.
 
 | Required workspace | Estimated completion | Current evidence / principal gap |
 |---|---:|---|
@@ -19,11 +19,11 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 | 3D engineering | 30% | Conceptual 3D roof/building and PV visualization with independent layer visibility; multi-roof parametric model, structural components and synchronized drawing sections remain |
 | Structural and wind | 58% | Native Compose STAAD geometry/load inputs connected through the controlled bridge to the existing portal-frame model and STAAD export; complete code verification and engineer-reviewed release remain |
 | Electrical | 68% | Native Compose string-validation inputs connected to the existing temperature, MPPT, cable, protection and battery screening; full topology, coordination, earthing/lightning, transformer/HT and complete SLD remain |
-| Procurement and construction | 46% | Native BOM/BOQ generation from active PV design, editable rates, offline project save and Android CSV export; integrated RFQ/PO, vendor comparison, delivery, site execution and inspection workflows remain |
+| Procurement and construction | 47% | Native BOM/BOQ generation from active PV design, editable rates, offline project save and Android CSV export; integrated RFQ/PO, vendor comparison, delivery, site execution and inspection workflows remain |
 | Documents | 55% | DPR, schedules, PDF/print and backup foundations; revision-controlled drawing register, signatures, acceptance and cross-workspace snapshot assurance remain |
 | Quality and verification | 58% | CI HTML/Kotlin checks, engineering Node regressions, controlled-bridge validation and new BOM quantity/rate-preservation tests; latest push run, instrumented Android tests and broader end-to-end/offline/performance verification remain |
 
-**Calculation:** arithmetic mean of the 14 workspace scores = 48.43%, reported as **48.4%**.
+**Calculation:** arithmetic mean of the 14 workspace scores = 48.50%, reported as **48.5%**.
 
 ## Latest implementation (2026-11-13)
 
@@ -46,6 +46,14 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 - Added save-failure rollback: if local project persistence fails, the previous PO status and audit-history length are restored and the user receives a clear failure message. The UI register and lifecycle history are refreshed after successful persistence or rollback.
 - Expanded `tools/test_po_lifecycle.js` for allowed transitions, invalid/receipt-owned states, reverse-transition rejection, audit history and persistence rollback. The existing GitHub Actions workflow already runs this test file.
 - Commits: [`220d79a`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/220d79a2ef3fe7c25147ca63613d3285cb290d3c) and [`7a8f418`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/7a8f4186390b7db6e780af0ec2fe229e20e9d1d3). The latest commit currently has no reported CI status; do not count this implementation as build-verified until the workflow completes.
+
+## Latest implementation (2026-11-14 — native supplier quotation workspace)
+
+- Added a Kotlin/Jetpack Compose supplier quotation register to the native Procurement workspace. Users can enter supplier, quoted amount, delivery days and commercial/warranty notes; quotations are read from and saved into the same active offline project through the controlled EPC bridge.
+- Added bridge-side validation for blank supplier names, non-positive/non-finite quote values, negative or fractional delivery days, case-insensitive duplicate supplier names and failed project persistence (rollback). Native comparison sorts by quoted price and then delivery time, displays the premium over the lowest offer and clearly warns that lowest price alone is not an award decision.
+- Extended `tools/test_native_procurement_bridge.js` for valid quote creation, invalid fields, duplicate suppliers and save rollback. GitHub Actions Build #451 passed the new bridge test, all existing engineering regressions, Kotlin/HTML validation, debug APK build, APK verification and artifact upload.
+- Source commits: [`fa1bbf8`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/fa1bbf8892c7fa02b69eaedd22278f5336dbf021), [`c0976a3`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/c0976a34b599c94fb9f6f9b2840a31a8d34d048d), [`4d2f1ce`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/4d2f1cec7d7f7ec0a4e7dc92733fea6f5495b665), and workflow/test commit [`38f7564`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/38f75647c04fd65356feb6ebd7a71c9b6dad1ab5).
+- Build #451: [successful Android APK workflow](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43626269355). APK SHA-256: `b7590f23354e55311c02326bdbe1e4ee5cc560f341cace1a3bb231462c2c214a`.
 
 ## Latest implementation (2026-11-14 — supplier quote comparison)
 
