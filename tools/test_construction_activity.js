@@ -64,4 +64,16 @@ assert.ok(elements.activityList.innerHTML.includes("&lt;script&gt;"));
 assert.ok(!elements.activityList.innerHTML.includes("<script>"));
 assert.equal(saves, 2, "Invalid entries must not be persisted");
 
+// Saved construction records must be restored into the activity register at startup.
+const initStart = html.indexOf("function init(){");
+assert.notEqual(initStart, -1, "Missing application initializer");
+const initEnd = html.indexOf("\\nfunction ", initStart + 1);
+const initSource = html.slice(initStart, initEnd < 0 ? html.length : initEnd);
+assert.ok(initSource.includes("renderSimple('activityList',state.activities||[])"),
+  "Startup must render saved activity records after loading the project");
+assert.ok(initSource.includes("renderSimple('poList',state.pos||[])"),
+  "Startup must continue restoring saved purchase records");
+
+
+
 console.log("Construction activity tests passed: required fields, calendar date, whole-day duration, allowed status, safe rendering and save-on-valid-only.");
