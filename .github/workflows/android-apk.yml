@@ -1473,6 +1473,8 @@ jobs:
         run: node tools/test_goods_receipts.js
       - name: Test purchase order lifecycle and status history
         run: node tools/test_po_lifecycle.js
+      - name: Test PO ordered quantity and receipt reconciliation
+        run: node tools/test_po_receipt_reconciliation.js
 
       - name: Test construction activity validation and safe rendering
         run: node tools/test_construction_activity.js
