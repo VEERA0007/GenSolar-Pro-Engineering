@@ -41,6 +41,9 @@ assert.equal(b.createVendorQuote({...quote,name:'Unsaved Supplier'}),false);
 assert.equal(b.getProcurement().vendors.length,3,'failed save rolls back supplier quote');
 saved=true;
 
+context.state.bom=[['PV module','550 W TOPCon','Nos',20,0],['DC cable','6 sqmm','m',250,0]];
+assert.equal(b.getProcurement().bom.length,2,'native procurement data exposes the active project BOM');
+assert.deepEqual(Array.from(b.getProcurement().bom[0]),['PV module','550 W TOPCon','Nos',20,0]);
 const po={ref:'GS-PO-001',vendor:'Solar Supplier',amount:250000,qty:100,unit:'Nos',date:'2026-12-01',status:'Ordered'};
 assert.equal(b.createPurchaseOrder(po),true);
 assert.equal(b.getProcurement().purchaseOrders.length,1);
