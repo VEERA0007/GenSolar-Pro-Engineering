@@ -9,6 +9,20 @@ let saved=true;
 const context={window:{},state:{project:{},pos:[],vendors:[],poHistory:[],goodsReceipts:[]},model:{},go:()=>{},save:()=>saved,renderPoLifecycle:()=>{},renderGoodsReceipts:()=>{},renderSimple:()=>{},activityPlannedFinish:()=>'',renderActivitySchedule:()=>{},staadGenerate:()=>true,buildBom:()=>true,renderBom:()=>{}};
 vm.createContext(context);vm.runInContext(html.slice(start,end),context);
 const b=context.window.GenSolarEpcBridge;
+
+const quote = {name:'Module Supplier',amount:125000,deliveryDays:5,notes:'Tier-1 modules'};
+assert.equal(b.createVendorQuote(quote),true);
+assert.equal(b.getProcurement().vendors.length,1);
+assert.deepEqual(Array.from(b.getProcurement().vendors[0]),['Module Supplier',125000,5,'Tier-1 modules']);
+for (const patch of [{name:''},{amount:0},{amount:-10},{deliveryDays:-1},{deliveryDays:1.5}]) {
+  assert.equal(b.createVendorQuote({...quote,...patch}),false);
+}
+assert.equal(b.createVendorQuote({...quote,name:'module supplier'}),false,'supplier names are case-insensitive unique');
+saved=false;
+assert.equal(b.createVendorQuote({...quote,name:'Unsaved Supplier'}),false);
+assert.equal(b.getProcurement().vendors.length,1,'failed save rolls back supplier quote');
+saved=true;
+
 const po={ref:'GS-PO-001',vendor:'Solar Supplier',amount:250000,qty:100,unit:'Nos',date:'2026-12-01',status:'Ordered'};
 assert.equal(b.createPurchaseOrder(po),true);
 assert.equal(b.getProcurement().purchaseOrders.length,1);
