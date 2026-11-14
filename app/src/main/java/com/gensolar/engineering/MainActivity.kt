@@ -53,6 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -320,6 +321,7 @@ private fun GenSolarApp(
     var advancedLocation by remember { mutableStateOf(false) }
     var advancedStaad by remember { mutableStateOf(false) }
     var advancedBom by remember { mutableStateOf(false) }
+    var advancedConstruction by remember { mutableStateOf(false) }
     BackHandler(enabled = selected != "dashboard") {
         if (selected == "site" && advancedSite) {
             advancedSite = false
@@ -338,6 +340,8 @@ private fun GenSolarApp(
             advancedBom = false
         } else if (selected == "bom" && advancedBom) {
             advancedBom = false
+        } else if (selected == "construction" && advancedConstruction) {
+            advancedConstruction = false
         } else {
             selected = "dashboard"
             advancedSite = false
@@ -348,6 +352,7 @@ private fun GenSolarApp(
             advancedLocation = false
             advancedStaad = false
             advancedBom = false
+            advancedConstruction = false
             onNavigate("dashboard")
         }
     }
@@ -416,6 +421,7 @@ private fun GenSolarApp(
                                         advancedLocation = false
                                         advancedStaad = false
                                         advancedBom = false
+                                        advancedConstruction = false
                                         onNavigate(key)
                                     }
                                 )
@@ -443,6 +449,7 @@ private fun GenSolarApp(
                                 advancedLocation = false
                                 advancedStaad = false
                                 advancedBom = false
+                                advancedConstruction = false
                                 onNavigate(destination.key)
                             },
                             icon = { Text(destination.symbol, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
@@ -473,6 +480,7 @@ private fun GenSolarApp(
                         advancedLocation = false
                         advancedStaad = false
                         advancedBom = false
+                        advancedConstruction = false
                         onNavigate(destination)
                     }
                 )
@@ -497,6 +505,13 @@ private fun GenSolarApp(
                     browser = browser,
                     modifier = Modifier.fillMaxSize().padding(padding),
                     onOpenAdvanced = { advancedSite = true }
+                )
+            } else if (selected == "construction" && !advancedConstruction) {
+                NativeConstructionScreen(
+                    browser = browser,
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    onOpenAdvanced = { advancedConstruction = true },
+                    onExportCsv = { name, csv -> onExportFile(name, csv, "text/csv") }
                 )
             } else if (selected == "bom" && !advancedBom) {
                 NativeBomScreen(
@@ -1569,6 +1584,187 @@ private fun NativeSurveyScreen(
         }
         Text("Engineering values are preliminary until verified against site measurements, approved drawings and applicable standards.", color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp)
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+
+@Composable
+private fun NativeConstructionScreen(
+    browser: WebView,
+    modifier: Modifier = Modifier,
+    onOpenAdvanced: () -> Unit,
+    onExportCsv: (String, String) -> Unit
+) {
+    var activityName by remember { mutableStateOf("") }
+    var owner by remember { mutableStateOf("") }
+    var startDate by remember { mutableStateOf("") }
+    var duration by remember { mutableStateOf("1") }
+    var status by remember { mutableStateOf("Not started") }
+    var progress by remember { mutableStateOf("0") }
+    var activities by remember { mutableStateOf(listOf<List<String>>()) }
+    var message by remember { mutableStateOf("Activities are saved in the active offline project.") }
+
+    fun refresh() {
+        browser.evaluateJavascript("(function(){var b=window.GenSolarEpcBridge;return b?JSON.stringify(b.getActivities()):'[]'})()") { raw ->
+            try {
+                val value = org.json.JSONTokener(raw ?: "\"[]\"").nextValue() as? String ?: "[]"
+                val array = org.json.JSONArray(value)
+                activities = (0 until array.length()).map { i ->
+                    val row = array.optJSONArray(i) ?: org.json.JSONArray()
+                    (0 until row.length()).map { j -> row.optString(j, "") }
+                }
+            } catch (_: Exception) {
+                message = "Unable to read the saved activity register."
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) { refresh() }
+
+    fun createActivity() {
+        val days = duration.toIntOrNull()
+        val percent = progress.toIntOrNull()
+        if (activityName.isBlank() || owner.isBlank() || days == null || percent == null) {
+            message = "Enter activity, owner, whole-day duration and progress."
+            return
+        }
+        val payload = JSONObject()
+            .put("name", activityName.trim())
+            .put("owner", owner.trim())
+            .put("start", startDate.trim())
+            .put("days", days)
+            .put("status", status)
+            .put("progress", percent)
+        browser.evaluateJavascript("window.GenSolarEpcBridge.createActivity($payload)") { result ->
+            if (result == "true") {
+                message = "Activity saved to the active project."
+                activityName = ""
+                owner = ""
+                duration = "1"
+                status = "Not started"
+                progress = "0"
+                refresh()
+            } else {
+                message = "Not saved. Check date, duration and status/progress rules."
+            }
+        }
+    }
+
+    fun updateActivity(index: Int, nextStatus: String, nextProgress: String) {
+        val percent = nextProgress.toIntOrNull()
+        if (percent == null) {
+            message = "Progress must be a whole number from 0 to 100."
+            return
+        }
+        val script = "window.GenSolarEpcBridge.updateActivity(" + index + "," + JSONObject.quote(nextStatus) + "," + percent + ")"
+        browser.evaluateJavascript(script) { result ->
+            if (result == "true") {
+                message = "Activity progress updated."
+                refresh()
+            } else {
+                message = "Update rejected. Completed requires 100%; Not started requires 0%."
+            }
+        }
+    }
+
+    Column(
+        modifier = modifier.verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("CONSTRUCTION & SITE QA", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Text("Track delivery on site.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Create activities, assign owners and update progress in the active offline project.", color = Color(0xFFD7E8E1), fontSize = 12.sp, lineHeight = 18.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("NEW ACTIVITY", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                SurveyInput("Activity name", activityName, { activityName = it })
+                SurveyInput("Responsible owner", owner, { owner = it })
+                SurveyInput("Planned start (YYYY-MM-DD)", startDate, { startDate = it })
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Duration (days)", duration, { duration = it }, Modifier.weight(1f))
+                    SurveyInput("Progress (%)", progress, { progress = it }, Modifier.weight(1f))
+                }
+                Text("Activity status", color = Color(0xFF60756E), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    listOf("Not started", "In progress", "Completed", "On hold").forEach { item ->
+                        FilterChip(
+                            selected = status == item,
+                            onClick = {
+                                status = item
+                                if (item == "Completed") progress = "100"
+                                if (item == "Not started") progress = "0"
+                            },
+                            label = { Text(item, fontSize = 11.sp) }
+                        )
+                    }
+                }
+                Button(onClick = { createActivity() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Save activity to project")
+                }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("ACTIVITY REGISTER", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                    androidx.compose.material3.TextButton(onClick = { refresh() }) { Text("Refresh") }
+                }
+                if (activities.isEmpty()) {
+                    Text("No activities saved in this project yet.", color = Color(0xFF60756E), fontSize = 12.sp)
+                } else {
+                    activities.forEachIndexed { index, row ->
+                        val activity = row.getOrElse(0) { "" }
+                        val activityOwner = row.getOrElse(1) { "" }
+                        val plannedStart = row.getOrElse(2) { "" }
+                        val plannedFinish = row.getOrElse(5) { "" }
+                        val days = row.getOrElse(3) { "" }
+                        var rowStatus by remember(index, row) { mutableStateOf(row.getOrElse(4) { "Not started" }) }
+                        var rowProgress by remember(index, row) { mutableStateOf(row.getOrElse(6) { "0" }) }
+                        Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F6F5))) {
+                            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(activity, color = BrandGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text("$activityOwner • $plannedStart → $plannedFinish • $days day(s)", color = Color(0xFF60756E), fontSize = 10.sp)
+                                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf("Not started", "In progress", "Completed", "On hold").forEach { item ->
+                                        FilterChip(
+                                            selected = rowStatus == item,
+                                            onClick = {
+                                                rowStatus = item
+                                                if (item == "Completed") rowProgress = "100"
+                                                if (item == "Not started") rowProgress = "0"
+                                            },
+                                            label = { Text(item, fontSize = 10.sp) }
+                                        )
+                                    }
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    SurveyInput("Progress (%)", rowProgress, { rowProgress = it }, Modifier.weight(1f))
+                                    Button(onClick = { updateActivity(index, rowStatus, rowProgress) }) { Text("Update") }
+                                }
+                            }
+                        }
+                    }
+                    val csvCell: (String) -> String = { value -> "\"" + value.replace("\"", "\"\"") + "\"" }
+                    val csvText = buildString {
+                        appendLine(listOf("Activity", "Owner", "Planned start", "Duration (days)", "Planned finish", "Status", "Progress (%)").joinToString(","))
+                        activities.forEach { row -> appendLine(row.take(7).map(csvCell).joinToString(",")) }
+                    }
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { onExportCsv("GenSolar-construction-activity-schedule.csv", csvText) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Export activity register (CSV)") }
+                }
+            }
+        }
+        Text(message, color = Color(0xFF60756E), fontSize = 11.sp, lineHeight = 16.sp)
+        androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) {
+            Text("Open detailed construction & QA workspace")
+        }
+        Text("Progress records do not replace site inspection acceptance, safety controls or qualified engineering sign-off.", color = Color(0xFF60756E), fontSize = 10.sp, lineHeight = 15.sp)
     }
 }
 
