@@ -1008,6 +1008,30 @@ private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifi
     var output by remember { mutableStateOf("Generate a PV layout, then run electrical checks.") }
     var status by remember { mutableStateOf("Inputs are stored offline when calculations are run.") }
     val labels = listOf("acKw" to "Inverter AC capacity (kW)", "mpptMin" to "Minimum MPPT voltage (V)", "mpptMax" to "Maximum MPPT voltage (V)", "maxDc" to "Maximum DC voltage (V)", "minTemp" to "Minimum design temperature (°C)", "mpptCurrent" to "Max operating current / MPPT (A)", "bifacialCurrentGain" to "Bifacial current gain (%)", "mpptCount" to "MPPT channel count", "maxCellTemp" to "Maximum cell temperature (°C)", "vmpCoeff" to "Vmp coefficient (%/°C)")
+    fun updatePoStatus() {
+        val selected = rows.firstOrNull { it.getOrElse(0) { "" } == lifecyclePo }
+        if (selected == null) {
+            message = "Select a saved purchase order before changing its status."
+            return
+        }
+        if (selected.getOrElse(4) { "Draft" } == nextPoStatus) {
+            message = "The purchase order already has this status."
+            return
+        }
+        val script = "window.GenSolarEpcBridge.updatePurchaseOrderStatus(" +
+            JSONObject.quote(lifecyclePo) + "," + JSONObject.quote(nextPoStatus) + ")"
+        browser.evaluateJavascript(script) { result ->
+            if (result == "true") {
+                message = "Purchase order status updated and audit history saved."
+                refresh()
+            } else {
+                message = "Status change rejected or not saved. Check the allowed transition and try again."
+                refresh()
+            }
+        }
+    }
+
+
     Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -1724,6 +1748,9 @@ private fun NativeProcurementScreen(
     var receiptDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
     var rows by remember { mutableStateOf(listOf<List<String>>()) }
     var receipts by remember { mutableStateOf(listOf<List<String>>()) }
+    var lifecyclePo by remember { mutableStateOf("") }
+    var nextPoStatus by remember { mutableStateOf("RFQ sent") }
+    var poHistory by remember { mutableStateOf(listOf<List<String>>()) }
     var message by remember { mutableStateOf("Procurement records are stored in the active offline project.") }
 
     fun refresh() {
@@ -1757,7 +1784,13 @@ private fun NativeProcurementScreen(
                     val row = grn.optJSONArray(i) ?: org.json.JSONArray()
                     (0 until row.length()).map { j -> row.optString(j, "") }
                 }
+                val historyArray = data.optJSONArray("history") ?: org.json.JSONArray()
+                poHistory = (0 until historyArray.length()).map { i ->
+                    val row = historyArray.optJSONArray(i) ?: org.json.JSONArray()
+                    (0 until row.length()).map { j -> row.optString(j, "") }
+                }
                 if (receiptPo.isBlank() && rows.isNotEmpty()) receiptPo = rows.first().getOrElse(0) { "" }
+                if (lifecyclePo.isBlank() && rows.isNotEmpty()) lifecyclePo = rows.first().getOrElse(0) { "" }
             } catch (_: Exception) { message = "Could not load procurement register." }
         }
     }
@@ -2002,6 +2035,58 @@ private fun NativeProcurementScreen(
                 }
             }
         }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("PO STATUS LIFECYCLE", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                if (rows.isEmpty()) {
+                    Text("Create a purchase order before recording status changes.", color = Color(0xFF60756E), fontSize = 12.sp)
+                } else {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        rows.forEach { row ->
+                            val key = row.getOrElse(0) { "" }
+                            FilterChip(selected = lifecyclePo == key, onClick = { lifecyclePo = key }, label = { Text(key, fontSize = 10.sp) })
+                        }
+                    }
+                    val selectedOrder = rows.firstOrNull { it.getOrElse(0) { "" } == lifecyclePo }
+                    Text("Current status: " + (selectedOrder?.getOrElse(4) { "Unknown" } ?: "Select a purchase order"), color = BrandGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("Draft", "RFQ sent", "Approved", "Ordered", "On hold", "Cancelled").forEach { value ->
+                            FilterChip(selected = nextPoStatus == value, onClick = { nextPoStatus = value }, label = { Text(value, fontSize = 10.sp) })
+                        }
+                    }
+                    Button(
+                        onClick = { updatePoStatus() },
+                        enabled = selectedOrder != null && nextPoStatus != selectedOrder.getOrElse(4) { "Draft" },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Save PO status change") }
+                    Text("Partially received and Received are controlled by validated goods receipts and cannot be selected manually.", color = Color(0xFF60756E), fontSize = 10.sp, lineHeight = 14.sp)
+                }
+                Text("STATUS AUDIT HISTORY", color = AccentGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+                if (poHistory.isEmpty()) {
+                    Text("No purchase status changes recorded yet.", color = Color(0xFF60756E), fontSize = 11.sp)
+                } else {
+                    poHistory.asReversed().take(25).forEach { entry ->
+                        Text(
+                            entry.getOrElse(0) { "" } + "  •  " +
+                                entry.getOrElse(1) { "" } + " → " + entry.getOrElse(2) { "" } +
+                                "  •  " + entry.getOrElse(3) { "" },
+                            color = Color(0xFF60756E),
+                            fontSize = 10.sp
+                        )
+                    }
+                    val csvCell: (String) -> String = { value -> "\"" + value.replace("\"", "\"\"") + "\"" }
+                    val csv = buildString {
+                        appendLine("PO reference,Previous status,New status,Updated date")
+                        poHistory.forEach { entry -> appendLine(entry.take(4).map(csvCell).joinToString(",")) }
+                    }
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { onExportCsv("GenSolar-po-status-history.csv", csv) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Export PO status history (CSV)") }
+                }
+            }
+        }
+
         Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
             Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

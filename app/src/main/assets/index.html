@@ -1228,6 +1228,41 @@ window.GenSolarEpcBridge = Object.freeze({
     if (typeof renderSimple === 'function') renderSimple('poList',state.pos);
     return true;
   },
+  updatePurchaseOrderStatus: function(ref, nextStatus) {
+    const key = String(ref || '').trim(), next = String(nextStatus || '');
+    const allowed = ['Draft','RFQ sent','Approved','Ordered','On hold','Cancelled'];
+    if (!key || !allowed.includes(next)) return false;
+    const row = (Array.isArray(state.pos) ? state.pos : []).find(item => Array.isArray(item) && String(item[0] || '') === key);
+    if (!row) return false;
+    const previous = String(row[4] || 'Draft');
+    if (previous === next) return false;
+    const transitions = {
+      'Draft':['RFQ sent','Approved','Ordered','On hold','Cancelled'],
+      'RFQ sent':['Approved','Ordered','On hold','Cancelled'],
+      'Approved':['Ordered','On hold','Cancelled'],
+      'Ordered':['On hold','Cancelled'],
+      'Partially received':['On hold','Cancelled'],
+      'On hold':['Draft','RFQ sent','Approved','Ordered','Cancelled'],
+      'Received':[],
+      'Cancelled':[]
+    };
+    if (!(transitions[previous] || []).includes(next)) return false;
+    state.poHistory = Array.isArray(state.poHistory) ? state.poHistory : [];
+    const historyLength = state.poHistory.length;
+    row[4] = next;
+    state.poHistory.push([key, previous, next, new Date().toISOString().slice(0,10)]);
+    let saved = false;
+    try { saved = save() === true; } catch (error) { saved = false; }
+    if (!saved) {
+      row[4] = previous;
+      state.poHistory.length = historyLength;
+      return false;
+    }
+    if (typeof renderPoLifecycle === 'function') renderPoLifecycle();
+    if (typeof renderGoodsReceipts === 'function') renderGoodsReceipts();
+    if (typeof renderSimple === 'function') renderSimple('poList', state.pos);
+    return true;
+  },
   createGoodsReceipt: function(input) {
     const v = input || {}, ref = String(v.poRef || '').trim(), qty = Number(v.qty);
     const unit = String(v.unit || '').trim(), date = String(v.date || '');
@@ -1244,10 +1279,24 @@ window.GenSolarEpcBridge = Object.freeze({
     if (tracked && previous + qty > ordered + 1e-9) return false;
     const oldStatus = po[4], row = [ref,qty,unit,date,condition,receiver,documentRef,remarks];
     state.goodsReceipts.push(row);
+    state.poHistory = Array.isArray(state.poHistory) ? state.poHistory : [];
+    const historyLength = state.poHistory.length;
     const received = previous + qty;
-    if (tracked && received >= ordered - 1e-9) po[4] = 'Received';
-    else if (tracked && received > 0 && ['Ordered','Approved','Partially received'].includes(String(po[4]))) po[4] = 'Partially received';
-    if (!save()) { state.goodsReceipts.pop(); po[4] = oldStatus; return false; }
+    if (tracked && !['Cancelled','On hold'].includes(String(oldStatus))) {
+      if (received >= ordered - 1e-9) po[4] = 'Received';
+      else if (received > 0 && ['Ordered','Approved','Partially received'].includes(String(oldStatus))) po[4] = 'Partially received';
+    }
+    if (String(po[4] || '') !== String(oldStatus || '')) {
+      state.poHistory.push([ref, String(oldStatus || 'Draft'), String(po[4]), date]);
+    }
+    let saved = false;
+    try { saved = save() === true; } catch (error) { saved = false; }
+    if (!saved) {
+      state.goodsReceipts.pop();
+      po[4] = oldStatus;
+      state.poHistory.length = historyLength;
+      return false;
+    }
     if (typeof renderGoodsReceipts === 'function') renderGoodsReceipts();
     if (typeof renderPoLifecycle === 'function') renderPoLifecycle();
     if (typeof renderSimple === 'function') renderSimple('poList',state.pos);
