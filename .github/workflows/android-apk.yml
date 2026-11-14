@@ -1213,10 +1213,10 @@ jobs:
           cat >> /tmp/gensolar-dxf-handoff.js <<'JS'
           // TEST HARNESS
           const assert=require("node:assert/strict"),vm=require("node:vm"),fs=require("node:fs");
-          const model={entities:[],undo:[]};let draws=0,models=0,saves=0;
+          const model={entities:[],undo:[]};let draws=0,models=0,saves=0,layerRefreshes=0;
           const context={model,saveUndo:()=>model.undo.push("snapshot"),
             addEntity:e=>{e.id="test-"+model.entities.length;model.entities.push(e)},
-            draw:()=>draws++,render3d:()=>models++,save:()=>saves++};
+            renderLayerVisibility:()=>layerRefreshes++,draw:()=>draws++,render3d:()=>models++,save:()=>saves++};
           vm.createContext(context);
           vm.runInContext("window=globalThis",context);
           vm.runInContext(importedSource,context);
@@ -1232,6 +1232,7 @@ jobs:
           assert.equal(model.entities[1].type,"poly");assert.equal(model.entities[1].closed,true);
           assert.equal(model.entities[2].r,.1);
           assert.ok(model.entities[3].points.length>=8,"ARC should be approximated by a CAD polyline");
+          assert.equal(layerRefreshes,1,"Imported CAD layers must immediately refresh the visibility controls");
           assert.equal(draws,1);assert.equal(models,1);assert.equal(saves,1);
           const before=model.entities.length;
           const unsupported=context.gensolarImportDxf({units:0,entities:[{type:"LINE",layer:"0",x1:0,y1:0,x2:10,y2:10}]});
