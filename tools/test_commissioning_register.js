@@ -1,0 +1,20 @@
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const vm=require("node:vm");
+const html=fs.readFileSync("app/src/main/assets/index.html","utf8");
+function extract(name){const start=html.indexOf("function "+name+"(");assert.notEqual(start,-1,"Missing "+name);const end=html.indexOf("\nfunction ",start+1);return html.slice(start,end<0?html.length:end)}
+const context={};
+vm.createContext(context);
+vm.runInContext(extract("commissioningRecordIsComplete"),context);
+const base={category:"DC array",test:"String open-circuit voltage",measured:"720",unit:"V",criterion:"Approved string design range",result:"Pass",method:"Calibrated multimeter per approved procedure",instrument:"DMM-001",tester:"Commissioning Engineer",date:"2026-12-05",action:"",actionOwner:"",dueDate:"",actionStatus:"Open"};
+assert.equal(context.commissioningRecordIsComplete(base),true);
+assert.equal(context.commissioningRecordIsComplete({...base,date:"2026-02-30"}),false);
+assert.equal(context.commissioningRecordIsComplete({...base,measured:"not-a-number"}),false);
+assert.equal(context.commissioningRecordIsComplete({...base,result:"Fail"}),false);
+assert.equal(context.commissioningRecordIsComplete({...base,result:"Fail",action:"Investigate abnormal string voltage"}),false);
+assert.equal(context.commissioningRecordIsComplete({...base,result:"Fail",action:"Investigate abnormal string voltage",actionOwner:"Site Engineer"}),false);
+assert.equal(context.commissioningRecordIsComplete({...base,result:"Fail",action:"Investigate abnormal string voltage",actionOwner:"Site Engineer",dueDate:"2026-12-04"}),false);
+assert.equal(context.commissioningRecordIsComplete({...base,result:"Fail",action:"Investigate abnormal string voltage",actionOwner:"Site Engineer",dueDate:"2026-12-08"}),true);
+assert.equal(context.commissioningRecordIsComplete({...base,action:"Replace damaged connector",actionOwner:"Technician",dueDate:"2026-12-06"}),true);
+assert.equal(context.commissioningRecordIsComplete({...base,action:"Replace damaged connector",actionOwner:"Technician",dueDate:"2026-12-06",actionStatus:"Not required"}),false);
+console.log("Commissioning QA validation passed: real calendar dates, numeric measurements and mandatory owned/due-dated corrective actions for failed tests.");

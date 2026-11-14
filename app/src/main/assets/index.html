@@ -647,7 +647,13 @@ return protection+ cable;
 }
 function refreshCommissioningEvidenceOptions(){const el=$('commEvidence');if(!el)return;const current=el.value;el.innerHTML='<option value="">No attachment linked</option>'+(state.attachments||[]).map(a=>'<option value="'+escapeHtml(a.id)+'">'+escapeHtml(a.name)+' · '+escapeHtml(a.category||'Evidence')+'</option>').join('');if(current)el.value=current;}
 function commissioningRecordIsComplete(r){
-return !!(r&&String(r.category||'').trim()&&String(r.test||'').trim()&&String(r.criterion||'').trim()&&String(r.method||'').trim()&&String(r.tester||'').trim()&&String(r.date||'').trim()&&['Not tested','Pass','Fail','Hold / N.A.'].includes(r.result)&&((r.measured===''||r.measured==null)||Number.isFinite(Number(r.measured))));
+const validDate=value=>/^\\d{4}-\\d{2}-\\d{2}$/.test(String(value||''))&&Number.isFinite(Date.parse(value))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value;
+if(!(r&&String(r.category||'').trim()&&String(r.test||'').trim()&&String(r.criterion||'').trim()&&String(r.method||'').trim()&&String(r.tester||'').trim()&&validDate(r.date)&&['Not tested','Pass','Fail','Hold / N.A.'].includes(r.result)&&((r.measured===''||r.measured==null)||Number.isFinite(Number(r.measured)))))return false;
+const action=String(r.action||'').trim(),owner=String(r.actionOwner||'').trim(),due=String(r.dueDate||'').trim(),status=String(r.actionStatus||'Open');
+if(r.result==='Fail'&&!action)return false;
+if(action&&(!owner||!validDate(due)||due<r.date||!['Open','In progress','Closed'].includes(status)))return false;
+if(!action&&status==='Closed')return false;
+return true;
 }
 function renderCommissioningRegister(){
 const rows=Array.isArray(state.commissioning)?state.commissioning:[];
@@ -660,7 +666,7 @@ $('commissioningRegister').querySelectorAll('[data-comm-action-index]').forEach(
 
 function addCommissioningRecord(){
 const r={id:makeId(),category:$('commCategory').value,test:$('commTest').value.trim(),measured:$('commMeasured').value.trim(),unit:$('commUnit').value.trim(),criterion:$('commCriterion').value.trim(),result:$('commResult').value,method:$('commMethod').value.trim(),instrument:$('commInstrument').value.trim(),tester:$('commTester').value.trim(),date:$('commDate').value,witness:$('commWitness').value.trim(),remarks:$('commRemarks').value.trim(),action:$('commAction').value.trim(),actionOwner:$('commActionOwner').value.trim(),dueDate:$('commDueDate').value,actionStatus:$('commActionStatus').value,evidenceId:$('commEvidence').value,evidenceName:((state.attachments||[]).find(a=>a.id===$('commEvidence').value)||{}).name||'',recordedAt:new Date().toISOString()};
-if(!commissioningRecordIsComplete(r)){alert('Complete test category, test name, acceptance criterion, method, tester and date. Enter a numeric measurement or leave it blank if the test is qualitative.');return}
+if(!commissioningRecordIsComplete(r)){alert('Complete the test details and use a valid calendar date. A failed test requires a corrective action, named owner and due date on or after the test date. Enter a numeric measurement or leave it blank for a qualitative test.');return}
 state.commissioning=Array.isArray(state.commissioning)?state.commissioning:[];
 state.commissioning.push(r);save();renderCommissioningRegister();
 ['commTest','commMeasured','commUnit','commCriterion','commMethod','commInstrument','commTester','commWitness','commRemarks','commAction','commActionOwner','commDueDate'].forEach(id=>$(id).value='');$('commEvidence').value='';

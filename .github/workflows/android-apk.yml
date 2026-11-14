@@ -1476,6 +1476,8 @@ jobs:
       - name: Test PO ordered quantity and receipt reconciliation
         run: node tools/test_po_receipt_reconciliation.js
 
+      - name: Test commissioning QA failure and corrective action controls
+        run: node tools/test_commissioning_register.js
       - name: Test construction activity validation and safe rendering
         run: node tools/test_construction_activity.js
       - name: Build debug APK
