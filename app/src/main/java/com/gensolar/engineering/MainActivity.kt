@@ -2124,12 +2124,32 @@ private fun NativeProcurementScreen(
                     val qty = row.getOrElse(5) { "0" }.toDoubleOrNull() ?: 0.0
                     val unitName = row.getOrElse(6) { "" }
                     val received = receipts.filter { it.getOrElse(0) { "" } == key && it.getOrElse(2) { "" }.equals(unitName, true) }.sumOf { it.getOrElse(1) { "0" }.toDoubleOrNull() ?: 0.0 }
+                    val poStatus = row.getOrElse(4) { "" }
+                    val expectedDelivery = try { java.time.LocalDate.parse(row.getOrElse(3) { "" }) } catch (_: Exception) { null }
+                    val today = java.time.LocalDate.now()
+                    val deliveryHealth = when {
+                        poStatus == "Received" -> "Delivered"
+                        poStatus == "Cancelled" -> "Cancelled"
+                        poStatus == "On hold" -> "On hold"
+                        expectedDelivery == null -> "Check expected date"
+                        expectedDelivery.isBefore(today) -> "OVERDUE by " + java.time.temporal.ChronoUnit.DAYS.between(expectedDelivery, today) + " days"
+                        expectedDelivery.isEqual(today) -> "Due today"
+                        !expectedDelivery.isAfter(today.plusDays(7)) -> "Due in " + java.time.temporal.ChronoUnit.DAYS.between(today, expectedDelivery) + " days"
+                        else -> "On schedule"
+                    }
+                    val deliveryColor = when {
+                        deliveryHealth.startsWith("OVERDUE") -> Color(0xFFB42318)
+                        deliveryHealth.startsWith("Due") -> Color(0xFF9A6700)
+                        deliveryHealth == "On schedule" || deliveryHealth == "Delivered" -> AccentGreen
+                        else -> Color(0xFF60756E)
+                    }
                     Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F6F5))) {
                         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             Text(key, color = BrandGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             Text(row.getOrElse(1) { "" } + " • ₹" + row.getOrElse(2) { "" }, color = Color(0xFF60756E), fontSize = 11.sp)
                             Text("Ordered " + qty + " " + unitName + " | Received " + received + " | Balance " + maxOf(0.0, qty - received), color = Color(0xFF60756E), fontSize = 10.sp)
-                            Text("Status: " + row.getOrElse(4) { "" } + " • Delivery: " + row.getOrElse(3) { "" }, color = AccentGreen, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Status: " + poStatus + " • Delivery: " + row.getOrElse(3) { "" }, color = AccentGreen, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Delivery alert: " + deliveryHealth, color = deliveryColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
