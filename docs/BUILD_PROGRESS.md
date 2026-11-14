@@ -34,6 +34,12 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 - Added `tools/test_bom_generation.js` to verify all 12 material groups, route allowances, string-fuse and MPPT quantities, invalid-input guards, rate preservation and save behavior. Added native-bridge/BOM assertions to the Python modernization validator and a dedicated GitHub Actions test step.
 - The existing engineering solvers and CAD/DXF/STAAD exports remain the calculation source. The Compose layer is now connected through a controlled bridge; this is still a staged migration, not a claim that the solver core has been rewritten in Kotlin. Advanced fabrication/vendor comparison and procurement, construction and DPR workspaces remain WebView-backed.
 
+## Latest implementation (2026-11-14)
+
+- Hardened DXF import for legacy `POLYLINE` entities: 2D polylines remain editable, while DXF 3D polylines and polygon-mesh/polyface-mesh variants are skipped rather than silently flattened into 2D geometry. This prevents loss of Z/elevation information during import.
+- Added a regression fixture containing a closed 2D legacy polyline and an unsupported 3D polyline. The existing assertions continue to verify imported entity counts, closure flags, layers, units and extents; the unsupported 3D entity must not appear in the imported geometry.
+- Commits: [`42a122b`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/42a122b3f6be4f6c50ecc941a47a4af38e9f7e04) and [`15ac15b`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/15ac15b123d55b17c54d84982dd86df49b01b2df). GitHub Actions status for the latest commit had not reported a check result at the time of this update; this change is not yet counted as CI-verified.
+
 ## Current build verification state
 
 - **Latest functional implementation commit:** [`783883c37f647d7559f498d692e4cd30ba944153`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/783883c37f647d7559f498d692e4cd30ba944153). The preceding workflow change added the BOM regression step in [`d2413529723c4ed14c5f0b7097416284cb05a867`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/d2413529723c4ed14c5f0b7097416284cb05a867).
