@@ -694,7 +694,7 @@ function addStockIssue(){
   if(!bridge.createStockIssue(payload))return fail('Issue rejected. Check available Good stock, duplicate reference and material details.');
   if(message)message.textContent='Material issue recorded. On-hand stock has been reduced.';
   $('stockIssueQty').value='';$('stockIssueRef').value='';$('stockIssueTo').value='';$('stockIssuePackage').value='';$('stockIssueRemarks').value='';
-  renderStockIssues();renderGoodsReceipts();return true;
+  if(typeof renderStockIssues==='function')renderStockIssues();renderGoodsReceipts();return true;
 }
 function exportGoodsReceipts(){const rows=Array.isArray(state.goodsReceipts)?state.goodsReceipts:[];if(!rows.length){const message=$('receiptStatusMessage');if(message)message.textContent='There are no goods receipts to export.';return false}download('GenSolar-goods-receipt-register.csv',csv([['PO reference','Quantity received','Unit','Receipt date','Condition','Received by','Document reference','Remarks','Material'],...rows]),'text/csv');return true}
 function activityPlannedFinish(start,days){const raw=String(start||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(raw))return '';const date=new Date(raw+'T00:00:00Z');if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==raw||!Number.isInteger(Number(days))||Number(days)<1)return '';date.setUTCDate(date.getUTCDate()+Number(days)-1);return date.toISOString().slice(0,10)}
