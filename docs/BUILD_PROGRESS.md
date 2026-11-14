@@ -40,6 +40,13 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 - Added a regression fixture containing a closed 2D legacy polyline and an unsupported 3D polyline. The existing assertions continue to verify imported entity counts, closure flags, layers, units and extents; the unsupported 3D entity must not appear in the imported geometry.
 - Commits: [`42a122b`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/42a122b3f6be4f6c50ecc941a47a4af38e9f7e04) and [`15ac15b`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/15ac15b123d55b17c54d84982dd86df49b01b2df). GitHub Actions status for the latest commit had not reported a check result at the time of this update; this change is not yet counted as CI-verified.
 
+## Latest implementation (2026-11-14 — procurement controls)
+
+- Hardened purchase-order status changes with an explicit transition policy. Receipt-derived states (`Partially received` and `Received`) can only be reached through validated goods receipts; terminal `Received` and `Cancelled` orders cannot be reopened through the manual status control.
+- Added save-failure rollback: if local project persistence fails, the previous PO status and audit-history length are restored and the user receives a clear failure message. The UI register and lifecycle history are refreshed after successful persistence or rollback.
+- Expanded `tools/test_po_lifecycle.js` for allowed transitions, invalid/receipt-owned states, reverse-transition rejection, audit history and persistence rollback. The existing GitHub Actions workflow already runs this test file.
+- Commits: [`220d79a`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/220d79a2ef3fe7c25147ca63613d3285cb290d3c) and [`7a8f418`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/7a8f4186390b7db6e780af0ec2fe229e20e9d1d3). The latest commit currently has no reported CI status; do not count this implementation as build-verified until the workflow completes.
+
 ## Current build verification state
 
 - **Latest functional implementation commit:** [`783883c37f647d7559f498d692e4cd30ba944153`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/783883c37f647d7559f498d692e4cd30ba944153). The preceding workflow change added the BOM regression step in [`d2413529723c4ed14c5f0b7097416284cb05a867`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/d2413529723c4ed14c5f0b7097416284cb05a867).
