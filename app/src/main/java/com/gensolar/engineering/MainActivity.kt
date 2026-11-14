@@ -520,6 +520,12 @@ private fun GenSolarApp(
                     onOpenAdvanced = { advancedProcurement = true },
                     onExportCsv = { name, csv -> onExportFile(name, csv, "text/csv") }
                 )
+            } else if (selected == "commissioning") {
+                NativeCommissioningScreen(
+                    browser = browser,
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    onExportCsv = { name, csv -> onExportFile(name, csv, "text/csv") }
+                )
             } else if (selected == "dpr") {
                 NativeDprScreen(
                     browser = browser,
@@ -566,7 +572,8 @@ private fun NativeDashboard(modifier: Modifier = Modifier, onNavigate: (String) 
         Triple("BOM / BOQ", "Material take-off, quantities and cost schedule.", "bom"),
         Triple("Procurement", "Vendor quotations and purchase tracking.", "procurement"),
         Triple("Construction & QA", "Site progress, inspections and commissioning.", "construction"),
-        Triple("DPR & handover", "Reports, drawing register and handover pack.", "dpr")
+        Triple("DPR & handover", "Reports, drawing register and handover pack.", "dpr"),
+        Triple("Commissioning & QA", "Electrical tests, measured results and corrective actions.", "commissioning")
     )
     val filtered = workspaces.filter { item ->
         val matchesSearch = search.isBlank() || (item.first + " " + item.second).contains(search, ignoreCase = true)
@@ -1771,6 +1778,170 @@ private fun NativeProcurementScreen(
     }
 }
 
+
+
+@Composable
+private fun NativeCommissioningScreen(
+    browser: WebView,
+    modifier: Modifier = Modifier,
+    onExportCsv: (String, String) -> Unit
+) {
+    var category by remember { mutableStateOf("Electrical") }
+    var testName by remember { mutableStateOf("") }
+    var measured by remember { mutableStateOf("") }
+    var unit by remember { mutableStateOf("V") }
+    var criterion by remember { mutableStateOf("") }
+    var method by remember { mutableStateOf("") }
+    var instrument by remember { mutableStateOf("") }
+    var tester by remember { mutableStateOf("") }
+    var testDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
+    var result by remember { mutableStateOf("Not tested") }
+    var action by remember { mutableStateOf("") }
+    var actionOwner by remember { mutableStateOf("") }
+    var dueDate by remember { mutableStateOf("") }
+    var actionStatus by remember { mutableStateOf("Open") }
+    var remarks by remember { mutableStateOf("") }
+    var records by remember { mutableStateOf(listOf<JSONObject>()) }
+    var message by remember { mutableStateOf("Commissioning records are stored in the active offline project.") }
+
+    fun refresh() {
+        browser.evaluateJavascript("(function(){var b=window.GenSolarEpcBridge;return b?JSON.stringify(b.getCommissioning()):'[]'})()") { raw ->
+            try {
+                val encoded = org.json.JSONTokener(raw ?: "\"[]\"").nextValue() as? String ?: "[]"
+                val array = org.json.JSONArray(encoded)
+                records = (0 until array.length()).mapNotNull { array.optJSONObject(it) }
+            } catch (_: Exception) { message = "Unable to read commissioning register." }
+        }
+    }
+    LaunchedEffect(Unit) { refresh() }
+
+    fun saveRecord() {
+        val payload = JSONObject()
+            .put("category", category).put("test", testName.trim()).put("measured", measured.trim())
+            .put("unit", unit.trim()).put("criterion", criterion.trim()).put("result", result)
+            .put("method", method.trim()).put("instrument", instrument.trim()).put("tester", tester.trim())
+            .put("date", testDate.trim()).put("remarks", remarks.trim()).put("action", action.trim())
+            .put("actionOwner", actionOwner.trim()).put("dueDate", dueDate.trim()).put("actionStatus", actionStatus)
+        browser.evaluateJavascript("window.GenSolarEpcBridge.createCommissioningRecord(" + payload + ")") { raw ->
+            if (raw == "true") {
+                message = "Commissioning test saved."
+                testName = ""; measured = ""; criterion = ""; method = ""; instrument = ""; tester = ""; remarks = ""
+                action = ""; actionOwner = ""; dueDate = ""; result = "Not tested"
+                refresh()
+            } else message = "Record rejected. Check required fields, numeric measurement, valid dates and corrective-action details for failed tests."
+        }
+    }
+
+    fun updateAction(index: Int, next: String) {
+        browser.evaluateJavascript("window.GenSolarEpcBridge.updateCommissioningAction($index," + JSONObject.quote(next) + ")") { raw ->
+            message = if (raw == "true") "Corrective action status updated." else "Action update rejected."
+            if (raw == "true") refresh()
+        }
+    }
+
+    val csv = buildString {
+        appendLine("Category,Test,Measured,Unit,Criterion,Result,Method,Instrument,Tester,Date,Remarks,Corrective action,Owner,Due date,Action status")
+        records.forEach { r ->
+            val fields = listOf("category","test","measured","unit","criterion","result","method","instrument","tester","date","remarks","action","actionOwner","dueDate","actionStatus")
+            appendLine(fields.joinToString(",") { key -> "\"" + r.optString(key).replace("\"", "\"\"") + "\"" })
+        }
+    }
+    val passCount = records.count { it.optString("result") == "Pass" }
+    val failCount = records.count { it.optString("result") == "Fail" }
+    val openCount = records.count { it.optString("actionStatus") == "Open" || it.optString("actionStatus") == "In progress" }
+
+    Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("COMMISSIONING & QUALITY", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Text("Test register and corrective actions", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Capture measured results, acceptance criteria, test method, instrument and accountable follow-up.", color = Color(0xFFD7E8E1), fontSize = 12.sp, lineHeight = 18.sp)
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Records" to records.size.toString(), "Pass" to passCount.toString(), "Fail" to failCount.toString(), "Open actions" to openCount.toString()).forEach { pair ->
+                Card(Modifier.weight(1f), shape = RoundedCornerShape(13.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                    Column(Modifier.padding(9.dp)) {
+                        Text(pair.second, color = BrandGreen, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(pair.first, color = Color(0xFF60756E), fontSize = 9.sp)
+                    }
+                }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("NEW TEST RECORD", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    listOf("Electrical", "Mechanical", "Safety", "Performance", "Documentation").forEach { item ->
+                        FilterChip(selected = category == item, onClick = { category = item }, label = { Text(item, fontSize = 10.sp) })
+                    }
+                }
+                SurveyInput("Test / inspection name", testName, { testName = it })
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SurveyInput("Measured value", measured, { measured = it }, Modifier.weight(1f))
+                    SurveyInput("Unit", unit, { unit = it }, Modifier.weight(1f))
+                }
+                SurveyInput("Acceptance criterion", criterion, { criterion = it })
+                SurveyInput("Test method / procedure", method, { method = it })
+                SurveyInput("Instrument / serial number", instrument, { instrument = it })
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SurveyInput("Tester / responsible person", tester, { tester = it }, Modifier.weight(1f))
+                    SurveyInput("Test date (YYYY-MM-DD)", testDate, { testDate = it }, Modifier.weight(1f))
+                }
+                Text("TEST RESULT", color = Color(0xFF60756E), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("Not tested", "Pass", "Fail", "Hold / N.A.").forEach { item ->
+                        FilterChip(selected = result == item, onClick = { result = item }, label = { Text(item, fontSize = 10.sp) })
+                    }
+                }
+                SurveyInput("Corrective action (mandatory for Fail)", action, { action = it })
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SurveyInput("Action owner", actionOwner, { actionOwner = it }, Modifier.weight(1f))
+                    SurveyInput("Due date (YYYY-MM-DD)", dueDate, { dueDate = it }, Modifier.weight(1f))
+                }
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("Open", "In progress", "Closed").forEach { item ->
+                        FilterChip(selected = actionStatus == item, onClick = { actionStatus = item }, label = { Text(item, fontSize = 10.sp) })
+                    }
+                }
+                SurveyInput("Remarks / site conditions", remarks, { remarks = it })
+                Button(onClick = { saveRecord() }, modifier = Modifier.fillMaxWidth()) { Text("Save commissioning record") }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("SAVED TEST REGISTER", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = { refresh() }) { Text("Refresh") }
+                }
+                if (records.isEmpty()) Text("No commissioning tests saved yet.", color = Color(0xFF60756E), fontSize = 12.sp)
+                records.forEachIndexed { index, r ->
+                    Card(shape = RoundedCornerShape(13.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F6F5))) {
+                        Column(Modifier.fillMaxWidth().padding(11.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(r.optString("test"), color = BrandGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(r.optString("category") + " • " + r.optString("date") + " • " + r.optString("result"), color = AccentGreen, fontSize = 10.sp)
+                            Text("Measured: " + r.optString("measured", "—") + " " + r.optString("unit") + " | Criterion: " + r.optString("criterion"), color = Color(0xFF60756E), fontSize = 10.sp)
+                            if (r.optString("action").isNotBlank()) {
+                                Text("Action: " + r.optString("action") + " • Owner: " + r.optString("actionOwner") + " • Due: " + r.optString("dueDate"), color = Color(0xFF60756E), fontSize = 10.sp)
+                                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    listOf("Open", "In progress", "Closed").forEach { next ->
+                                        FilterChip(selected = r.optString("actionStatus") == next, onClick = { updateAction(index, next) }, label = { Text(next, fontSize = 9.sp) })
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                androidx.compose.material3.OutlinedButton(onClick = { onExportCsv("GenSolar-commissioning-register.csv", csv) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Export commissioning register (CSV)")
+                }
+            }
+        }
+        Text(message, color = Color(0xFF60756E), fontSize = 11.sp, lineHeight = 16.sp)
+        Text("Commissioning tests must follow approved procedures and manufacturer instructions using suitable calibrated instruments. Grid synchronisation, statutory approvals and electrical sign-off require authorised personnel.", color = Color(0xFF60756E), fontSize = 10.sp, lineHeight = 15.sp)
+    }
+}
 
 @Composable
 private fun NativeDprScreen(
