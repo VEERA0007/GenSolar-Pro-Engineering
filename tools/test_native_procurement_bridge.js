@@ -91,6 +91,7 @@ assert.equal(b.createGoodsReceipt({...receipt,qty:1}),false,'over-receipt must b
 assert.equal(b.getProcurement().receipts.length,2);
 assert.equal(poStatus(),'Received');
 
+saved=true;
 const multiLinePo={ref:'GS-PO-MULTI-001',vendor:'Solar Supplier',date:'2026-12-05',status:'Ordered',lines:[
   {item:'550 W PV module',qty:20,unit:'Nos',rate:8500},
   {item:'DC cable',qty:20,unit:'Nos',rate:1250},
