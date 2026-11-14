@@ -1,8 +1,8 @@
 # GenSolar Pro Engineering — Build Progress
 
-Last assessed: 2026-11-14 (native supplier quotation workspace verified by successful Android APK build #451)
+Last assessed: 2026-11-14 (native RFQ and PO lifecycle integrated; Build #461 is validating the current main branch)
 
-## Overall completion estimate: 48.5%
+## Overall completion estimate: 48.6%
 
 This is a feature-scope estimate, not an APK build percentage, release-readiness claim or engineering certification. The 14 required workspaces in `REFERENCE_REQUIREMENTS.md` are equally weighted (1/14 each). Each score reflects implemented and testable scope within that workspace; partially implemented items receive partial credit. The native supplier quotation workspace and bridge regression tests are verified by GitHub Actions Build #451: all workflow tests, Kotlin/HTML validation, APK build, APK verification and artifact upload succeeded. The debug APK is 9,265,736 bytes (about 8.83 MiB); its workflow artifact ZIP is 8,857,010 bytes (about 8.45 MiB). Build #342's APK was 9,104,692 bytes, so the new APK is 161,044 bytes larger. This is a successful debug build, not a release or physical-device certification.
 
@@ -19,7 +19,7 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 | 3D engineering | 30% | Conceptual 3D roof/building and PV visualization with independent layer visibility; multi-roof parametric model, structural components and synchronized drawing sections remain |
 | Structural and wind | 58% | Native Compose STAAD geometry/load inputs connected through the controlled bridge to the existing portal-frame model and STAAD export; complete code verification and engineer-reviewed release remain |
 | Electrical | 68% | Native Compose string-validation inputs connected to the existing temperature, MPPT, cable, protection and battery screening; full topology, coordination, earthing/lightning, transformer/HT and complete SLD remain |
-| Procurement and construction | 47% | Native BOM/BOQ generation from active PV design, editable rates, offline project save and Android CSV export; integrated RFQ/PO, vendor comparison, delivery, site execution and inspection workflows remain |
+| Procurement and construction | 49% | Native BOM/BOQ, RFQ creation, supplier quotation comparison, PO creation/status lifecycle, goods receipt reconciliation and audit-history export are integrated; BOM-linked multi-line purchasing, delivery tracking, construction inspections and field QA remain |
 | Documents | 55% | DPR, schedules, PDF/print and backup foundations; revision-controlled drawing register, signatures, acceptance and cross-workspace snapshot assurance remain |
 | Quality and verification | 58% | CI HTML/Kotlin checks, engineering Node regressions, controlled-bridge validation and new BOM quantity/rate-preservation tests; latest push run, instrumented Android tests and broader end-to-end/offline/performance verification remain |
 
@@ -62,23 +62,33 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 - Expanded `tools/test_procurement_register.js` to cover ranking, tie-break ordering, price differences, HTML escaping and save-failure rollback. The existing Android Actions workflow already executes this test.
 - Commits: [`ad48c93`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/ad48c93548e24d299454276df4423d63bde04874) and [`43b6c7e`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/43b6c7e94e853bb69b3f54d78374683fa8c85264). CI verified the supplier-comparison source and test commit in Build #447 (success); the documentation-only follow-up commit is not a separate APK build.
 
+## Latest implementation (2026-11-14 — native RFQ and PO lifecycle)
+
+- Added a native Compose RFQ register in Procurement. It creates project-linked requests with item, quantity, unit, due date and invited suppliers; duplicate supplier invitations and invalid calendar dates are rejected.
+- Added deterministic UTC calendar-date validation for RFQ due dates. The earlier over-escaped date check caused the RFQ regression test to fail; the validator was replaced with explicit year/month/day parsing and calendar round-trip checks.
+- Added native PO status controls for Draft, RFQ sent, Approved, Ordered, On hold and Cancelled. The bridge enforces allowed transitions; Partially received and Received remain receipt-derived and cannot be selected manually.
+- Goods receipts now append PO status transitions to the audit history, and failed persistence restores both the previous PO status and history length. The native screen displays the latest 25 audit entries and exports the full status history to CSV.
+- Added bridge and UI assertions for the native status workflow. The test now re-reads the procurement snapshot after mutations because the bridge intentionally returns cloned snapshots; retaining an earlier array reference produced a false-negative assertion.
+- Main-branch source commits: [RFQ bridge](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/fe62b4866a69306984e6ff64fbf347b153bd28ce), [native RFQ screen](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/6ff2207771341545c2788eca30b61ebb8e286207), [PO lifecycle UI/bridge](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/0f8cf7f62f66e4754740d492f77d3249028bb58e), [deterministic RFQ date validation](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/8e9da4c1ca42009ef04266e37e464f188c572cfa), and [fresh-snapshot lifecycle regression](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/6086f8a58e46ec090dc29431832a6dc454184c78).
+- Build #461 currently reports all 73 preceding validation/test steps successful. APK compilation is still in progress; APK verification and artifact upload have not completed. The procurement changes are not counted as APK-verified yet.
+
 ## Current build verification state
 
-- **Latest functional implementation commit:** [`783883c37f647d7559f498d692e4cd30ba944153`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/783883c37f647d7559f498d692e4cd30ba944153). The preceding workflow change added the BOM regression step in [`d2413529723c4ed14c5f0b7097416284cb05a867`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/d2413529723c4ed14c5f0b7097416284cb05a867).
-- **Build #342 — success**, run ID `43599492243`, commit `dce08c0a3dedf4b90fd6810930eadef7b2db1045`. Kotlin compilation, APK verification and artifact upload all completed successfully. [Open Build #342](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43599492243).
-- Verified Build #342 artifact: `GenSolar-Pro-Engineering-debug-APK`, artifact ID `14115607328`, ZIP size 8,696,643 bytes, SHA-256 `a444262da9a0b29f428818c152a59cba03992c748ac82e760b341e91b71e3409`. [Download artifact ZIP](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43599492243). Artifact expiry recorded as 2026-11-28.
-- **Last retrievable verified run: Build #297 — success**, run ID `43172507991`, for commit `e3ed7adcd0d68f1794d6f21338c556332adaf9cb`. Its job summary reported successful completion of the configured build, APK verification and artifact upload steps. This run predates the current native bridge/BOM implementation.
-- Verified Build #297 artifact: [GenSolar-Pro-Engineering-debug-APK](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43172507991/artifacts/13923075759), artifact ID `13923075759`. Artifact ZIP: 8,521,207 bytes; extracted `app-debug.apk`: **8,937,793 bytes (8.53 MiB)**. APK SHA-256: `159ae0531200f91552837b6b5669ff3e22d0ddb2cffd469c28ba11ac307f2a58`. ZIP SHA-256: `3b7e1e31edfe4127276e6a3b5fd6532fe8f9d8f3d0700acaee6681f2207ed8fc`. Artifact expiry recorded by the prior run: 2026-11-26.
-- Build #297 is an older debug artifact and **does not contain** the 2026-11-13 changes. It is not a release candidate and must not be used to claim the current source has passed compilation.
+- **Current main HEAD:** [6086f8a58e46ec090dc29431832a6dc454184c78](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/6086f8a58e46ec090dc29431832a6dc454184c78).
+- **Build #461:** [Android APK workflow](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43627562559), run ID 43627562559, on the current main HEAD. The 73 pre-build validation/test steps completed successfully, including native procurement, supplier quotation, DPR, commissioning and handover bridge tests. The Build debug APK step remains in progress; APK verification and artifact upload are pending. No artifact or APK size is claimed for this run.
+- Builds #456–#460 exposed two test issues: the RFQ due-date regex was over-escaped, and the PO lifecycle test held a stale cloned procurement snapshot. Both were corrected in the main branch; Build #461 now passes the corresponding procurement bridge test.
+- **Latest successful APK build: Build #455**, [workflow run](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43627106003), source commit [6ff2207771341545c2788eca30b61ebb8e286207](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/6ff2207771341545c2788eca30b61ebb8e286207). Kotlin/HTML validation, configured tests, APK verification and artifact upload succeeded. Artifact ID 14126986551; ZIP size 8,867,670 bytes; extracted app-debug.apk size **9,282,352 bytes (8.85 MiB)**; APK SHA-256 ae54092fbfad28229c67c74e82af3da020c44fa7ceae29345f045695cfec407e. [Download Build #455 artifact](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43627106003/artifacts/14126986551).
+- Build #455 predates the native PO status lifecycle. It contains the native RFQ workspace but does not verify the latest PO lifecycle code. Use Build #461's artifact only after its verification and upload steps succeed.
+- Earlier successful Build #451 and Build #342 remain historical checkpoints; Build #297 is older still and does not contain the current native bridge/BOM work.
 
 A green CI build verifies only the checks configured in GitHub Actions and APK packaging. It does not replace physical Android device testing, field validation or qualified engineering review.
 
 ## Next implementation
 
-1. Migrate procurement natively: RFQ register, vendor comparison, PO creation, material receipt and delivery status connected to the same project BOM.
+1. Link the native RFQ/quotation/PO workflow to BOM-derived multi-line purchase orders, vendor award records, delivery milestones and stock receipt reconciliation.
 2. Migrate construction/QA natively: activity tracking, inspection evidence, commissioning measurements, corrective actions and customer handover.
 3. Migrate DPR/document control natively with revision-controlled project snapshots, drawing registers and export/print verification.
-4. Complete remaining CAD/2D/3D and STAAD/electrical integration gaps without replacing tested solvers until equivalent regression coverage exists.
+4. Migrate CAD editing to native Compose: entity selection, move/duplicate/rotate/delete, layer visibility and a native 2D preview backed by the existing CAD model; then complete multi-roof 3D, STAAD and electrical integration gaps without replacing tested solvers.
 5. Verify the latest main-branch Actions run, inspect the complete logs, verify APK packaging and upload, then test offline launch, persistence, CSV/DXF import/export, GPS, print, rotation and relaunch on Android hardware.
 6. Publish a release APK only after all planned features are implemented, integrated, tested and approved. Never report 100% before these gates pass.
 
