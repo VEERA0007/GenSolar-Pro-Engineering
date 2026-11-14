@@ -1180,7 +1180,8 @@ window.GenSolarEpcBridge = Object.freeze({
       rfqs: Array.isArray(state.rfqs) ? state.rfqs : [],
       vendors: Array.isArray(state.vendors) ? state.vendors : [],
       history: Array.isArray(state.poHistory) ? state.poHistory : [],
-      receipts: Array.isArray(state.goodsReceipts) ? state.goodsReceipts : []
+      receipts: Array.isArray(state.goodsReceipts) ? state.goodsReceipts : [],
+      bom: Array.isArray(state.bom) ? state.bom : []
     }));
   },
   createRfq: function(input) {
