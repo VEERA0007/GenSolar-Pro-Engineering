@@ -322,6 +322,7 @@ private fun GenSolarApp(
     var advancedStaad by remember { mutableStateOf(false) }
     var advancedBom by remember { mutableStateOf(false) }
     var advancedConstruction by remember { mutableStateOf(false) }
+    var advancedProcurement by remember { mutableStateOf(false) }
     BackHandler(enabled = selected != "dashboard") {
         if (selected == "site" && advancedSite) {
             advancedSite = false
@@ -342,6 +343,8 @@ private fun GenSolarApp(
             advancedBom = false
         } else if (selected == "construction" && advancedConstruction) {
             advancedConstruction = false
+        } else if (selected == "procurement" && advancedProcurement) {
+            advancedProcurement = false
         } else {
             selected = "dashboard"
             advancedSite = false
@@ -353,6 +356,7 @@ private fun GenSolarApp(
             advancedStaad = false
             advancedBom = false
             advancedConstruction = false
+            advancedProcurement = false
             onNavigate("dashboard")
         }
     }
@@ -422,6 +426,7 @@ private fun GenSolarApp(
                                         advancedStaad = false
                                         advancedBom = false
                                         advancedConstruction = false
+                                        advancedProcurement = false
                                         onNavigate(key)
                                     }
                                 )
@@ -450,6 +455,7 @@ private fun GenSolarApp(
                                 advancedStaad = false
                                 advancedBom = false
                                 advancedConstruction = false
+                                advancedProcurement = false
                                 onNavigate(destination.key)
                             },
                             icon = { Text(destination.symbol, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
@@ -481,6 +487,7 @@ private fun GenSolarApp(
                         advancedStaad = false
                         advancedBom = false
                         advancedConstruction = false
+                        advancedProcurement = false
                         onNavigate(destination)
                     }
                 )
@@ -505,6 +512,13 @@ private fun GenSolarApp(
                     browser = browser,
                     modifier = Modifier.fillMaxSize().padding(padding),
                     onOpenAdvanced = { advancedSite = true }
+                )
+            } else if (selected == "procurement" && !advancedProcurement) {
+                NativeProcurementScreen(
+                    browser = browser,
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    onOpenAdvanced = { advancedProcurement = true },
+                    onExportCsv = { name, csv -> onExportFile(name, csv, "text/csv") }
                 )
             } else if (selected == "construction" && !advancedConstruction) {
                 NativeConstructionScreen(
@@ -1587,6 +1601,169 @@ private fun NativeSurveyScreen(
     }
 }
 
+
+
+@Composable
+private fun NativeProcurementScreen(
+    browser: WebView,
+    modifier: Modifier = Modifier,
+    onOpenAdvanced: () -> Unit,
+    onExportCsv: (String, String) -> Unit
+) {
+    var ref by remember { mutableStateOf("") }
+    var supplier by remember { mutableStateOf("") }
+    var amount by remember { mutableStateOf("") }
+    var orderedQty by remember { mutableStateOf("") }
+    var unit by remember { mutableStateOf("Nos") }
+    var deliveryDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
+    var receiptPo by remember { mutableStateOf("") }
+    var receiptQty by remember { mutableStateOf("") }
+    var receiver by remember { mutableStateOf("") }
+    var receiptDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
+    var rows by remember { mutableStateOf(listOf<List<String>>()) }
+    var receipts by remember { mutableStateOf(listOf<List<String>>()) }
+    var message by remember { mutableStateOf("Procurement records are stored in the active offline project.") }
+
+    fun refresh() {
+        browser.evaluateJavascript("(function(){var b=window.GenSolarEpcBridge;return b?JSON.stringify(b.getProcurement()):'{}'})()") { raw ->
+            try {
+                val encoded = org.json.JSONTokener(raw ?: "\"{}\"").nextValue() as? String ?: "{}"
+                val data = JSONObject(encoded)
+                val pos = data.optJSONArray("purchaseOrders") ?: org.json.JSONArray()
+                val grn = data.optJSONArray("receipts") ?: org.json.JSONArray()
+                rows = (0 until pos.length()).map { i ->
+                    val row = pos.optJSONArray(i) ?: org.json.JSONArray()
+                    (0 until row.length()).map { j -> row.optString(j, "") }
+                }
+                receipts = (0 until grn.length()).map { i ->
+                    val row = grn.optJSONArray(i) ?: org.json.JSONArray()
+                    (0 until row.length()).map { j -> row.optString(j, "") }
+                }
+                if (receiptPo.isBlank() && rows.isNotEmpty()) receiptPo = rows.first().getOrElse(0) { "" }
+            } catch (_: Exception) { message = "Could not load procurement register." }
+        }
+    }
+
+    LaunchedEffect(Unit) { refresh() }
+
+    fun savePo() {
+        val payload = JSONObject()
+            .put("ref", ref.trim()).put("vendor", supplier.trim())
+            .put("amount", amount.toDoubleOrNull() ?: -1)
+            .put("qty", orderedQty.toDoubleOrNull() ?: -1)
+            .put("unit", unit.trim()).put("date", deliveryDate.trim()).put("status", "Ordered")
+        browser.evaluateJavascript("window.GenSolarEpcBridge.createPurchaseOrder(" + payload + ")") { result ->
+            if (result == "true") {
+                message = "Purchase order saved."
+                ref = ""; supplier = ""; amount = ""; orderedQty = ""
+                refresh()
+            } else message = "PO rejected. Check reference, supplier, value, quantity, unit and valid date."
+        }
+    }
+
+    fun saveReceipt() {
+        val payload = JSONObject()
+            .put("poRef", receiptPo).put("qty", receiptQty.toDoubleOrNull() ?: -1)
+            .put("unit", rows.firstOrNull { it.getOrElse(0) { "" } == receiptPo }?.getOrElse(6) { unit } ?: unit)
+            .put("date", receiptDate.trim()).put("condition", "Good")
+            .put("receiver", receiver.trim()).put("documentRef", "").put("remarks", "")
+        browser.evaluateJavascript("window.GenSolarEpcBridge.createGoodsReceipt(" + payload + ")") { result ->
+            if (result == "true") {
+                message = "Goods receipt saved and PO balance reconciled."
+                receiptQty = ""; receiver = ""
+                refresh()
+            } else message = "Receipt rejected. Check PO balance, quantity, date and receiver."
+        }
+    }
+
+    Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("PROCUREMENT & MATERIAL CONTROL", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Text("Purchase orders to site receipt.", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Create orders, record incoming materials and reconcile ordered, received and balance quantities.", color = Color(0xFFD7E8E1), fontSize = 12.sp, lineHeight = 18.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("NEW PURCHASE ORDER", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                SurveyInput("PO / RFQ reference", ref, { ref = it })
+                SurveyInput("Supplier / vendor", supplier, { supplier = it })
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Order value (₹)", amount, { amount = it }, Modifier.weight(1f))
+                    SurveyInput("Ordered quantity", orderedQty, { orderedQty = it }, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Unit", unit, { unit = it }, Modifier.weight(1f))
+                    SurveyInput("Expected date (YYYY-MM-DD)", deliveryDate, { deliveryDate = it }, Modifier.weight(1f))
+                }
+                Button(onClick = { savePo() }, modifier = Modifier.fillMaxWidth()) { Text("Save purchase order") }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("GOODS RECEIPT", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                if (rows.isEmpty()) {
+                    Text("Create a purchase order before recording goods receipt.", color = Color(0xFF60756E), fontSize = 12.sp)
+                } else {
+                    Text("Purchase order: " + receiptPo, color = Color(0xFF60756E), fontSize = 12.sp)
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        rows.forEach { row ->
+                            val key = row.getOrElse(0) { "" }
+                            FilterChip(selected = receiptPo == key, onClick = { receiptPo = key }, label = { Text(key, fontSize = 10.sp) })
+                        }
+                    }
+                    SurveyInput("Received quantity", receiptQty, { receiptQty = it })
+                    SurveyInput("Receipt date (YYYY-MM-DD)", receiptDate, { receiptDate = it })
+                    SurveyInput("Received by", receiver, { receiver = it })
+                    Button(onClick = { saveReceipt() }, modifier = Modifier.fillMaxWidth()) { Text("Save goods receipt") }
+                }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("ORDER RECONCILIATION", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                    androidx.compose.material3.TextButton(onClick = { refresh() }) { Text("Refresh") }
+                }
+                if (rows.isEmpty()) Text("No purchase orders saved.", color = Color(0xFF60756E), fontSize = 12.sp)
+                rows.forEach { row ->
+                    val key = row.getOrElse(0) { "" }
+                    val qty = row.getOrElse(5) { "0" }.toDoubleOrNull() ?: 0.0
+                    val unitName = row.getOrElse(6) { "" }
+                    val received = receipts.filter { it.getOrElse(0) { "" } == key && it.getOrElse(2) { "" }.equals(unitName, true) }.sumOf { it.getOrElse(1) { "0" }.toDoubleOrNull() ?: 0.0 }
+                    Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F6F5))) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text(key, color = BrandGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(row.getOrElse(1) { "" } + " • ₹" + row.getOrElse(2) { "" }, color = Color(0xFF60756E), fontSize = 11.sp)
+                            Text("Ordered " + qty + " " + unitName + " | Received " + received + " | Balance " + maxOf(0.0, qty - received), color = Color(0xFF60756E), fontSize = 10.sp)
+                            Text("Status: " + row.getOrElse(4) { "" } + " • Delivery: " + row.getOrElse(3) { "" }, color = AccentGreen, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+                if (rows.isNotEmpty()) {
+                    val csvCell: (String) -> String = { value -> "\"" + value.replace("\"", "\"\"") + "\"" }
+                    val csv = buildString {
+                        appendLine("PO reference,Supplier,Order value,Expected date,Status,Ordered quantity,Unit,Received quantity,Balance")
+                        rows.forEach { row ->
+                            val key = row.getOrElse(0) { "" }
+                            val qty = row.getOrElse(5) { "0" }.toDoubleOrNull() ?: 0.0
+                            val unitName = row.getOrElse(6) { "" }
+                            val received = receipts.filter { it.getOrElse(0) { "" } == key && it.getOrElse(2) { "" }.equals(unitName, true) }.sumOf { it.getOrElse(1) { "0" }.toDoubleOrNull() ?: 0.0 }
+                            appendLine((row.take(7) + listOf(received.toString(), maxOf(0.0, qty - received).toString())).map(csvCell).joinToString(","))
+                        }
+                    }
+                    androidx.compose.material3.OutlinedButton(onClick = { onExportCsv("GenSolar-procurement-reconciliation.csv", csv) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Export PO & receipt reconciliation (CSV)")
+                    }
+                }
+            }
+        }
+        Text(message, color = Color(0xFF60756E), fontSize = 11.sp, lineHeight = 16.sp)
+        androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) { Text("Open detailed purchasing workspace") }
+        Text("Supplier approval, physical inspection and commercial acceptance remain project-team controls.", color = Color(0xFF60756E), fontSize = 10.sp, lineHeight = 15.sp)
+    }
+}
 
 @Composable
 private fun NativeConstructionScreen(
