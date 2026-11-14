@@ -1223,13 +1223,25 @@ window.GenSolarEpcBridge = Object.freeze({
     const v = input || {}, ref = String(v.ref || '').trim(), vendor = String(v.vendor || '').trim();
     const amount = Number(v.amount), qty = Number(v.qty), unit = String(v.unit || '').trim();
     const date = String(v.date || ''), status = String(v.status || 'Draft');
+    const rfqRef = String(v.rfqRef || '').trim();
     const allowed = ['Draft','RFQ sent','Approved','Ordered'];
     if (!ref || !vendor || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(qty) || qty <= 0 || !unit) return false;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date + 'T00:00:00Z').toISOString().slice(0,10) !== date) return false;
     if (!allowed.includes(status)) return false;
+    if (rfqRef) {
+      const rfq = (Array.isArray(state.rfqs) ? state.rfqs : []).find(row =>
+        Array.isArray(row) && String(row[0] || '').trim().toLowerCase() === rfqRef.toLowerCase()
+      );
+      const invited = rfq && Array.isArray(rfq[5]) ? rfq[5] : [];
+      const linkedQuote = (Array.isArray(state.vendors) ? state.vendors : []).some(row =>
+        Array.isArray(row) && String(row[0] || '').trim().toLowerCase() === vendor.toLowerCase() &&
+        String(row[4] || '').trim().toLowerCase() === rfqRef.toLowerCase()
+      );
+      if (!rfq || !invited.some(supplier => String(supplier).trim().toLowerCase() === vendor.toLowerCase()) || !linkedQuote) return false;
+    }
     state.pos = Array.isArray(state.pos) ? state.pos : [];
     if (state.pos.some(row => Array.isArray(row) && String(row[0] || '').trim().toLowerCase() === ref.toLowerCase())) return false;
-    const row = [ref,vendor,amount,date,status,qty,unit];
+    const row = [ref,vendor,amount,date,status,qty,unit,rfqRef];
     state.pos.push(row);
     if (!save()) { state.pos.pop(); return false; }
     if (typeof renderPoLifecycle === 'function') renderPoLifecycle();
