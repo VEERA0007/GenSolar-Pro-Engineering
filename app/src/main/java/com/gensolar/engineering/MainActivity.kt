@@ -1573,8 +1573,6 @@ private fun NativeSurveyScreen(
 }
 
 @Composable
-
-@Composable
 private fun NativeBomScreen(
     browser: WebView,
     modifier: Modifier = Modifier,
@@ -1743,6 +1741,7 @@ private fun NativeBomScreen(
     }
 }
 
+@Composable
 private fun SurveyInput(
     label: String,
     value: String,
