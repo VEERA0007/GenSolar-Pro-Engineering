@@ -25,14 +25,20 @@ saved=true;
 const quote = {name:'Module Supplier',amount:125000,deliveryDays:5,notes:'Tier-1 modules'};
 assert.equal(b.createVendorQuote(quote),true);
 assert.equal(b.getProcurement().vendors.length,1);
-assert.deepEqual(Array.from(b.getProcurement().vendors[0]),['Module Supplier',125000,5,'Tier-1 modules']);
+assert.deepEqual(Array.from(b.getProcurement().vendors[0]),['Module Supplier',125000,5,'Tier-1 modules','']);
+const linkedQuote={name:'Vendor A',amount:118000,deliveryDays:6,notes:'RFQ compliant offer',rfqRef:'GS-RFQ-001'};
+assert.equal(b.createVendorQuote(linkedQuote),true,'invited supplier can submit a quote against an issued RFQ');
+assert.deepEqual(Array.from(b.getProcurement().vendors[1]),['Vendor A',118000,6,'RFQ compliant offer','GS-RFQ-001']);
+assert.equal(b.createVendorQuote({...linkedQuote,name:'Uninvited Vendor'}),false,'supplier not invited to RFQ cannot be linked');
+assert.equal(b.createVendorQuote({...linkedQuote,rfqRef:'UNKNOWN-RFQ'}),false,'quote cannot reference an unknown RFQ');
+assert.equal(b.createVendorQuote({...linkedQuote,name:'Vendor B',rfqRef:'gs-rfq-001'}),true,'RFQ matching is case-insensitive and invited supplier may be linked');
 for (const patch of [{name:''},{amount:0},{amount:-10},{deliveryDays:-1},{deliveryDays:1.5}]) {
   assert.equal(b.createVendorQuote({...quote,...patch}),false);
 }
 assert.equal(b.createVendorQuote({...quote,name:'module supplier'}),false,'supplier names are case-insensitive unique');
 saved=false;
 assert.equal(b.createVendorQuote({...quote,name:'Unsaved Supplier'}),false);
-assert.equal(b.getProcurement().vendors.length,1,'failed save rolls back supplier quote');
+assert.equal(b.getProcurement().vendors.length,3,'failed save rolls back supplier quote');
 saved=true;
 
 const po={ref:'GS-PO-001',vendor:'Solar Supplier',amount:250000,qty:100,unit:'Nos',date:'2026-12-01',status:'Ordered'};
@@ -75,4 +81,4 @@ assert.equal(b.createGoodsReceipt({...receipt,qty:1}),false,'over-receipt must b
 assert.equal(b.getProcurement().receipts.length,2);
 assert.equal(poStatus(),'Received');
 
-console.log('Native procurement bridge tests passed: RFQ creation, supplier invite validation, duplicate references, RFQ save rollback, PO creation, receipt reconciliation, status automation and rollback.');
+console.log('Native procurement bridge tests passed: RFQ creation, invited-supplier quote traceability, duplicate references, rollback, PO lifecycle and goods receipt reconciliation.');
