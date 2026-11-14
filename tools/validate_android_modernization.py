@@ -47,6 +47,8 @@ require(not duplicates, "duplicate HTML IDs: " + ", ".join(duplicates))
 for destination in ("dashboard", "site", "location", "layout", "electrical", "dpr"):
     require(destination in audit.foot_destinations, "native bottom navigation target missing from web workspace: " + destination)
 require("STAAD Structural" in html and "cadstudio" in html, "STAAD and CAD workspace navigation must remain available")
+require("@Composable\\nprivate fun NativeBomScreen(" in kotlin and "@Composable\\nprivate fun SurveyInput(" in kotlin, "Compose screens must have exactly the required composable annotations")
+require("@Composable\\n\\n@Composable\\nprivate fun NativeBomScreen(" not in kotlin, "duplicate @Composable annotation before NativeBomScreen")
 require("window.GenSolarEpcBridge = Object.freeze" in html and all(x in html for x in ("getProjectSummary", "getCadSnapshot", "saveProject", "clearLayout", "clearElectrical", "generateStaad", "buildBom", "setBom")), "Controlled native EPC JavaScript bridge is incomplete")
 require("bridge.buildBom()" in kotlin and "bridge.setBom(rows)" in kotlin and 'selected == "bom" && !advancedBom' in kotlin, "Native BOM screen must build, edit and persist the shared project schedule")
 require((ROOT / "tools/test_bom_generation.js").exists(), "BOM quantity and rate-preservation regression test missing")
