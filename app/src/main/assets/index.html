@@ -637,7 +637,7 @@ function addGoodsReceipt(){
   if(!po)return fail('Select an existing purchase order.');
   if(!Number.isFinite(qty)||qty<=0)return fail('Received quantity must be greater than zero.');
   if(!unit)return fail('Enter the received quantity unit.');
-  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||!Number.isFinite(Date.parse(date))||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)return fail('Enter a valid receipt date.');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date))||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)return fail('Enter a valid receipt date.');
   if(!['Good','Short received','Damaged','Quarantined'].includes(condition))return fail('Select a valid material condition.');
   if(!receiver)return fail('Enter the person receiving the material.');
   const lines=Array.isArray(po[8])?po[8]:[];
