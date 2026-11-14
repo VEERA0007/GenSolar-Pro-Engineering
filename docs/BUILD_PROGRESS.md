@@ -74,9 +74,8 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 
 ## Current build verification state
 
-- **Current main HEAD:** [6086f8a58e46ec090dc29431832a6dc454184c78](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/6086f8a58e46ec090dc29431832a6dc454184c78).
-- **Build #461:** [Android APK workflow](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43627562559), run ID 43627562559, on the current main HEAD. The 73 pre-build validation/test steps completed successfully, including native procurement, supplier quotation, DPR, commissioning and handover bridge tests. The Build debug APK step remains in progress; APK verification and artifact upload are pending. No artifact or APK size is claimed for this run.
-- Builds #456–#460 exposed two test issues: the RFQ due-date regex was over-escaped, and the PO lifecycle test held a stale cloned procurement snapshot. Both were corrected in the main branch; Build #461 now passes the corresponding procurement bridge test.
+- **Current main HEAD:** [e24d419ab967cd99fcf226cd69f41aeecce76d21](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/e24d419ab967cd99fcf226cd69f41aeecce76d21).
+
 - **Latest successful APK build: Build #455**, [workflow run](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43627106003), source commit [6ff2207771341545c2788eca30b61ebb8e286207](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/6ff2207771341545c2788eca30b61ebb8e286207). Kotlin/HTML validation, configured tests, APK verification and artifact upload succeeded. Artifact ID 14126986551; ZIP size 8,867,670 bytes; extracted app-debug.apk size **9,282,352 bytes (8.85 MiB)**; APK SHA-256 ae54092fbfad28229c67c74e82af3da020c44fa7ceae29345f045695cfec407e. [Download Build #455 artifact](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43627106003/artifacts/14126986551).
 - Build #455 predates the native PO status lifecycle. It contains the native RFQ workspace but does not verify the latest PO lifecycle code. Use Build #461's artifact only after its verification and upload steps succeed.
 - Earlier successful Build #451 and Build #342 remain historical checkpoints; Build #297 is older still and does not contain the current native bridge/BOM work.
@@ -116,7 +115,8 @@ A green CI build verifies only the checks configured in GitHub Actions and APK p
 ## Current build verification state
 
 - **Current main HEAD:** [12af457af3fdcee778796cd8085323d360d320fa](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/12af457af3fdcee778796cd8085323d360d320fa).
-- **Latest successful APK:** [Build #471](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43635303872), run ID 43635303872. All 80 workflow steps passed; artifact ID 14129422673. Extracted APK: 9,299,548 bytes; SHA-256 `2dda0ac0218580687001d899b624e58479cb5d9da078296cedeb2d81bcdf014d`. This APK includes native PO delivery due/overdue alerts; the subsequent CSV alert export and its validator fix are being rebuilt in Build #475.
+- **Latest successful workflow:** [Build #487](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43637134669), source commit `31a8f1c1cb90e9d4c53d871e4060962031f5d93` (multi-line PO/BOM import). Later procurement changes are under CI validation in Build #510; no APK from those newer changes is marked verified yet.
+
 - CI validates the configured checks and packaging. It does not replace physical Android device testing, field validation or qualified engineering review.
 
 
@@ -129,3 +129,15 @@ A green CI build verifies only the checks configured in GitHub Actions and APK p
 - Commits: [native delivery alerts](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/66053ae93797a5b7ff8269eac9e109c8d1bb59ad), [delivery-alert CI assertion](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/122d751ca6fdabd28d8f4bc1c80e2e84994f6f79), [CSV delivery alert export](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/b6d649d5ff434cebc7680834e6f6cc2e675ed301), [CSV assertion correction](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/12af457af3fdcee778796cd8085323d360d320fa).
 - Build #471: [successful Android APK workflow](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43635303872), all 80 workflow steps passed. Verified APK size 9,299,548 bytes; SHA-256 `2dda0ac0218580687001d899b624e58479cb5d9da078296cedeb2d81bcdf014d`.
 - Build #475 is validating the final CSV export and corrected validator; do not treat its artifact as current until all steps and APK verification succeed.
+
+
+## Latest implementation (2026-11-15 — item-level receipts, stock ledger and site issue control)
+
+- Native and web procurement now record goods receipts against a specific material line on a multi-line PO. The bridge rejects unknown material names, unit mismatches and receipts above that material's ordered balance; receipt rows retain the material identity.
+- The receipt register and CSV export include the material field. The web interface now provides a material selector, and the native Compose screen shows ordered, received and remaining quantities for each PO line.
+- The project stock ledger classifies received material by condition: Good, Short received, Damaged and Quarantined. Only Good-condition receipts count as available stock.
+- New material issue workflow records a unique issue reference, PO, material, quantity, date, recipient and work package. It prevents issuing more than the remaining Good-condition stock and calculates issued quantity and on-hand balance per material.
+- Native and web interfaces expose the issue workflow and material issue register. Failed saves roll back the issue record.
+- Regression coverage now checks material-specific receipt limits, stock-ledger balances, issue limits, duplicate issue references, invalid dates and persistence rollback. Build #510 has passed the procurement tests and modernization validator; Android APK compilation is still in progress.
+- Commits: [item-wise receipt bridge](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/c655192c6e7d706a14b84cb1ebde9d8c2ec8b2eb), [native material receipt controls](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/24e768b6a02f5eada1071683e621531ffcbfd309), [item-wise stock ledger](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/7ad87867c83fdf7503c5e752cc96d172f5129137), [web receipt and stock ledger](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/392fbb7616ad4f9555afae84b20e3051e5b13d70), [stock issue bridge and ledger balances](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/070d3e34710728837410c2db0e39ba907a0c3f5d), [native stock issue workflow](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/f2ac1c2e9a56677ed7869796494ddf56bc7725f4), [stock issue regression tests](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/70345c621bdc54ad736f5983547a03effb292a31), [latest validator correction](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/e24d419ab967cd99fcf226cd69f41aeecce76d21).
+- Current validation run: [Build #510](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43638273365). Feature tests and modernization validator passed; APK compilation is pending.
