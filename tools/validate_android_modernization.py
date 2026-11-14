@@ -72,6 +72,7 @@ require("getHandover: function()" in html and "saveHandover: function(input)" in
 require("getCommissioning: function()" in html and "createCommissioningRecord: function(input)" in html and "updateCommissioningAction: function(index, status)" in html, "Commissioning QA bridge APIs missing")
 require("getDprData: function()" in html and "saveDprDetails: function(input)" in html and "upsertDprDocument: function(input)" in html, "DPR document-control bridge APIs missing")
 require("getProcurement: function()" in html and "createPurchaseOrder: function(input)" in html and "createGoodsReceipt: function(input)" in html, "Native procurement bridge must expose purchase orders and goods receipts")
+require("bom: Array.isArray(state.bom) ? state.bom : []" in html and "IMPORT FROM PROJECT BOM" in kotlin and "poLineItems = if (poLineItems.isBlank()) imported" in kotlin, "Native purchase order entry must import quantities and specifications from the project BOM")
 require((ROOT / "tools/test_bom_generation.js").exists(), "BOM quantity and rate-preservation regression test missing")
 require("Your solar EPC command centre" in kotlin and "PROJECT OVERVIEW" in kotlin and "OutlinedTextField(" in kotlin and "FilterChip(" in kotlin and "NativeWorkspaceTile(" in kotlin, "Native Compose dashboard, search, filters or workspace tiles missing")
 require("FIELD SURVEY" in kotlin and "gensolar_native_survey" in kotlin and "saveSurvey" in kotlin and "JSONObject(values)" in kotlin, "Native offline-first survey persistence or project sync missing")
