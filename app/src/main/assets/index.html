@@ -1174,6 +1174,39 @@ window.GenSolarEpcBridge = Object.freeze({
     if (typeof renderSimple === 'function') renderSimple('poList',state.pos);
     return true;
   },
+  getCommissioning: function() {
+    return JSON.parse(JSON.stringify(Array.isArray(state.commissioning) ? state.commissioning : []));
+  },
+  createCommissioningRecord: function(input) {
+    const v = input || {}, text = key => String(v[key] == null ? '' : v[key]).trim();
+    const r = {
+      category:text('category'), test:text('test'), measured:text('measured'), unit:text('unit'),
+      criterion:text('criterion'), result:text('result'), method:text('method'), instrument:text('instrument'),
+      tester:text('tester'), date:text('date'), witness:text('witness'), remarks:text('remarks'),
+      action:text('action'), actionOwner:text('actionOwner'), dueDate:text('dueDate'),
+      actionStatus:text('actionStatus') || 'Open', evidenceId:'', evidenceName:'', recordedAt:new Date().toISOString()
+    };
+    const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value;
+    if (!r.category || !r.test || !r.criterion || !r.method || !r.tester || !validDate(r.date)) return false;
+    if (!['Not tested','Pass','Fail','Hold / N.A.'].includes(r.result)) return false;
+    if (r.measured !== '' && !Number.isFinite(Number(r.measured))) return false;
+    if (r.result === 'Fail' && !r.action) return false;
+    if (r.action && (!r.actionOwner || !validDate(r.dueDate) || r.dueDate < r.date || !['Open','In progress','Closed'].includes(r.actionStatus))) return false;
+    if (!r.action && r.actionStatus === 'Closed') return false;
+    state.commissioning = Array.isArray(state.commissioning) ? state.commissioning : [];
+    state.commissioning.push(r);
+    if (!save()) { state.commissioning.pop(); return false; }
+    if (typeof renderCommissioningRegister === 'function') renderCommissioningRegister();
+    return true;
+  },
+  updateCommissioningAction: function(index, status) {
+    const row = (Array.isArray(state.commissioning) ? state.commissioning : [])[index];
+    if (!row || !row.action || !['Open','In progress','Closed'].includes(String(status))) return false;
+    const old = row.actionStatus; row.actionStatus = String(status);
+    if (!save()) { row.actionStatus = old; return false; }
+    if (typeof renderCommissioningRegister === 'function') renderCommissioningRegister();
+    return true;
+  },
   getDprData: function() {
     return JSON.parse(JSON.stringify({
       project: state.project || {},
