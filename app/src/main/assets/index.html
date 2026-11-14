@@ -1221,10 +1221,27 @@ window.GenSolarEpcBridge = Object.freeze({
   },
   createPurchaseOrder: function(input) {
     const v = input || {}, ref = String(v.ref || '').trim(), vendor = String(v.vendor || '').trim();
-    const amount = Number(v.amount), qty = Number(v.qty), unit = String(v.unit || '').trim();
+    let amount = Number(v.amount), qty = Number(v.qty), unit = String(v.unit || '').trim();
     const date = String(v.date || ''), status = String(v.status || 'Draft');
     const rfqRef = String(v.rfqRef || '').trim();
     const allowed = ['Draft','RFQ sent','Approved','Ordered'];
+    let lines = null;
+    if (Array.isArray(v.lines)) {
+      if (v.lines.length < 1 || v.lines.length > 30) return false;
+      lines = [];
+      for (const entry of v.lines) {
+        const item = String(entry && entry.item || '').trim();
+        const lineQty = Number(entry && entry.qty), lineUnit = String(entry && entry.unit || '').trim();
+        const rate = Number(entry && entry.rate);
+        if (!item || !Number.isFinite(lineQty) || lineQty <= 0 || !lineUnit || !Number.isFinite(rate) || rate <= 0) return false;
+        lines.push({item, qty:lineQty, unit:lineUnit, rate, amount:lineQty * rate});
+      }
+      const units = [...new Set(lines.map(line => line.unit.toLowerCase()))];
+      if (units.length !== 1) return false;
+      amount = lines.reduce((sum, line) => sum + line.amount, 0);
+      qty = lines.reduce((sum, line) => sum + line.qty, 0);
+      unit = lines[0].unit;
+    }
     if (!ref || !vendor || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(qty) || qty <= 0 || !unit) return false;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date + 'T00:00:00Z').toISOString().slice(0,10) !== date) return false;
     if (!allowed.includes(status)) return false;
@@ -1241,7 +1258,7 @@ window.GenSolarEpcBridge = Object.freeze({
     }
     state.pos = Array.isArray(state.pos) ? state.pos : [];
     if (state.pos.some(row => Array.isArray(row) && String(row[0] || '').trim().toLowerCase() === ref.toLowerCase())) return false;
-    const row = [ref,vendor,amount,date,status,qty,unit,rfqRef];
+    const row = [ref,vendor,amount,date,status,qty,unit,rfqRef,lines];
     state.pos.push(row);
     if (!save()) { state.pos.pop(); return false; }
     if (typeof renderPoLifecycle === 'function') renderPoLifecycle();
