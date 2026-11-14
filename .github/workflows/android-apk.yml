@@ -1118,7 +1118,8 @@ jobs:
           assert.equal(parsed.counts.CIRCLE,1);
           assert.equal(parsed.counts.LWPOLYLINE,1);
           assert.equal(parsed.counts.POINT,1);
-          assert.equal(parsed.counts.POLYLINE,1);\n          const legacy=parsed.entities.find(x=>x.type==="POLYLINE");
+          assert.equal(parsed.counts.POLYLINE,1);
+          const legacy=parsed.entities.find(x=>x.type==="POLYLINE");
           assert.equal(legacy.closed,true);
           assert.equal(legacy.vertices.length,3);
           const poly=parsed.entities.find(x=>x.type==="LWPOLYLINE");
@@ -1152,6 +1153,7 @@ jobs:
               {type:"CIRCLE",layer:"ROOF",x:500,y:250,radius:50},
               {type:"ARC",layer:"ROOF",x:500,y:250,radius:100,startAngle:0,endAngle:90},
               {type:"LWPOLYLINE",layer:"ROOF",vertices:[{x:0,y:0},{x:1000,y:0},{x:1000,y:500}],closed:true},
+              {type:"POLYLINE",layer:"ROOF",vertices:[{x:0,y:0},{x:800,y:0},{x:800,y:400}],closed:true},
               {type:"POINT",layer:"ROOF",x:250,y:125}
             ]
           };
@@ -1236,6 +1238,7 @@ jobs:
             {type:"LWPOLYLINE",layer:"ROOF",vertices:[{x:0,y:0},{x:1000,y:0},{x:1000,y:500}],closed:true},
             {type:"CIRCLE",layer:"OBSTACLES",x:500,y:250,radius:100},
             {type:"ARC",layer:"GENERAL",x:500,y:250,radius:200,startAngle:0,endAngle:90},
+            {type:"POLYLINE",layer:"LEGACY",vertices:[{x:0,y:0},{x:1000,y:0},{x:1000,y:500}],closed:true},
             {type:"TEXT",layer:"ROOF_ZONE_LABELS",x:100,y:200,height:180,rotation:15,text:"Main roof EL 6.25 m"},
             {type:"MTEXT",layer:"NOTES",x:300,y:400,height:120,rotation:0,text:"PV layout\\PRevision 3"}
           ]});
