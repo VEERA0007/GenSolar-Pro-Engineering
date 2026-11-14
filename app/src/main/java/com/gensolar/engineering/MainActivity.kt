@@ -1009,37 +1009,6 @@ private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifi
     var status by remember { mutableStateOf("Inputs are stored offline when calculations are run.") }
     val labels = listOf("acKw" to "Inverter AC capacity (kW)", "mpptMin" to "Minimum MPPT voltage (V)", "mpptMax" to "Maximum MPPT voltage (V)", "maxDc" to "Maximum DC voltage (V)", "minTemp" to "Minimum design temperature (°C)", "mpptCurrent" to "Max operating current / MPPT (A)", "bifacialCurrentGain" to "Bifacial current gain (%)", "mpptCount" to "MPPT channel count", "maxCellTemp" to "Maximum cell temperature (°C)", "vmpCoeff" to "Vmp coefficient (%/°C)")
 
-    fun saveStockIssue() {
-        val quantity = stockIssueQty.trim().toDoubleOrNull()
-        if (stockIssueRef.isBlank() || stockIssuePo.isBlank() || stockIssueItem.isBlank() || stockIssueTo.isBlank() || stockIssuePackage.isBlank()) {
-            message = "Enter the issue reference, PO, material, recipient and work package."
-            return
-        }
-        if (quantity == null || !quantity.isFinite() || quantity <= 0.0) {
-            message = "Issue quantity must be greater than zero."
-            return
-        }
-        if (!isValidIsoDate(stockIssueDate)) {
-            message = "Enter a valid stock issue date in YYYY-MM-DD format."
-            return
-        }
-        val payload = JSONObject()
-            .put("issueRef", stockIssueRef.trim()).put("poRef", stockIssuePo.trim())
-            .put("item", stockIssueItem.trim()).put("qty", quantity)
-            .put("date", stockIssueDate.trim()).put("issuedTo", stockIssueTo.trim())
-            .put("workPackage", stockIssuePackage.trim()).put("remarks", stockIssueRemarks.trim())
-        browser.evaluateJavascript("window.GenSolarEpcBridge.createStockIssue(" + payload + ")") { result ->
-            if (result == "true") {
-                message = "Material issue recorded. Available on-hand stock has been reduced."
-                stockIssueRef = ""; stockIssueQty = ""; stockIssueTo = ""; stockIssuePackage = ""; stockIssueRemarks = ""
-                refresh()
-            } else {
-                message = "Issue rejected. Check available Good-condition stock, duplicate reference and PO material."
-                refresh()
-            }
-        }
-    }
-
     Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -2016,6 +1985,37 @@ private fun NativeProcurementScreen(
                 receiptQty = ""; receiver = ""
                 refresh()
             } else message = "Receipt not saved. Recheck the PO balance and receipt details."
+        }
+    }
+
+    fun saveStockIssue() {
+        val quantity = stockIssueQty.trim().toDoubleOrNull()
+        if (stockIssueRef.isBlank() || stockIssuePo.isBlank() || stockIssueItem.isBlank() || stockIssueTo.isBlank() || stockIssuePackage.isBlank()) {
+            message = "Enter the issue reference, PO, material, recipient and work package."
+            return
+        }
+        if (quantity == null || !quantity.isFinite() || quantity <= 0.0) {
+            message = "Issue quantity must be greater than zero."
+            return
+        }
+        if (!isValidIsoDate(stockIssueDate)) {
+            message = "Enter a valid stock issue date in YYYY-MM-DD format."
+            return
+        }
+        val payload = JSONObject()
+            .put("issueRef", stockIssueRef.trim()).put("poRef", stockIssuePo.trim())
+            .put("item", stockIssueItem.trim()).put("qty", quantity)
+            .put("date", stockIssueDate.trim()).put("issuedTo", stockIssueTo.trim())
+            .put("workPackage", stockIssuePackage.trim()).put("remarks", stockIssueRemarks.trim())
+        browser.evaluateJavascript("window.GenSolarEpcBridge.createStockIssue(" + payload + ")") { result ->
+            if (result == "true") {
+                message = "Material issue recorded. Available on-hand stock has been reduced."
+                stockIssueRef = ""; stockIssueQty = ""; stockIssueTo = ""; stockIssuePackage = ""; stockIssueRemarks = ""
+                refresh()
+            } else {
+                message = "Issue rejected. Check available Good-condition stock, duplicate reference and PO material."
+                refresh()
+            }
         }
     }
 
