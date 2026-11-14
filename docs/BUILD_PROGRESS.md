@@ -1,10 +1,10 @@
 # GenSolar Pro Engineering — Build Progress
 
-Last assessed: 2026-11-13 (controlled native EPC bridge, native BOM/BOQ workspace and regression coverage)
+Last assessed: 2026-11-14 (Kotlin Compose annotation fix verified by successful Android APK build #342)
 
 ## Overall completion estimate: 48.4%
 
-This is a feature-scope estimate, not an APK build percentage, release-readiness claim or engineering certification. The 14 required workspaces in `REFERENCE_REQUIREMENTS.md` are equally weighted (1/14 each). Each score reflects implemented and testable scope within that workspace; partially implemented items receive partial credit. The current main-branch changes are committed, but their newest GitHub Actions push run could not be enumerated through the connected Actions interface. Treat the latest CI result as **pending verification** until its run and artifact are inspected.
+This is a feature-scope estimate, not an APK build percentage, release-readiness claim or engineering certification. The 14 required workspaces in `REFERENCE_REQUIREMENTS.md` are equally weighted (1/14 each). Each score reflects implemented and testable scope within that workspace; partially implemented items receive partial credit. The latest main-branch annotation correction is committed and verified by GitHub Actions Build #342: Kotlin compilation, APK verification and artifact upload all succeeded. The debug APK artifact is 8,696,643 bytes (about 8.30 MiB); this is a successful debug build, not a release or physical-device certification.
 
 | Required workspace | Estimated completion | Current evidence / principal gap |
 |---|---:|---|
@@ -37,7 +37,8 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 ## Current build verification state
 
 - **Latest functional implementation commit:** [`783883c37f647d7559f498d692e4cd30ba944153`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/783883c37f647d7559f498d692e4cd30ba944153). The preceding workflow change added the BOM regression step in [`d2413529723c4ed14c5f0b7097416284cb05a867`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/d2413529723c4ed14c5f0b7097416284cb05a867).
-- The connected Actions run-list operation only returns pull-request-triggered runs, and no push-run record or check status was returned for the latest main-branch commits. Therefore the newest Kotlin compilation, BOM test step, APK verification and artifact upload are **not verified in this assessment**. Do not treat the latest APK as successful until the corresponding push run is opened and inspected.
+- **Build #342 — success**, run ID `43599492243`, commit `dce08c0a3dedf4b90fd6810930eadef7b2db1045`. Kotlin compilation, APK verification and artifact upload all completed successfully. [Open Build #342](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43599492243).
+- Verified Build #342 artifact: `GenSolar-Pro-Engineering-debug-APK`, artifact ID `14115607328`, ZIP size 8,696,643 bytes, SHA-256 `a444262da9a0b29f428818c152a59cba03992c748ac82e760b341e91b71e3409`. [Download artifact ZIP](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43599492243). Artifact expiry recorded as 2026-11-28.
 - **Last retrievable verified run: Build #297 — success**, run ID `43172507991`, for commit `e3ed7adcd0d68f1794d6f21338c556332adaf9cb`. Its job summary reported successful completion of the configured build, APK verification and artifact upload steps. This run predates the current native bridge/BOM implementation.
 - Verified Build #297 artifact: [GenSolar-Pro-Engineering-debug-APK](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43172507991/artifacts/13923075759), artifact ID `13923075759`. Artifact ZIP: 8,521,207 bytes; extracted `app-debug.apk`: **8,937,793 bytes (8.53 MiB)**. APK SHA-256: `159ae0531200f91552837b6b5669ff3e22d0ddb2cffd469c28ba11ac307f2a58`. ZIP SHA-256: `3b7e1e31edfe4127276e6a3b5fd6532fe8f9d8f3d0700acaee6681f2207ed8fc`. Artifact expiry recorded by the prior run: 2026-11-26.
 - Build #297 is an older debug artifact and **does not contain** the 2026-11-13 changes. It is not a release candidate and must not be used to claim the current source has passed compilation.
