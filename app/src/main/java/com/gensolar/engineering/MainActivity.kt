@@ -2154,15 +2154,30 @@ private fun NativeProcurementScreen(
                     }
                 }
                 if (rows.isNotEmpty()) {
+                    val deliveryAlert: (List<String>) -> String = { order ->
+                        val status = order.getOrElse(4) { "" }
+                        val due = try { java.time.LocalDate.parse(order.getOrElse(3) { "" }) } catch (_: Exception) { null }
+                        val today = java.time.LocalDate.now()
+                        when {
+                            status == "Received" -> "Delivered"
+                            status == "Cancelled" -> "Cancelled"
+                            status == "On hold" -> "On hold"
+                            due == null -> "Check expected date"
+                            due.isBefore(today) -> "OVERDUE by " + java.time.temporal.ChronoUnit.DAYS.between(due, today) + " days"
+                            due.isEqual(today) -> "Due today"
+                            !due.isAfter(today.plusDays(7)) -> "Due in " + java.time.temporal.ChronoUnit.DAYS.between(today, due) + " days"
+                            else -> "On schedule"
+                        }
+                    }
                     val csvCell: (String) -> String = { value -> "\"" + value.replace("\"", "\"\"") + "\"" }
                     val csv = buildString {
-                        appendLine("PO reference,Supplier,Order value,Expected date,Status,Ordered quantity,Unit,Received quantity,Balance")
+                        appendLine("PO reference,Supplier,Order value,Expected date,Status,Ordered quantity,Unit,Received quantity,Balance,Delivery alert")
                         rows.forEach { row ->
                             val key = row.getOrElse(0) { "" }
                             val qty = row.getOrElse(5) { "0" }.toDoubleOrNull() ?: 0.0
                             val unitName = row.getOrElse(6) { "" }
                             val received = receipts.filter { it.getOrElse(0) { "" } == key && it.getOrElse(2) { "" }.equals(unitName, true) }.sumOf { it.getOrElse(1) { "0" }.toDoubleOrNull() ?: 0.0 }
-                            appendLine((row.take(7) + listOf(received.toString(), maxOf(0.0, qty - received).toString())).map(csvCell).joinToString(","))
+                            appendLine((row.take(7) + listOf(received.toString(), maxOf(0.0, qty - received).toString(), deliveryAlert(row))).map(csvCell).joinToString(","))
                         }
                     }
                     androidx.compose.material3.OutlinedButton(onClick = { onExportCsv("GenSolar-procurement-reconciliation.csv", csv) }, modifier = Modifier.fillMaxWidth()) {
