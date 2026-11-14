@@ -55,6 +55,42 @@ assert.equal(b.createPurchaseOrder({...linkedPo,ref:'GS-PO-003',vendor:'Uninvite
 assert.equal(b.createPurchaseOrder({...linkedPo,ref:'GS-PO-004',rfqRef:'UNKNOWN-RFQ'}),false,'PO rejects unknown source RFQ');
 assert.equal(b.createPurchaseOrder({...linkedPo,ref:'GS-PO-005',vendor:'Module Supplier'}),false,'PO requires a quotation linked to the same RFQ');
 
+const poStatus=()=>b.getProcurement().purchaseOrders[0][4];
+assert.equal(b.updatePurchaseOrderStatus(po.ref,'On hold'),true);
+assert.equal(poStatus(),'On hold');
+assert.equal(b.getProcurement().history.length,1);
+assert.equal(b.updatePurchaseOrderStatus(po.ref,'Received'),false,'receipt-derived status cannot be selected manually');
+assert.equal(b.updatePurchaseOrderStatus(po.ref,'Partially received'),false,'partial receipt status cannot be selected manually');
+assert.equal(b.updatePurchaseOrderStatus(po.ref,'On hold'),false,'same status is not a transition');
+assert.equal(b.updatePurchaseOrderStatus(po.ref,'Ordered'),true);
+assert.equal(poStatus(),'Ordered');
+const historyBeforeRollback=b.getProcurement().history.length;
+saved=false;
+assert.equal(b.updatePurchaseOrderStatus(po.ref,'On hold'),false,'failed persistence must reject status update');
+assert.equal(poStatus(),'Ordered','failed status update must restore previous PO status');
+assert.equal(b.getProcurement().history.length,historyBeforeRollback,'failed status update must roll back audit history');
+const receipt={poRef:po.ref,qty:40,unit:'Nos',date:'2026-11-20',condition:'Good',receiver:'Store Manager',documentRef:'DC-001',remarks:''};
+assert.equal(b.createGoodsReceipt(receipt),false,'failed receipt persistence must be rolled back');
+assert.equal(b.getProcurement().receipts.length,0);
+assert.equal(poStatus(),'Ordered');
+assert.equal(b.getProcurement().history.length,historyBeforeRollback);
+saved=true;
+assert.equal(b.createGoodsReceipt(receipt),true);
+assert.equal(poStatus(),'Partially received');
+assert.equal(b.getProcurement().history.length,historyBeforeRollback+1);
+assert.equal(b.getProcurement().history.at(-1)[1],'Ordered');
+assert.equal(b.getProcurement().history.at(-1)[2],'Partially received');
+assert.equal(b.createGoodsReceipt({...receipt,qty:60,documentRef:'DC-002'}),true);
+assert.equal(poStatus(),'Received');
+assert.equal(b.getProcurement().receipts.length,2);
+assert.equal(b.getProcurement().history.at(-1)[1],'Partially received');
+assert.equal(b.getProcurement().history.at(-1)[2],'Received');
+for(const patch of [{qty:1,unit:'Kg'},{qty:1,condition:'Damaged'},{qty:1,date:'2026-02-30'},{qty:1,receiver:''},{qty:1,poRef:'unknown'},{qty:1.1}]) assert.equal(b.createGoodsReceipt({...receipt,...patch}),false);
+saved=false;
+assert.equal(b.createGoodsReceipt({...receipt,qty:1}),false,'over-receipt must be rejected before persistence');
+assert.equal(b.getProcurement().receipts.length,2);
+assert.equal(poStatus(),'Received');
+
 const multiLinePo={ref:'GS-PO-MULTI-001',vendor:'Solar Supplier',date:'2026-12-05',status:'Ordered',lines:[
   {item:'550 W PV module',qty:20,unit:'Nos',rate:8500},
   {item:'DC cable',qty:20,unit:'Nos',rate:1250},
@@ -94,40 +130,5 @@ assert.equal(b.createPurchaseOrder({...multiLinePo,ref:'GS-PO-MULTI-006'}),false
 assert.equal(b.getProcurement().purchaseOrders.some(row=>row[0]==='GS-PO-MULTI-006'),false,'failed multi-line PO save rolls back the PO');
 saved=true;
 
-const poStatus=()=>b.getProcurement().purchaseOrders[0][4];
-assert.equal(b.updatePurchaseOrderStatus(po.ref,'On hold'),true);
-assert.equal(poStatus(),'On hold');
-assert.equal(b.getProcurement().history.length,1);
-assert.equal(b.updatePurchaseOrderStatus(po.ref,'Received'),false,'receipt-derived status cannot be selected manually');
-assert.equal(b.updatePurchaseOrderStatus(po.ref,'Partially received'),false,'partial receipt status cannot be selected manually');
-assert.equal(b.updatePurchaseOrderStatus(po.ref,'On hold'),false,'same status is not a transition');
-assert.equal(b.updatePurchaseOrderStatus(po.ref,'Ordered'),true);
-assert.equal(poStatus(),'Ordered');
-const historyBeforeRollback=b.getProcurement().history.length;
-saved=false;
-assert.equal(b.updatePurchaseOrderStatus(po.ref,'On hold'),false,'failed persistence must reject status update');
-assert.equal(poStatus(),'Ordered','failed status update must restore previous PO status');
-assert.equal(b.getProcurement().history.length,historyBeforeRollback,'failed status update must roll back audit history');
-const receipt={poRef:po.ref,qty:40,unit:'Nos',date:'2026-11-20',condition:'Good',receiver:'Store Manager',documentRef:'DC-001',remarks:''};
-assert.equal(b.createGoodsReceipt(receipt),false,'failed receipt persistence must be rolled back');
-assert.equal(b.getProcurement().receipts.length,0);
-assert.equal(poStatus(),'Ordered');
-assert.equal(b.getProcurement().history.length,historyBeforeRollback);
-saved=true;
-assert.equal(b.createGoodsReceipt(receipt),true);
-assert.equal(poStatus(),'Partially received');
-assert.equal(b.getProcurement().history.length,historyBeforeRollback+1);
-assert.equal(b.getProcurement().history.at(-1)[1],'Ordered');
-assert.equal(b.getProcurement().history.at(-1)[2],'Partially received');
-assert.equal(b.createGoodsReceipt({...receipt,qty:60,documentRef:'DC-002'}),true);
-assert.equal(poStatus(),'Received');
-assert.equal(b.getProcurement().receipts.length,2);
-assert.equal(b.getProcurement().history.at(-1)[1],'Partially received');
-assert.equal(b.getProcurement().history.at(-1)[2],'Received');
-for(const patch of [{qty:1,unit:'Kg'},{qty:1,condition:'Damaged'},{qty:1,date:'2026-02-30'},{qty:1,receiver:''},{qty:1,poRef:'unknown'},{qty:1.1}]) assert.equal(b.createGoodsReceipt({...receipt,...patch}),false);
-saved=false;
-assert.equal(b.createGoodsReceipt({...receipt,qty:1}),false,'over-receipt must be rejected before persistence');
-assert.equal(b.getProcurement().receipts.length,2);
-assert.equal(poStatus(),'Received');
 
 console.log('Native procurement bridge tests passed: RFQ creation, invited-supplier quote traceability, duplicate references, rollback, RFQ-to-quote-to-PO traceability, PO lifecycle and goods receipt reconciliation.');
