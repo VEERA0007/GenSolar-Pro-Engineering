@@ -1009,6 +1009,37 @@ private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifi
     var status by remember { mutableStateOf("Inputs are stored offline when calculations are run.") }
     val labels = listOf("acKw" to "Inverter AC capacity (kW)", "mpptMin" to "Minimum MPPT voltage (V)", "mpptMax" to "Maximum MPPT voltage (V)", "maxDc" to "Maximum DC voltage (V)", "minTemp" to "Minimum design temperature (°C)", "mpptCurrent" to "Max operating current / MPPT (A)", "bifacialCurrentGain" to "Bifacial current gain (%)", "mpptCount" to "MPPT channel count", "maxCellTemp" to "Maximum cell temperature (°C)", "vmpCoeff" to "Vmp coefficient (%/°C)")
 
+    fun saveStockIssue() {
+        val quantity = stockIssueQty.trim().toDoubleOrNull()
+        if (stockIssueRef.isBlank() || stockIssuePo.isBlank() || stockIssueItem.isBlank() || stockIssueTo.isBlank() || stockIssuePackage.isBlank()) {
+            message = "Enter the issue reference, PO, material, recipient and work package."
+            return
+        }
+        if (quantity == null || !quantity.isFinite() || quantity <= 0.0) {
+            message = "Issue quantity must be greater than zero."
+            return
+        }
+        if (!isValidIsoDate(stockIssueDate)) {
+            message = "Enter a valid stock issue date in YYYY-MM-DD format."
+            return
+        }
+        val payload = JSONObject()
+            .put("issueRef", stockIssueRef.trim()).put("poRef", stockIssuePo.trim())
+            .put("item", stockIssueItem.trim()).put("qty", quantity)
+            .put("date", stockIssueDate.trim()).put("issuedTo", stockIssueTo.trim())
+            .put("workPackage", stockIssuePackage.trim()).put("remarks", stockIssueRemarks.trim())
+        browser.evaluateJavascript("window.GenSolarEpcBridge.createStockIssue(" + payload + ")") { result ->
+            if (result == "true") {
+                message = "Material issue recorded. Available on-hand stock has been reduced."
+                stockIssueRef = ""; stockIssueQty = ""; stockIssueTo = ""; stockIssuePackage = ""; stockIssueRemarks = ""
+                refresh()
+            } else {
+                message = "Issue rejected. Check available Good-condition stock, duplicate reference and PO material."
+                refresh()
+            }
+        }
+    }
+
     Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -1731,6 +1762,15 @@ private fun NativeProcurementScreen(
     var rows by remember { mutableStateOf(listOf<List<String>>()) }
     var receipts by remember { mutableStateOf(listOf<List<String>>()) }
     var stockLedgerRows by remember { mutableStateOf(listOf<List<String>>()) }
+    var stockIssueRows by remember { mutableStateOf(listOf<List<String>>()) }
+    var stockIssueRef by remember { mutableStateOf("") }
+    var stockIssuePo by remember { mutableStateOf("") }
+    var stockIssueItem by remember { mutableStateOf("") }
+    var stockIssueQty by remember { mutableStateOf("") }
+    var stockIssueDate by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
+    var stockIssueTo by remember { mutableStateOf("") }
+    var stockIssuePackage by remember { mutableStateOf("") }
+    var stockIssueRemarks by remember { mutableStateOf("") }
     var lifecyclePo by remember { mutableStateOf("") }
     var nextPoStatus by remember { mutableStateOf("RFQ sent") }
     var poHistory by remember { mutableStateOf(listOf<List<String>>()) }
@@ -1767,6 +1807,11 @@ private fun NativeProcurementScreen(
                 val stockLedger = data.optJSONArray("stockLedger") ?: org.json.JSONArray()
                 stockLedgerRows = (0 until stockLedger.length()).map { i ->
                     val row = stockLedger.optJSONArray(i) ?: org.json.JSONArray()
+                    (0 until row.length()).map { j -> row.optString(j, "") }
+                }
+                val issueArray = data.optJSONArray("stockIssues") ?: org.json.JSONArray()
+                stockIssueRows = (0 until issueArray.length()).map { i ->
+                    val row = issueArray.optJSONArray(i) ?: org.json.JSONArray()
                     (0 until row.length()).map { j -> row.optString(j, "") }
                 }
                 rows = (0 until pos.length()).map { i ->
@@ -2153,6 +2198,34 @@ private fun NativeProcurementScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("ISSUE MATERIAL TO SITE", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                Text("Only Good-condition, unissued material can be allocated to a site work package.", color = Color(0xFF60756E), fontSize = 10.sp)
+                if (stockLedgerRows.isEmpty()) {
+                    Text("Record a Good-condition receipt against a multi-line PO before issuing material.", color = Color(0xFF60756E), fontSize = 11.sp)
+                } else {
+                    stockLedgerRows.forEach { stock ->
+                        val selected = stockIssuePo == stock.getOrElse(0) { "" } && stockIssueItem == stock.getOrElse(1) { "" }
+                        FilterChip(
+                            selected = selected,
+                            onClick = { stockIssuePo = stock.getOrElse(0) { "" }; stockIssueItem = stock.getOrElse(1) { "" } },
+                            label = { Text(stock.getOrElse(1) { "" } + " · On hand " + stock.getOrElse(11) { "0" } + " " + stock.getOrElse(2) { "" }, fontSize = 10.sp) }
+                        )
+                    }
+                    SurveyInput("Issue reference", stockIssueRef, { stockIssueRef = it })
+                    SurveyInput("Issue quantity", stockIssueQty, { stockIssueQty = it })
+                    SurveyInput("Issue date (YYYY-MM-DD)", stockIssueDate, { stockIssueDate = it })
+                    SurveyInput("Issued to", stockIssueTo, { stockIssueTo = it })
+                    SurveyInput("Work package / activity", stockIssuePackage, { stockIssuePackage = it })
+                    SurveyInput("Remarks", stockIssueRemarks, { stockIssueRemarks = it })
+                    Button(onClick = { saveStockIssue() }, modifier = Modifier.fillMaxWidth()) { Text("Record material issue") }
+                }
+                stockIssueRows.takeLast(8).forEach { issue ->
+                    Text(issue.getOrElse(0) { "" } + " · " + issue.getOrElse(2) { "" } + " · " + issue.getOrElse(3) { "0" } + " " + issue.getOrElse(4) { "" } + " → " + issue.getOrElse(7) { "" }, color = Color(0xFF60756E), fontSize = 10.sp)
                 }
             }
         }
