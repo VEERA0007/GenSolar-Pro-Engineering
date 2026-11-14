@@ -45,6 +45,12 @@ const po={ref:'GS-PO-001',vendor:'Solar Supplier',amount:250000,qty:100,unit:'No
 assert.equal(b.createPurchaseOrder(po),true);
 assert.equal(b.getProcurement().purchaseOrders.length,1);
 for(const patch of [{ref:''},{amount:0},{qty:-1},{date:'2026-02-30'},{unit:''},{status:'Cancelled'}]) assert.equal(b.createPurchaseOrder({...po,...patch}),false);
+const linkedPo={ref:'GS-PO-002',vendor:'Vendor A',amount:118000,qty:120,unit:'Nos',date:'2026-12-03',status:'Ordered',rfqRef:'GS-RFQ-001'};
+assert.equal(b.createPurchaseOrder(linkedPo),true,'PO can be created from an invited supplier quote linked to the RFQ');
+assert.equal(b.getProcurement().purchaseOrders[1][7],'GS-RFQ-001','source RFQ reference persists on PO');
+assert.equal(b.createPurchaseOrder({...linkedPo,ref:'GS-PO-003',vendor:'Uninvited Vendor'}),false,'PO rejects supplier not invited to source RFQ');
+assert.equal(b.createPurchaseOrder({...linkedPo,ref:'GS-PO-004',rfqRef:'UNKNOWN-RFQ'}),false,'PO rejects unknown source RFQ');
+assert.equal(b.createPurchaseOrder({...linkedPo,ref:'GS-PO-005',vendor:'Module Supplier'}),false,'PO requires a quotation linked to the same RFQ');
 const poStatus=()=>b.getProcurement().purchaseOrders[0][4];
 assert.equal(b.updatePurchaseOrderStatus(po.ref,'On hold'),true);
 assert.equal(poStatus(),'On hold');
@@ -81,4 +87,4 @@ assert.equal(b.createGoodsReceipt({...receipt,qty:1}),false,'over-receipt must b
 assert.equal(b.getProcurement().receipts.length,2);
 assert.equal(poStatus(),'Received');
 
-console.log('Native procurement bridge tests passed: RFQ creation, invited-supplier quote traceability, duplicate references, rollback, PO lifecycle and goods receipt reconciliation.');
+console.log('Native procurement bridge tests passed: RFQ creation, invited-supplier quote traceability, duplicate references, rollback, RFQ-to-quote-to-PO traceability, PO lifecycle and goods receipt reconciliation.');
