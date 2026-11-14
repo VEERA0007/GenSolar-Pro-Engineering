@@ -1043,7 +1043,7 @@ function draw(){
  if(e.type==='rect')s+='<rect x="'+e.x+'" y="'+e.y+'" width="'+e.w+'" height="'+e.h+'" fill="'+(e.layer==='ROOF'?'#d9eee5':'none')+'" fill-opacity=".45" stroke="'+color+'" stroke-width="'+sw+'"/>';
  if(e.type==='circle')s+='<circle cx="'+e.x+'" cy="'+e.y+'" r="'+e.r+'" fill="#fbe5e1" fill-opacity=".4" stroke="'+color+'" stroke-width="'+sw+'"/>';
  if(e.type==='poly')s+='<polygon points="'+e.points.map(p=>p.x+','+p.y).join(' ')+'" fill="'+(e.closed?'#d9eee5':'none')+'" fill-opacity=".35" stroke="'+color+'" stroke-width="'+sw+'"/>';
- if(e.type==='text')s+='<text x="'+e.x+'" y="'+e.y+'" font-size="'+Math.max(.15,e.height||.5)+'" fill="'+color+'" transform="scale(1,-1) translate(0,'+(-2*e.y)+') rotate('+(-Number(e.rotation||0))+' '+e.x+' '+e.y+')">'+esc(e.text||'')+'</text>';
+ if(e.type==='text'){const tx=String(e.text||'').replace(/\\\\P/g,'\\n').split('\\n').slice(0,12),fs=Math.max(.15,e.height||.5);s+='<text x="'+e.x+'" y="'+e.y+'" font-size="'+fs+'" fill="'+color+'" transform="scale(1,-1) translate(0,'+(-2*e.y)+') rotate('+(-Number(e.rotation||0))+' '+e.x+' '+e.y+')">'+tx.map((line,i)=>'<tspan x="'+e.x+'" dy="'+(i?fs:0)+'">'+esc(line)+'</tspan>').join('')+'</text>'}
  if(e.type==='dim')s+='<g stroke="#a16c00" stroke-width=".06" fill="none"><path d="M'+e.a.x+' '+e.a.y+'L'+e.b.x+' '+e.b.y+'"/></g><text x="'+((e.a.x+e.b.x)/2)+'" y="'+((e.a.y+e.b.y)/2+.25)+'" font-size=".55" fill="#8a5d00" transform="scale(1,-1) translate(0,'+(-2*((e.a.y+e.b.y)/2+.25))+')">'+esc(e.label)+'</text>';
  }
  if(!(model.hiddenLayers||[]).includes('PV_MODULES'))for(const m of model.layout)s+='<rect x="'+m.x+'" y="'+m.y+'" width="'+m.w+'" height="'+m.h+'" fill="#7bb9e7" fill-opacity=".55" stroke="#176ba6" stroke-width=".045"/>';
