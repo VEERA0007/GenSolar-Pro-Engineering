@@ -1706,6 +1706,13 @@ private fun NativeProcurementScreen(
     var quoteAmount by remember { mutableStateOf("") }
     var quoteDays by remember { mutableStateOf("7") }
     var quoteNotes by remember { mutableStateOf("") }
+    var rfqRef by remember { mutableStateOf("") }
+    var rfqItem by remember { mutableStateOf("") }
+    var rfqQty by remember { mutableStateOf("") }
+    var rfqUnit by remember { mutableStateOf("Nos") }
+    var rfqDueDate by remember { mutableStateOf(java.time.LocalDate.now().plusDays(7).toString()) }
+    var rfqSuppliers by remember { mutableStateOf("") }
+    var rfqRows by remember { mutableStateOf(listOf<List<String>>()) }
     var vendorRows by remember { mutableStateOf(listOf<List<String>>()) }
     var amount by remember { mutableStateOf("") }
     var orderedQty by remember { mutableStateOf("") }
@@ -1725,6 +1732,16 @@ private fun NativeProcurementScreen(
                 val encoded = org.json.JSONTokener(raw ?: "\"{}\"").nextValue() as? String ?: "{}"
                 val data = JSONObject(encoded)
                 val pos = data.optJSONArray("purchaseOrders") ?: org.json.JSONArray()
+                val rfqArray = data.optJSONArray("rfqs") ?: org.json.JSONArray()
+                rfqRows = (0 until rfqArray.length()).map { i ->
+                    val row = rfqArray.optJSONArray(i) ?: org.json.JSONArray()
+                    (0 until row.length()).map { j ->
+                        if (j == 5 && row.opt(j) is org.json.JSONArray) {
+                            val suppliers = row.optJSONArray(j) ?: org.json.JSONArray()
+                            (0 until suppliers.length()).joinToString(", ") { suppliers.optString(it, "") }
+                        } else row.optString(j, "")
+                    }
+                }
                 val vendorArray = data.optJSONArray("vendors") ?: org.json.JSONArray()
                 vendorRows = (0 until vendorArray.length()).map { i ->
                     val row = vendorArray.optJSONArray(i) ?: org.json.JSONArray()
@@ -1767,6 +1784,37 @@ private fun NativeProcurementScreen(
                 quoteSupplier = ""; quoteAmount = ""; quoteDays = "7"; quoteNotes = ""
                 refresh()
             } else message = "Quotation not saved. Check duplicate supplier name and values."
+        }
+    }
+
+    fun saveRfq() {
+        val quantity = rfqQty.trim().toDoubleOrNull()
+        val invited = rfqSuppliers.split(",").map { it.trim() }.filter { it.isNotBlank() }
+        if (rfqRef.isBlank() || rfqItem.isBlank() || rfqUnit.isBlank()) {
+            message = "Enter the RFQ reference, item specification and unit."
+            return
+        }
+        if (quantity == null || !quantity.isFinite() || quantity <= 0.0) {
+            message = "RFQ quantity must be a valid number greater than zero."
+            return
+        }
+        if (!isValidIsoDate(rfqDueDate)) {
+            message = "Enter a valid quotation due date in YYYY-MM-DD format."
+            return
+        }
+        if (invited.isEmpty() || invited.map { it.lowercase() }.distinct().size != invited.size) {
+            message = "Enter at least one invited supplier; supplier names must be unique."
+            return
+        }
+        val payload = JSONObject().put("ref", rfqRef.trim()).put("item", rfqItem.trim())
+            .put("qty", quantity).put("unit", rfqUnit.trim()).put("dueDate", rfqDueDate.trim())
+            .put("suppliers", org.json.JSONArray(invited))
+        browser.evaluateJavascript("window.GenSolarEpcBridge.createRfq(" + payload + ")") { result ->
+            if (result == "true") {
+                message = "RFQ issued and saved in the active offline project."
+                rfqRef = ""; rfqItem = ""; rfqQty = ""; rfqSuppliers = ""
+                refresh()
+            } else message = "RFQ not saved. Check duplicate reference, supplier names and required values."
         }
     }
 
@@ -1889,6 +1937,32 @@ private fun NativeProcurementScreen(
                     }
                 }
                 Text("Lowest price is not automatic award approval. Verify technical compliance, warranty, taxes and payment terms.", color = Color(0xFF60756E), fontSize = 10.sp, lineHeight = 14.sp)
+            }
+        }
+
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("REQUEST FOR QUOTATION (RFQ)", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                Text("Create a material request, invite suppliers and set a response deadline before comparing quotations.", color = Color(0xFF60756E), fontSize = 11.sp)
+                SurveyInput("RFQ reference", rfqRef, { rfqRef = it })
+                SurveyInput("Material / technical specification", rfqItem, { rfqItem = it })
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Requested quantity", rfqQty, { rfqQty = it }, Modifier.weight(1f))
+                    SurveyInput("Unit", rfqUnit, { rfqUnit = it }, Modifier.weight(1f))
+                }
+                SurveyInput("Quotation due date (YYYY-MM-DD)", rfqDueDate, { rfqDueDate = it })
+                SurveyInput("Invited suppliers (comma separated)", rfqSuppliers, { rfqSuppliers = it })
+                Button(onClick = { saveRfq() }, modifier = Modifier.fillMaxWidth()) { Text("Issue request for quotation") }
+                if (rfqRows.isEmpty()) Text("No RFQs issued for this project.", color = Color(0xFF60756E), fontSize = 12.sp)
+                rfqRows.forEach { row ->
+                    Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F6F5))) {
+                        Column(Modifier.fillMaxWidth().padding(11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(row.getOrElse(0) { "" } + " · " + row.getOrElse(6) { "Issued" }, color = BrandGreen, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text(row.getOrElse(1) { "" } + " · " + row.getOrElse(2) { "" } + " " + row.getOrElse(3) { "" }, color = Color(0xFF60756E), fontSize = 11.sp)
+                            Text("Due " + row.getOrElse(4) { "" } + " · Invited: " + row.getOrElse(5) { "" }, color = Color(0xFF60756E), fontSize = 10.sp)
+                        }
+                    }
+                }
             }
         }
 
