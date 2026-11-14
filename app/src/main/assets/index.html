@@ -647,7 +647,7 @@ return protection+ cable;
 }
 function refreshCommissioningEvidenceOptions(){const el=$('commEvidence');if(!el)return;const current=el.value;el.innerHTML='<option value="">No attachment linked</option>'+(state.attachments||[]).map(a=>'<option value="'+escapeHtml(a.id)+'">'+escapeHtml(a.name)+' · '+escapeHtml(a.category||'Evidence')+'</option>').join('');if(current)el.value=current;}
 function commissioningRecordIsComplete(r){
-const validDate=value=>/^\\d{4}-\\d{2}-\\d{2}$/.test(String(value||''))&&Number.isFinite(Date.parse(value))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value;
+const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(String(value||''))&&Number.isFinite(Date.parse(value))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value;
 if(!(r&&String(r.category||'').trim()&&String(r.test||'').trim()&&String(r.criterion||'').trim()&&String(r.method||'').trim()&&String(r.tester||'').trim()&&validDate(r.date)&&['Not tested','Pass','Fail','Hold / N.A.'].includes(r.result)&&((r.measured===''||r.measured==null)||Number.isFinite(Number(r.measured)))))return false;
 const action=String(r.action||'').trim(),owner=String(r.actionOwner||'').trim(),due=String(r.dueDate||'').trim(),status=String(r.actionStatus||'Open');
 if(r.result==='Fail'&&!action)return false;
