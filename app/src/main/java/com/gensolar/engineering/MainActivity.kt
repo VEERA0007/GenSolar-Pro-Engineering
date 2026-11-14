@@ -1037,6 +1037,45 @@ private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifi
             }
         }
         Button(onClick = {
+            fun number(value: String): Double? = value.trim().toDoubleOrNull()?.takeIf { it.isFinite() }
+            val vocValue = number(voc)
+            val vmpValue = number(vmp)
+            val iscValue = number(isc)
+            val impValue = number(imp)
+            val vocTemperature = number(vocCoeff)
+            val numeric = fields.mapValues { (_, state) -> number(state.value) }
+            val acValue = numeric["acKw"]
+            val mpptMinimum = numeric["mpptMin"]
+            val mpptMaximum = numeric["mpptMax"]
+            val dcMaximum = numeric["maxDc"]
+            val minimumTemperature = numeric["minTemp"]
+            val currentLimit = numeric["mpptCurrent"]
+            val bifacialGain = numeric["bifacialCurrentGain"]
+            val trackerCount = fields.getValue("mpptCount").value.trim().toIntOrNull()
+            val cellTemperature = numeric["maxCellTemp"]
+            val vmpTemperature = numeric["vmpCoeff"]
+            val validationError = when {
+                vocValue == null || vocValue <= 0.0 -> "Module Voc must be greater than zero."
+                vmpValue == null || vmpValue <= 0.0 || vmpValue >= vocValue -> "Module Vmp must be positive and lower than Voc."
+                iscValue == null || iscValue <= 0.0 -> "Module Isc must be greater than zero."
+                impValue == null || impValue <= 0.0 || impValue > iscValue -> "Module Imp must be positive and no greater than Isc."
+                vocTemperature == null || vocTemperature !in -1.0..0.0 -> "Voc temperature coefficient must be between -1 and 0 %/°C."
+                acValue == null || acValue <= 0.0 || acValue > 100000.0 -> "Inverter AC capacity must be between 0 and 100,000 kW."
+                mpptMinimum == null || mpptMinimum <= 0.0 -> "Minimum MPPT voltage must be greater than zero."
+                mpptMaximum == null || mpptMaximum <= 0.0 || mpptMaximum <= (mpptMinimum ?: 0.0) -> "Maximum MPPT voltage must exceed minimum MPPT voltage."
+                dcMaximum == null || dcMaximum < (mpptMaximum ?: Double.POSITIVE_INFINITY) -> "Maximum DC voltage must be at least the maximum MPPT voltage."
+                minimumTemperature == null || minimumTemperature !in -40.0..40.0 -> "Minimum design temperature must be between -40 and 40 °C."
+                currentLimit == null || currentLimit <= 0.0 -> "MPPT operating current limit must be greater than zero."
+                bifacialGain == null || bifacialGain !in 0.0..50.0 -> "Bifacial current gain must be between 0 and 50%."
+                trackerCount == null || trackerCount !in 1..100 -> "MPPT channel count must be a whole number from 1 to 100."
+                cellTemperature == null || cellTemperature !in 20.0..100.0 -> "Maximum cell temperature must be between 20 and 100 °C."
+                vmpTemperature == null || vmpTemperature !in -1.0..0.0 -> "Vmp temperature coefficient must be between -1 and 0 %/°C."
+                else -> null
+            }
+            if (validationError != null) {
+                status = validationError
+                return@Button
+            }
             val values = linkedMapOf("voc" to voc, "vmp" to vmp, "isc" to isc, "imp" to imp, "vocCoeff" to vocCoeff)
             fields.forEach { (key, value) -> values[key] = value.value }
             prefs.edit().apply { values.forEach { (key, value) -> putString(key, value) } }.apply()
