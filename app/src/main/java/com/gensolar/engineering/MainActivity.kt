@@ -1702,6 +1702,11 @@ private fun NativeProcurementScreen(
 ) {
     var ref by remember { mutableStateOf("") }
     var supplier by remember { mutableStateOf("") }
+    var quoteSupplier by remember { mutableStateOf("") }
+    var quoteAmount by remember { mutableStateOf("") }
+    var quoteDays by remember { mutableStateOf("7") }
+    var quoteNotes by remember { mutableStateOf("") }
+    var vendorRows by remember { mutableStateOf(listOf<List<String>>()) }
     var amount by remember { mutableStateOf("") }
     var orderedQty by remember { mutableStateOf("") }
     var unit by remember { mutableStateOf("Nos") }
@@ -1720,6 +1725,12 @@ private fun NativeProcurementScreen(
                 val encoded = org.json.JSONTokener(raw ?: "\"{}\"").nextValue() as? String ?: "{}"
                 val data = JSONObject(encoded)
                 val pos = data.optJSONArray("purchaseOrders") ?: org.json.JSONArray()
+                val vendorArray = data.optJSONArray("vendors") ?: org.json.JSONArray()
+                vendorRows = (0 until vendorArray.length()).map { i ->
+                    val row = vendorArray.optJSONArray(i) ?: org.json.JSONArray()
+                    (0 until row.length()).map { j -> row.optString(j, "") }
+                }.filter { it.size >= 3 && it[0].isNotBlank() && (it.getOrNull(1)?.toDoubleOrNull() ?: 0.0) > 0.0 }
+                    .sortedWith(compareBy<List<String>> { it.getOrNull(1)?.toDoubleOrNull() ?: Double.MAX_VALUE }.thenBy { it.getOrNull(2)?.toIntOrNull() ?: Int.MAX_VALUE })
                 val grn = data.optJSONArray("receipts") ?: org.json.JSONArray()
                 rows = (0 until pos.length()).map { i ->
                     val row = pos.optJSONArray(i) ?: org.json.JSONArray()
@@ -1739,6 +1750,25 @@ private fun NativeProcurementScreen(
     fun isValidIsoDate(value: String): Boolean = try {
         java.time.LocalDate.parse(value.trim()).toString() == value.trim()
     } catch (_: Exception) { false }
+
+
+    fun saveQuote() {
+        val quoted = quoteAmount.trim().toDoubleOrNull()
+        val days = quoteDays.trim().toIntOrNull()
+        if (quoteSupplier.isBlank() || quoted == null || !quoted.isFinite() || quoted <= 0.0 || days == null || days < 0) {
+            message = "Enter a supplier, valid quote amount and whole delivery days."
+            return
+        }
+        val payload = JSONObject().put("name", quoteSupplier.trim()).put("amount", quoted)
+            .put("deliveryDays", days).put("notes", quoteNotes.trim())
+        browser.evaluateJavascript("window.GenSolarEpcBridge.createVendorQuote(" + payload + ")") { result ->
+            if (result == "true") {
+                message = "Supplier quotation saved and comparison updated."
+                quoteSupplier = ""; quoteAmount = ""; quoteDays = "7"; quoteNotes = ""
+                refresh()
+            } else message = "Quotation not saved. Check duplicate supplier name and values."
+        }
+    }
 
     fun savePo() {
         val orderValue = amount.trim().toDoubleOrNull()
@@ -1826,6 +1856,34 @@ private fun NativeProcurementScreen(
                 Text("Create orders, record incoming materials and reconcile ordered, received and balance quantities.", color = Color(0xFFD7E8E1), fontSize = 12.sp, lineHeight = 18.sp)
             }
         }
+
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("SUPPLIER QUOTATION REGISTER", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                Text("Record comparable vendor offers before selecting the supplier.", color = Color(0xFF60756E), fontSize = 11.sp)
+                SurveyInput("Supplier name", quoteSupplier, { quoteSupplier = it })
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Quoted amount (₹)", quoteAmount, { quoteAmount = it }, Modifier.weight(1f))
+                    SurveyInput("Delivery days", quoteDays, { quoteDays = it }, Modifier.weight(1f))
+                }
+                SurveyInput("Commercial / warranty notes", quoteNotes, { quoteNotes = it })
+                Button(onClick = { saveQuote() }, modifier = Modifier.fillMaxWidth()) { Text("Save supplier quotation") }
+                if (vendorRows.isEmpty()) Text("No supplier quotations recorded.", color = Color(0xFF60756E), fontSize = 12.sp)
+                vendorRows.forEachIndexed { index, row ->
+                    val quote = row.getOrNull(1)?.toDoubleOrNull() ?: 0.0
+                    val lowest = vendorRows.firstOrNull()?.getOrNull(1)?.toDoubleOrNull() ?: quote
+                    Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = if (index == 0) Color(0xFFE8F3EE) else Color(0xFFF3F6F5))) {
+                        Column(Modifier.fillMaxWidth().padding(11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text((if (index == 0) "LOWEST QUOTE  •  " else "RANK " + (index + 1) + "  •  ") + row.getOrElse(0) { "" }, color = BrandGreen, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("₹" + "%,.2f".format(quote) + "  |  " + row.getOrElse(2) { "0" } + " delivery days  |  +" + "%,.2f".format((quote - lowest).coerceAtLeast(0.0)), color = Color(0xFF60756E), fontSize = 11.sp)
+                            if (row.getOrElse(3) { "" }.isNotBlank()) Text(row[3], color = Color(0xFF60756E), fontSize = 10.sp)
+                        }
+                    }
+                }
+                Text("Lowest price is not automatic award approval. Verify technical compliance, warranty, taxes and payment terms.", color = Color(0xFF60756E), fontSize = 10.sp, lineHeight = 14.sp)
+            }
+        }
+
         Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
             Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 Text("NEW PURCHASE ORDER", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
