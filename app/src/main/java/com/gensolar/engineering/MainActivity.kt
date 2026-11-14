@@ -2030,6 +2030,22 @@ private fun NativeProcurementScreen(
                     Text("Create a purchase order before recording goods receipt.", color = Color(0xFF60756E), fontSize = 12.sp)
                 } else {
                     Text("Purchase order: " + receiptPo, color = Color(0xFF60756E), fontSize = 12.sp)
+                    val selectedReceiptOrder = rows.firstOrNull { it.getOrElse(0) { "" } == receiptPo }
+                    val orderedReceiptQty = selectedReceiptOrder?.getOrNull(5)?.toDoubleOrNull() ?: 0.0
+                    val receiptUnit = selectedReceiptOrder?.getOrNull(6)?.takeIf { it.isNotBlank() } ?: "Nos"
+                    val receivedReceiptQty = receipts.filter {
+                        it.getOrElse(0) { "" } == receiptPo &&
+                            it.getOrElse(2) { "" }.equals(receiptUnit, ignoreCase = true)
+                    }.sumOf { it.getOrElse(1) { "0" }.toDoubleOrNull() ?: 0.0 }
+                    val remainingReceiptQty = (orderedReceiptQty - receivedReceiptQty).coerceAtLeast(0.0)
+                    val deliveryProgress = if (orderedReceiptQty > 0.0) {
+                        ((receivedReceiptQty / orderedReceiptQty) * 100.0).coerceIn(0.0, 100.0)
+                    } else 0.0
+                    Text(
+                        "Received: %.3f %s  ·  Remaining: %.3f %s".format(receivedReceiptQty, receiptUnit, remainingReceiptQty, receiptUnit),
+                        color = BrandGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold
+                    )
+                    Text("Delivery progress: %.1f%%".format(deliveryProgress), color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         rows.forEach { row ->
                             val key = row.getOrElse(0) { "" }
