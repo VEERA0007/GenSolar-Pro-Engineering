@@ -973,8 +973,10 @@ window.gensolarImportDxf=function(data){
 };
 function renderLayerVisibility(){
  const box=$('cadLayerVisibility');if(!box)return;
- const layers=['UNDERLAY','ROOF','WALLS','OBSTACLES','DIMENSIONS','PV_MODULES','GENERAL'];
- box.innerHTML=layers.map(layer=>'<label class="field" style="display:flex;align-items:center;gap:8px"><input type="checkbox" data-layer-visible="'+layer+'" '+((model.hiddenLayers||[]).includes(layer)?'':'checked')+' style="width:auto"> '+layer+'</label>').join('');
+ const base=['UNDERLAY','ROOF','WALLS','OBSTACLES','DIMENSIONS','PV_MODULES','ROOF_ZONES','ROOF_ZONE_LABELS','ACCESS_CORRIDORS','GENERAL'];
+ const extras=(model.entities||[]).map(e=>String(e.layer||'GENERAL').slice(0,80));
+ const layers=[...new Set(base.concat(extras))];
+ box.innerHTML=layers.map(layer=>'<label class="field" style="display:flex;align-items:center;gap:8px"><input type="checkbox" data-layer-visible="'+esc(layer)+'" '+((model.hiddenLayers||[]).includes(layer)?'':'checked')+' style="width:auto"> '+esc(layer)+'</label>').join('');
  box.querySelectorAll('[data-layer-visible]').forEach(input=>input.addEventListener('change',()=>{
   const layer=input.dataset.layerVisible;model.hiddenLayers=model.hiddenLayers||[];
   if(input.checked)model.hiddenLayers=model.hiddenLayers.filter(x=>x!==layer);
