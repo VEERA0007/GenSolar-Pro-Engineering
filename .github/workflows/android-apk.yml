@@ -1467,6 +1467,8 @@ jobs:
           JS
       - name: Test BOM generation and rate preservation
         run: node tools/test_bom_generation.js
+      - name: Test procurement register validation and safe rendering
+        run: node tools/test_procurement_register.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
