@@ -1,0 +1,14 @@
+const assert=require("node:assert/strict");const fs=require("node:fs");const vm=require("node:vm");
+const html=fs.readFileSync("app/src/main/assets/index.html","utf8");
+function extract(name){const start=html.indexOf("function "+name+"(");assert.notEqual(start,-1,"Missing "+name);const end=html.indexOf("\\nfunction ",start+1);return html.slice(start,end<0?html.length:end)}
+const ids=["receiptPoRef","receiptQty","receiptUnit","receiptDate","receiptCondition","receiptReceiver","receiptDocument","receiptRemarks","receiptStatusMessage","goodsReceiptList"];
+const elements=Object.fromEntries(ids.map(id=>[id,{value:"",innerHTML:"",textContent:""}]));
+elements.receiptPoRef.value="PO-100";elements.receiptQty.value="12";elements.receiptUnit.value="Nos";elements.receiptDate.value="2026-12-01";elements.receiptCondition.value="Good";elements.receiptReceiver.value="Storekeeper";
+const context={state:{pos:[["PO-100","Supplier A",10000,"2026-12-01","Ordered"]],goodsReceipts:[]},$:id=>elements[id],save:()=>true,escapeHtml:v=>String(v==null?"":v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),csv:rows=>rows.map(r=>r.join(",")).join("\\n"),download:()=>{}};
+vm.createContext(context);for(const name of ["renderGoodsReceipts","addGoodsReceipt","exportGoodsReceipts"])vm.runInContext(extract(name),context);
+assert.equal(vm.runInContext("addGoodsReceipt()",context),true);assert.equal(context.state.goodsReceipts.length,1);assert.ok(elements.goodsReceiptList.innerHTML.includes("Storekeeper"));
+elements.receiptQty.value="0";assert.equal(vm.runInContext("addGoodsReceipt()",context),false);assert.match(elements.receiptStatusMessage.textContent,/greater than zero/);
+elements.receiptQty.value="3";elements.receiptPoRef.value="UNKNOWN";assert.equal(vm.runInContext("addGoodsReceipt()",context),false);assert.match(elements.receiptStatusMessage.textContent,/existing purchase order/);
+elements.receiptPoRef.value="PO-100";elements.receiptDate.value="2026-02-30";assert.equal(vm.runInContext("addGoodsReceipt()",context),false);assert.match(elements.receiptStatusMessage.textContent,/valid receipt date/);
+elements.receiptDate.value="2026-12-01";elements.receiptReceiver.value="<script>alert(1)</script>";assert.equal(vm.runInContext("addGoodsReceipt()",context),true);assert.ok(elements.goodsReceiptList.innerHTML.includes("&lt;script&gt;"));assert.ok(!elements.goodsReceiptList.innerHTML.includes("<script>"));
+assert.equal(vm.runInContext("exportGoodsReceipts()",context),true);console.log("Goods receipt tests passed: PO linkage, positive quantity, date validation, required receiver, safe rendering and CSV export.");
