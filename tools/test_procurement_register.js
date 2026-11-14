@@ -20,6 +20,7 @@ const elements = {
   goodsReceiptList: { innerHTML: "" },
   receiptReconciliation: { innerHTML: "" }
 };
+let saveResult = true;
 const context = {
   state: {
     project: {},
@@ -29,7 +30,7 @@ const context = {
     goodsReceipts: []
   },
   $: id => elements[id],
-  save: () => true,
+  save: () => saveResult,
   escapeHtml: value => String(value == null ? "" : value).replace(/[&<>"']/g, ch => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   })[ch])
@@ -59,6 +60,29 @@ context.state.project.vendorAmount = "125000";
 context.state.project.vendorDays = "1.5";
 assert.equal(vm.runInContext("addVendor()", context), false);
 assert.match(elements.vendorStatusMessage.textContent, /whole number/);
+
+
+// Ranked supplier comparison: lowest quote first, then delivery time; all text remains escaped.
+context.state.vendors = [
+  ["Supplier B", 140000, 5, "Standard warranty"],
+  ["Supplier C", 125000, 9, "<b>Longer lead time</b>"],
+  ["Supplier A", 125000, 4, "Fastest equal-price option"]
+];
+vm.runInContext("renderVendorTable()", context);
+assert.ok(elements.vendorTable.innerHTML.indexOf("Supplier A") < elements.vendorTable.innerHTML.indexOf("Supplier C"));
+assert.ok(elements.vendorTable.innerHTML.includes("0</td><td>4</td>"));
+assert.ok(elements.vendorTable.innerHTML.includes("15,000"));
+assert.ok(elements.vendorTable.innerHTML.includes("&lt;b&gt;Longer lead time&lt;/b&gt;"));
+assert.ok(!elements.vendorTable.innerHTML.includes("<b>Longer lead time</b>"));
+
+// Failed persistence must not leave an unsaved quotation in the project.
+saveResult = false;
+context.state.project = { vendorName: "Unsaved Supplier", vendorAmount: "99000", vendorDays: "3", vendorNotes: "" };
+const beforeFailedSave = context.state.vendors.length;
+assert.equal(vm.runInContext("addVendor()", context), false);
+assert.equal(context.state.vendors.length, beforeFailedSave);
+assert.match(elements.vendorStatusMessage.textContent, /rolled back/);
+saveResult = true;
 
 // Purchase order validation, duplicate guard and rendering safety.
 context.state.project = {
