@@ -1,6 +1,6 @@
 # GenSolar Pro Engineering — Build Progress
 
-Last assessed: 2026-11-15 (RFQ → supplier quotation → purchase-order traceability integrated; Build #468 passed all 80 workflow steps and APK artifact verification)
+Last assessed: 2026-11-15 (native PO delivery progress and deadline alerts integrated; Build #471 passed all 80 workflow steps and APK artifact verification)
 
 ## Overall completion estimate: 48.6%
 
@@ -115,6 +115,17 @@ A green CI build verifies only the checks configured in GitHub Actions and APK p
 
 ## Current build verification state
 
-- **Current main HEAD:** [ea51869a305502aa63bdd8efe634d1a35b01a412](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/ea51869a305502aa63bdd8efe634d1a35b01a412).
-- **Latest successful APK:** [Build #468](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43629176625), run ID 43629176625. All 80 workflow steps passed; artifact ID 14127855258. Extracted APK: 9,283,171 bytes; SHA-256 `13c3063833f84ae904fa95d83cc7917b4838386c6acacc5e4fe1ec8fa13a1189`.
+- **Current main HEAD:** [12af457af3fdcee778796cd8085323d360d320fa](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/12af457af3fdcee778796cd8085323d360d320fa).
+- **Latest successful APK:** [Build #471](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43635303872), run ID 43635303872. All 80 workflow steps passed; artifact ID 14129422673. Extracted APK: 9,299,548 bytes; SHA-256 `2dda0ac0218580687001d899b624e58479cb5d9da078296cedeb2d81bcdf014d`. This APK includes native PO delivery due/overdue alerts; the subsequent CSV alert export and its validator fix are being rebuilt in Build #475.
 - CI validates the configured checks and packaging. It does not replace physical Android device testing, field validation or qualified engineering review.
+
+
+## Latest implementation (2026-11-15 — purchase-order delivery monitoring)
+
+- The native PO reconciliation register now compares each expected delivery date with the device's local date and shows a clear delivery state: overdue by N days, due today, due within seven days, on schedule, delivered, cancelled, on hold or a date-validation warning.
+- The alert uses the PO's lifecycle state so completed, cancelled and held orders are not incorrectly labelled overdue.
+- The reconciliation CSV now includes a Delivery alert column using the same date/status rules, so exported procurement reports carry the same exception information as the on-screen register.
+- The Android modernization validator now checks the receipt-progress summary, overdue/due-today/upcoming alerts and delivery-alert CSV output. An initial validator assertion incorrectly expected the CSV column label as a standalone string; this was corrected to match the actual header text. Build #474 exposed that assertion issue; the corrected validator is included in Build #475.
+- Commits: [native delivery alerts](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/66053ae93797a5b7ff8269eac9e109c8d1bb59ad), [delivery-alert CI assertion](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/122d751ca6fdabd28d8f4bc1c80e2e84994f6f79), [CSV delivery alert export](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/b6d649d5ff434cebc7680834e6f6cc2e675ed301), [CSV assertion correction](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/12af457af3fdcee778796cd8085323d360d320fa).
+- Build #471: [successful Android APK workflow](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/43635303872), all 80 workflow steps passed. Verified APK size 9,299,548 bytes; SHA-256 `2dda0ac0218580687001d899b624e58479cb5d9da078296cedeb2d81bcdf014d`.
+- Build #475 is validating the final CSV export and corrected validator; do not treat its artifact as current until all steps and APK verification succeed.
