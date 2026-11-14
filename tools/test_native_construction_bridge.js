@@ -6,7 +6,7 @@ const start=html.indexOf('window.GenSolarEpcBridge = Object.freeze({');
 const end=html.indexOf('window.GenSolarStudio=',start);
 assert.ok(start>=0&&end>start);
 let saved=true, renders=0;
-const context={window:{},state:{project:{},activities:[]},model:{},go:()=>{},save:()=>saved,activityPlannedFinish:(date,days)=>{const d=new Date(date+'T00:00:00Z');if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||Number.isNaN(d.getTime())||d.toISOString().slice(0,10)!==date)return '';d.setUTCDate(d.getUTCDate()+days-1);return d.toISOString().slice(0,10)},renderActivitySchedule:()=>{renders++},staadGenerate:()=>true,buildBom:()=>true,renderBom:()=>{}};
+const context={window:{},state:{project:{},activities:[]},model:{},go:()=>{},save:()=>saved,activityPlannedFinish:(date,days)=>{const d=new Date(date+'T00:00:00Z');if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(d.getTime())||d.toISOString().slice(0,10)!==date)return '';d.setUTCDate(d.getUTCDate()+days-1);return d.toISOString().slice(0,10)},renderActivitySchedule:()=>{renders++},staadGenerate:()=>true,buildBom:()=>true,renderBom:()=>{}};
 vm.createContext(context);vm.runInContext(html.slice(start,end),context);
 const b=context.window.GenSolarEpcBridge;
 const row={name:'PV module installation',owner:'Site Engineer',start:'2026-11-20',days:5,status:'In progress',progress:35};
