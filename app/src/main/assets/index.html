@@ -1181,7 +1181,21 @@ window.GenSolarEpcBridge = Object.freeze({
       vendors: Array.isArray(state.vendors) ? state.vendors : [],
       history: Array.isArray(state.poHistory) ? state.poHistory : [],
       receipts: Array.isArray(state.goodsReceipts) ? state.goodsReceipts : [],
-      bom: Array.isArray(state.bom) ? state.bom : []
+      bom: Array.isArray(state.bom) ? state.bom : [],
+      stockLedger: (Array.isArray(state.pos) ? state.pos : []).flatMap(po => {
+        const lines = Array.isArray(po[8]) ? po[8] : [];
+        return lines.map(line => {
+          const item = String(line.item || ''), unit = String(line.unit || '');
+          const receipts = (Array.isArray(state.goodsReceipts) ? state.goodsReceipts : []).filter(row =>
+            String(row[0] || '') === String(po[0] || '') &&
+            String(row[8] || '').trim().toLowerCase() === item.trim().toLowerCase()
+          );
+          const sumCondition = condition => receipts.filter(row => String(row[4] || '') === condition).reduce((sum,row) => sum + (Number(row[1]) || 0), 0);
+          const received = receipts.reduce((sum,row) => sum + (Number(row[1]) || 0), 0);
+          const ordered = Number(line.qty) || 0;
+          return [String(po[0] || ''), item, unit, ordered, received, sumCondition('Good'), sumCondition('Short received'), sumCondition('Damaged'), sumCondition('Quarantined'), Math.max(0, ordered - received)];
+        });
+      })
     }));
   },
   createRfq: function(input) {
