@@ -1174,6 +1174,37 @@ window.GenSolarEpcBridge = Object.freeze({
     if (typeof renderSimple === 'function') renderSimple('poList',state.pos);
     return true;
   },
+  getHandover: function() {
+    return JSON.parse(JSON.stringify(state.handover || {}));
+  },
+  updateHandoverChecklist: function(index, checked) {
+    const labels = ['As-built PV layout and approved drawings','Final SLD and protection schedule','Equipment datasheets and serial number schedule','Commissioning and electrical test records','Operating and maintenance manual','Warranty certificates and supplier contacts','DISCOM / utility approvals and meter records','Safety instructions and emergency shutdown procedure','Training and customer demonstration','Open defects and corrective actions disclosed'];
+    const key = String(index);
+    if (!Number.isInteger(Number(index)) || Number(index) < 0 || Number(index) >= labels.length || typeof checked !== 'boolean') return false;
+    const previous = JSON.parse(JSON.stringify(state.handover || {}));
+    state.handover = state.handover || {};
+    state.handover.checklist = state.handover.checklist || {};
+    state.handover.checklist[key] = checked;
+    if (!save()) { state.handover = previous; return false; }
+    return true;
+  },
+  saveHandover: function(input) {
+    const v = input || {}, date = String(v.date || '');
+    const h = {
+      customer:String(v.customer || '').trim(), site:String(v.site || '').trim(), date,
+      installer:String(v.installer || '').trim(), customerRep:String(v.customerRep || '').trim(),
+      status:String(v.status || 'Draft'), observations:String(v.observations || '').trim(),
+      package:String(v.package || '').trim(),
+      checklist:(state.handover && state.handover.checklist) || {}, savedAt:new Date().toISOString()
+    };
+    if (!h.customer || !h.site || !h.installer || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date+'T00:00:00Z').toISOString().slice(0,10) !== date) return false;
+    if (!['Draft','Pending customer review','Accepted with observations','Accepted','Rejected'].includes(h.status)) return false;
+    if (h.status === 'Accepted' && (!h.customerRep || Array.from({length:10},(_,i)=>!h.checklist[String(i)]).some(Boolean))) return false;
+    const previous = state.handover;
+    state.handover = h;
+    if (!save()) { state.handover = previous || {}; return false; }
+    return true;
+  },
   getCommissioning: function() {
     return JSON.parse(JSON.stringify(Array.isArray(state.commissioning) ? state.commissioning : []));
   },
