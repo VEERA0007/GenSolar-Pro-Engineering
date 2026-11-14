@@ -1008,29 +1008,6 @@ private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifi
     var output by remember { mutableStateOf("Generate a PV layout, then run electrical checks.") }
     var status by remember { mutableStateOf("Inputs are stored offline when calculations are run.") }
     val labels = listOf("acKw" to "Inverter AC capacity (kW)", "mpptMin" to "Minimum MPPT voltage (V)", "mpptMax" to "Maximum MPPT voltage (V)", "maxDc" to "Maximum DC voltage (V)", "minTemp" to "Minimum design temperature (°C)", "mpptCurrent" to "Max operating current / MPPT (A)", "bifacialCurrentGain" to "Bifacial current gain (%)", "mpptCount" to "MPPT channel count", "maxCellTemp" to "Maximum cell temperature (°C)", "vmpCoeff" to "Vmp coefficient (%/°C)")
-    fun updatePoStatus() {
-        val selected = rows.firstOrNull { it.getOrElse(0) { "" } == lifecyclePo }
-        if (selected == null) {
-            message = "Select a saved purchase order before changing its status."
-            return
-        }
-        if (selected.getOrElse(4) { "Draft" } == nextPoStatus) {
-            message = "The purchase order already has this status."
-            return
-        }
-        val script = "window.GenSolarEpcBridge.updatePurchaseOrderStatus(" +
-            JSONObject.quote(lifecyclePo) + "," + JSONObject.quote(nextPoStatus) + ")"
-        browser.evaluateJavascript(script) { result ->
-            if (result == "true") {
-                message = "Purchase order status updated and audit history saved."
-                refresh()
-            } else {
-                message = "Status change rejected or not saved. Check the allowed transition and try again."
-                refresh()
-            }
-        }
-    }
-
 
     Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
@@ -1880,6 +1857,29 @@ private fun NativeProcurementScreen(
                 ref = ""; supplier = ""; amount = ""; orderedQty = ""
                 refresh()
             } else message = "PO not saved. Check for a duplicate reference or invalid order details."
+        }
+    }
+
+    fun updatePoStatus() {
+        val selected = rows.firstOrNull { it.getOrElse(0) { "" } == lifecyclePo }
+        if (selected == null) {
+            message = "Select a saved purchase order before changing its status."
+            return
+        }
+        if (selected.getOrElse(4) { "Draft" } == nextPoStatus) {
+            message = "The purchase order already has this status."
+            return
+        }
+        val script = "window.GenSolarEpcBridge.updatePurchaseOrderStatus(" +
+            JSONObject.quote(lifecyclePo) + "," + JSONObject.quote(nextPoStatus) + ")"
+        browser.evaluateJavascript(script) { result ->
+            if (result == "true") {
+                message = "Purchase order status updated and audit history saved."
+                refresh()
+            } else {
+                message = "Status change rejected or not saved. Check the allowed transition and try again."
+                refresh()
+            }
         }
     }
 
