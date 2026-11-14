@@ -1123,8 +1123,8 @@ jobs:
           assert.equal(poly.vertices.length,3);
           assert.deepEqual(parsed.bounds,{minX:0,minY:0,maxX:1000,maxY:500});
           const summary=cadDxfSummary(parsed);
-          assert.match(summary,/4 entities/);
-          assert.match(summary,/4 layers/);
+          assert.match(summary,/5 entities/);
+          assert.match(summary,/5 layers/);
           assert.match(summary,/Millimetres/);
           assert.equal(parseDxf("not a valid drawing").entities.length,0,"invalid input must produce no supported geometry");
           console.log("DXF import tests passed: LINE/CIRCLE/LWPOLYLINE/POLYLINE/VERTEX/POINT, layer metadata, INSUNITS, closed polygons, extents and malformed-entity filtering");
