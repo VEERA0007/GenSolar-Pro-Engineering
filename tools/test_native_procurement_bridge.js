@@ -51,6 +51,28 @@ assert.equal(b.getProcurement().purchaseOrders[1][7],'GS-RFQ-001','source RFQ re
 assert.equal(b.createPurchaseOrder({...linkedPo,ref:'GS-PO-003',vendor:'Uninvited Vendor'}),false,'PO rejects supplier not invited to source RFQ');
 assert.equal(b.createPurchaseOrder({...linkedPo,ref:'GS-PO-004',rfqRef:'UNKNOWN-RFQ'}),false,'PO rejects unknown source RFQ');
 assert.equal(b.createPurchaseOrder({...linkedPo,ref:'GS-PO-005',vendor:'Module Supplier'}),false,'PO requires a quotation linked to the same RFQ');
+
+const multiLinePo={ref:'GS-PO-MULTI-001',vendor:'Solar Supplier',date:'2026-12-05',status:'Ordered',lines:[
+  {item:'550 W PV module',qty:20,unit:'Nos',rate:8500},
+  {item:'DC cable',qty:20,unit:'Nos',rate:1250},
+  {item:'MC4 connector pair',qty:10,unit:'Nos',rate:180}
+]};
+assert.equal(b.createPurchaseOrder(multiLinePo),true,'valid multi-line PO is accepted');
+const multiSaved=b.getProcurement().purchaseOrders.find(row=>row[0]===multiLinePo.ref);
+assert.equal(multiSaved[2],197300,'PO amount is calculated from each line quantity multiplied by rate');
+assert.equal(multiSaved[5],50,'PO quantity is the sum of line quantities for a common unit');
+assert.equal(multiSaved[6],'Nos');
+assert.equal(multiSaved[8].length,3,'material line breakdown persists on the PO');
+assert.equal(multiSaved[8][0].amount,170000);
+assert.equal(b.createPurchaseOrder({...multiLinePo,ref:'GS-PO-MULTI-002',lines:[]}),false,'empty line list is rejected');
+assert.equal(b.createPurchaseOrder({...multiLinePo,ref:'GS-PO-MULTI-003',lines:Array.from({length:31},(_,i)=>({item:'Item '+i,qty:1,unit:'Nos',rate:1}))}),false,'more than 30 lines are rejected');
+assert.equal(b.createPurchaseOrder({...multiLinePo,ref:'GS-PO-MULTI-004',lines:[{item:'Panel',qty:1,unit:'Nos',rate:10},{item:'Cable',qty:1,unit:'m',rate:5}]}),false,'mixed units are rejected to protect legacy receipt reconciliation');
+assert.equal(b.createPurchaseOrder({...multiLinePo,ref:'GS-PO-MULTI-005',lines:[{item:'Panel',qty:0,unit:'Nos',rate:10}]}),false,'zero quantity line is rejected');
+saved=false;
+assert.equal(b.createPurchaseOrder({...multiLinePo,ref:'GS-PO-MULTI-006'}),false,'failed multi-line PO persistence is rejected');
+assert.equal(b.getProcurement().purchaseOrders.some(row=>row[0]==='GS-PO-MULTI-006'),false,'failed multi-line PO save rolls back the PO');
+saved=true;
+
 const poStatus=()=>b.getProcurement().purchaseOrders[0][4];
 assert.equal(b.updatePurchaseOrderStatus(po.ref,'On hold'),true);
 assert.equal(poStatus(),'On hold');
