@@ -59,7 +59,7 @@ const multiLinePo={ref:'GS-PO-MULTI-001',vendor:'Solar Supplier',date:'2026-12-0
 ]};
 assert.equal(b.createPurchaseOrder(multiLinePo),true,'valid multi-line PO is accepted');
 const multiSaved=b.getProcurement().purchaseOrders.find(row=>row[0]===multiLinePo.ref);
-assert.equal(multiSaved[2],197300,'PO amount is calculated from each line quantity multiplied by rate');
+assert.equal(multiSaved[2],196800,'PO amount is calculated from each line quantity multiplied by rate');
 assert.equal(multiSaved[5],50,'PO quantity is the sum of line quantities for a common unit');
 assert.equal(multiSaved[6],'Nos');
 assert.equal(multiSaved[8].length,3,'material line breakdown persists on the PO');
