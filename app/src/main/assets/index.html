@@ -968,7 +968,7 @@ window.gensolarImportDxf=function(data){
   }
  }
  if(!converted.length)return{count:0,message:'No editable DXF entities were found.'};
- saveUndo();converted.forEach(addEntity);draw();render3d();save();
+ saveUndo();converted.forEach(addEntity);renderLayerVisibility();draw();render3d();save();
  return{count:converted.length,message:converted.length+' entities added to the editable CAD workspace in metres.'};
 };
 function renderLayerVisibility(){
