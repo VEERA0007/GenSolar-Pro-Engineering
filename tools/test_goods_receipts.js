@@ -24,7 +24,6 @@ elements.receiptQty.value="5";
 assert.equal(vm.runInContext("addGoodsReceipt()",context),false,"web receipt cannot exceed the selected material line balance");
 
 elements.stockIssuePo.value="PO-200";elements.stockIssueItem.value="PV module";elements.stockIssueRef.value="ISS-UI-01";elements.stockIssueQty.value="2";elements.stockIssueDate.value="2026-12-02";elements.stockIssueTo.value="Site Engineer";elements.stockIssuePackage.value="Module mounting";
-vm.runInContext("renderStockIssues()",context);
 assert.equal(vm.runInContext("addStockIssue()",context),true,"web stock issue form delegates a valid issue to the procurement bridge");
 assert.equal(context.state.stockIssues.length,1);
 assert.ok(elements.stockIssueList.innerHTML.includes("ISS-UI-01"));
