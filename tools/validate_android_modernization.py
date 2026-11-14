@@ -86,7 +86,7 @@ require("bridge.clearLayout()" in kotlin and "bridge.getProjectSummary()" in kot
 require("BackHandler(enabled = selected != \"dashboard\")" in kotlin, "Android back navigation must return from workspaces to Home")
 require('"Received: %.3f %s  ·  Remaining: %.3f %s"' in kotlin and '"Delivery progress: %.1f%%"' in kotlin and "receivedReceiptQty / orderedReceiptQty" in kotlin, "Native goods receipt screen must show live received, remaining and delivery-progress values")
 require("OVERDUE by " in kotlin and "Due today" in kotlin and "Due in " in kotlin and "expectedDelivery.isBefore(today)" in kotlin, "PO reconciliation must flag overdue, due-today and upcoming expected deliveries")
-require('"Delivery alert"' in kotlin and "deliveryAlert(row)" in kotlin, "PO reconciliation CSV must include delivery health alerts")
+require("Delivery alert" in kotlin and "deliveryAlert(row)" in kotlin, "PO reconciliation CSV must include delivery health alerts")
 require('browser.evaluateJavascript(' in kotlin and "window.GenSolarEpcBridge.navigate" in kotlin, "Native workspace navigation must call the controlled shared workspace router")
 for destination in ("location", "bom", "procurement", "construction", "dpr"):
     require(f'"{destination}"' in kotlin, "native dashboard or More menu destination missing: " + destination)
