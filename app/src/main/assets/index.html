@@ -632,7 +632,9 @@ function parseDxf(text){
     if(Number.isFinite(x)&&Number.isFinite(y))vertices.push({x,y});
     j++;
    }
-   if(vertices.length>=2)out.push({type:'POLYLINE',layer:r.layer,vertices,closed:Number.isFinite(flag)&&(Math.trunc(flag)&1)===1});
+   const polylineFlags=Number.isFinite(flag)?Math.trunc(flag):0;
+   const unsupported3dOrMesh=(polylineFlags&(8|16|64))!==0;
+   if(vertices.length>=2&&!unsupported3dOrMesh)out.push({type:'POLYLINE',layer:r.layer,vertices,closed:(polylineFlags&1)===1});
   }else if(r.type==='LWPOLYLINE'){
    const vertices=[];
    for(let i=0;i<r.raw.length;i++){
