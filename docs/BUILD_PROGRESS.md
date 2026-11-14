@@ -1,10 +1,10 @@
 # GenSolar Pro Engineering — Build Progress
 
-Last assessed: 2026-11-14 (Kotlin Compose annotation fix verified by successful Android APK build #342)
+Last assessed: 2026-11-14 (procurement quote comparison verified by successful Android APK build #447)
 
 ## Overall completion estimate: 48.4%
 
-This is a feature-scope estimate, not an APK build percentage, release-readiness claim or engineering certification. The 14 required workspaces in `REFERENCE_REQUIREMENTS.md` are equally weighted (1/14 each). Each score reflects implemented and testable scope within that workspace; partially implemented items receive partial credit. The latest main-branch annotation correction is committed and verified by GitHub Actions Build #342: Kotlin compilation, APK verification and artifact upload all succeeded. The debug APK artifact is 8,696,643 bytes (about 8.30 MiB); this is a successful debug build, not a release or physical-device certification.
+This is a feature-scope estimate, not an APK build percentage, release-readiness claim or engineering certification. The 14 required workspaces in `REFERENCE_REQUIREMENTS.md` are equally weighted (1/14 each). Each score reflects implemented and testable scope within that workspace; partially implemented items receive partial credit. The latest procurement supplier-comparison implementation and regression tests are verified by GitHub Actions Build #447: all workflow tests, Kotlin/HTML validation, APK build, APK verification and artifact upload succeeded. The debug APK workflow artifact ZIP is 8,846,540 bytes (about 8.44 MiB), compared with 8,696,643 bytes (about 8.30 MiB) in Build #342. This is a successful debug build, not a release or physical-device certification.
 
 | Required workspace | Estimated completion | Current evidence / principal gap |
 |---|---:|---|
@@ -52,7 +52,7 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 - Reworked supplier quotation display into a ranked comparison: lowest quoted amount first, then shorter delivery time for equal-price offers. The table shows rank, quoted amount, difference from the lowest offer, delivery days and escaped supplier notes. The screen explicitly reminds users to review technical specifications, warranty and commercial terms before award; lowest price is not treated as an automatic award decision.
 - Made quote creation transactional. Invalid entries are rejected before mutation, and a failed/throwing project save rolls the newly added quotation back instead of leaving unsaved data visible in the project.
 - Expanded `tools/test_procurement_register.js` to cover ranking, tie-break ordering, price differences, HTML escaping and save-failure rollback. The existing Android Actions workflow already executes this test.
-- Commits: [`ad48c93`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/ad48c93548e24d299454276df4423d63bde04874) and [`43b6c7e`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/43b6c7e94e853bb69b3f54d78374683fa8c85264). CI has not reported a status for the latest commit yet.
+- Commits: [`ad48c93`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/ad48c93548e24d299454276df4423d63bde04874) and [`43b6c7e`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/43b6c7e94e853bb69b3f54d78374683fa8c85264). CI verified the supplier-comparison source and test commit in Build #447 (success); the documentation-only follow-up commit is not a separate APK build.
 
 ## Current build verification state
 
