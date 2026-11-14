@@ -1877,6 +1877,14 @@ private fun NativeProcurementScreen(
                             Text((if (index == 0) "LOWEST QUOTE  •  " else "RANK " + (index + 1) + "  •  ") + row.getOrElse(0) { "" }, color = BrandGreen, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             Text("₹" + "%,.2f".format(quote) + "  |  " + row.getOrElse(2) { "0" } + " delivery days  |  +" + "%,.2f".format((quote - lowest).coerceAtLeast(0.0)), color = Color(0xFF60756E), fontSize = 11.sp)
                             if (row.getOrElse(3) { "" }.isNotBlank()) Text(row[3], color = Color(0xFF60756E), fontSize = 10.sp)
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = {
+                                    supplier = row.getOrElse(0) { "" }
+                                    amount = quote.toString()
+                                    message = "Quotation selected for PO. Complete the PO reference, quantity, unit and delivery date before saving."
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Use this quotation in purchase order") }
                         }
                     }
                 }
