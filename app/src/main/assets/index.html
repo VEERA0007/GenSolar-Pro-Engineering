@@ -625,6 +625,14 @@ function parseDxf(text){
    const chunks=r.raw.filter(item=>r.type==='TEXT'?item.code===1:(item.code===1||item.code===3)).map(item=>item.value);
    const value=chunks.join('');
    if(Number.isFinite(x)&&Number.isFinite(y)&&value.trim())out.push({type:r.type,layer:r.layer,x,y,height:Number.isFinite(height)&&height>0?height:1,rotation:Number.isFinite(rotation)?rotation:0,text:value.slice(0,500)});
+  }else if(r.type==='POLYLINE'){
+   const vertices=[];let flag=get(70),j=records.indexOf(r)+1;
+   while(j<records.length&&records[j].type==='VERTEX'){
+    const v=records[j],x=Number(v.raw.find(q=>q.code===10)?.value),y=Number(v.raw.find(q=>q.code===20)?.value);
+    if(Number.isFinite(x)&&Number.isFinite(y))vertices.push({x,y});
+    j++;
+   }
+   if(vertices.length>=2)out.push({type:'POLYLINE',layer:r.layer,vertices,closed:Number.isFinite(flag)&&(Math.trunc(flag)&1)===1});
   }else if(r.type==='LWPOLYLINE'){
    const vertices=[];
    for(let i=0;i<r.raw.length;i++){
@@ -640,7 +648,7 @@ function parseDxf(text){
  const xy=[];
  for(const e of out){
   if(e.type==='LINE')xy.push([e.x1,e.y1],[e.x2,e.y2]);
-  else if(e.type==='LWPOLYLINE')e.vertices.forEach(v=>xy.push([v.x,v.y]));
+  else if(e.type==='LWPOLYLINE'||e.type==='POLYLINE')e.vertices.forEach(v=>xy.push([v.x,v.y]));
   else if(e.type==='CIRCLE'||e.type==='ARC')xy.push([e.x-e.radius,e.y-e.radius],[e.x+e.radius,e.y+e.radius]);
   else xy.push([e.x,e.y]);
  }
@@ -661,7 +669,7 @@ function renderImportedDxf(data){
   if(e.type==='LINE')return '<line x1="'+X(e.x1)+'" y1="'+Y(e.y1)+'" x2="'+X(e.x2)+'" y2="'+Y(e.y2)+'" '+attr+'/>';
   if(e.type==='CIRCLE')return '<circle cx="'+X(e.x)+'" cy="'+Y(e.y)+'" r="'+(e.radius*scale)+'" '+attr+'/>';
   if(e.type==='ARC'){const a=e.startAngle*Math.PI/180,z=e.endAngle*Math.PI/180,x1=e.x+e.radius*Math.cos(a),y1=e.y+e.radius*Math.sin(a),x2=e.x+e.radius*Math.cos(z),y2=e.y+e.radius*Math.sin(z),large=Math.abs(e.endAngle-e.startAngle)>180?1:0;return '<path d="M '+X(x1)+' '+Y(y1)+' A '+(e.radius*scale)+' '+(e.radius*scale)+' 0 '+large+' 0 '+X(x2)+' '+Y(y2)+'" '+attr+'/>'}
-  if(e.type==='LWPOLYLINE'){const pts=e.vertices.map(v=>X(v.x)+','+Y(v.y)).join(' ');return '<polyline points="'+pts+'" '+attr+(e.closed?' fill="'+c+'" fill-opacity=".06"':'')+'/>'}
+  if(e.type==='LWPOLYLINE'||e.type==='POLYLINE'){const pts=e.vertices.map(v=>X(v.x)+','+Y(v.y)).join(' ');return '<polyline points="'+pts+'" '+attr+(e.closed?' fill="'+c+'" fill-opacity=".06"':'')+'/>'}
   if(e.type==='POINT')return '<circle cx="'+X(e.x)+'" cy="'+Y(e.y)+'" r="3" fill="'+c+'"/>';
   if(e.type==='TEXT'||e.type==='MTEXT'){const lines=String(e.text||'').replace(/\\P/g,'\n').split('\n').slice(0,12),font=Math.max(9,Math.min(24,e.height*scale));return '<text x="'+X(e.x)+'" y="'+Y(e.y)+'" fill="'+c+'" font-size="'+font+'" transform="rotate('+(-Number(e.rotation||0))+' '+X(e.x)+' '+Y(e.y)+')">'+lines.map((line,i)=>'<tspan x="'+X(e.x)+'" dy="'+(i?font:0)+'">'+esc(line)+'</tspan>').join('')+'</text>'}return '';
  }).join('');
@@ -991,7 +999,7 @@ window.gensolarImportDxf=function(data){
  for(const e of data.entities||[]){
   const layer=String(e.layer||'GENERAL');
   if(e.type==='LINE')converted.push({type:'line',layer,a:{x:e.x1*factor,y:e.y1*factor},b:{x:e.x2*factor,y:e.y2*factor}});
-  else if(e.type==='LWPOLYLINE'&&Array.isArray(e.vertices)&&e.vertices.length>=2)converted.push({type:'poly',layer,points:e.vertices.map(p=>({x:p.x*factor,y:p.y*factor})),closed:!!e.closed});
+  else if((e.type==='LWPOLYLINE'||e.type==='POLYLINE')&&Array.isArray(e.vertices)&&e.vertices.length>=2)converted.push({type:'poly',layer,points:e.vertices.map(p=>({x:p.x*factor,y:p.y*factor})),closed:!!e.closed});
   else if(e.type==='CIRCLE')converted.push({type:'circle',layer,x:e.x*factor,y:e.y*factor,r:e.radius*factor});
   else if(e.type==='ARC'){
    const start=e.startAngle*Math.PI/180,sweep=((e.endAngle-e.startAngle)%360+360)%360,segments=Math.max(8,Math.ceil(sweep/7.5)),points=[];
