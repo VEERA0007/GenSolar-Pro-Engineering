@@ -159,6 +159,7 @@
 const $=id=>document.getElementById(id), KEY='gensolar_epc_workspace_v1', MODEL_VERSION=2;
 const makeId=()=>('GS-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8)).toUpperCase();
 const state={attachments:[],schemaVersion:MODEL_VERSION,meta:{projectId:makeId(),revision:0,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),engineVersion:'0.2.0'},stage:'engineering',view:'dashboard',project:{},bom:[],vendors:[],pos:[],activities:[],cadText:'',dxfEntities:[]};
+window.gensolarProjectState=state;
 const tabs={engineering:[['site','Site & Survey'],['location','GPS / Map'],['layout','PV Design'],['shade','Shade Analysis'],['draw','CAD / 3D'],['staad','STAAD Structural'],['electrical','Electrical'],['bom','BOM / BOQ'],['dpr','DPR']],procurement:[['bom','BOQ & Costing'],['procurement','Purchasing']],construction:[['construction','Execution'],['dpr','Handover']]};
 const lists={
 review:['Site dimensions verified','Module / inverter datasheets attached','Shadow and access reviewed','Structural engineer review received','Electrical protection and earthing checked','Drawings reviewed and approved'],
@@ -941,6 +942,8 @@ let recalcTimer=null;window.addEventListener('gensolar:project-change',ev=>{cons
 (function(){
 'use strict';
 const $=id=>document.getElementById(id), STORE='gensolar_integrated_studio_v1', CAT='gensolar_module_catalogue_v1';
+const state=window.gensolarProjectState;
+if(!state)throw new Error('GenSolar EPC project state bridge is unavailable.');
 const uid=()=> 'CAD-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
 const model={version:1,entities:[],catalogue:[],selected:null,layout:[],underlay:null,activeTool:'select',pending:[],undo:[],building:{height:6,thickness:.2},outputs:{},hiddenLayers:[]};
 let drag=null, redrawTimer=null;
