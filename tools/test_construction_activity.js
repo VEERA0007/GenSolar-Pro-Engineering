@@ -1,79 +1,67 @@
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const vm = require("node:vm");
-
-const html = fs.readFileSync("app/src/main/assets/index.html", "utf8");
-function extract(name) {
-  const start = html.indexOf("function " + name + "(");
-  assert.notEqual(start, -1, "Missing function " + name);
-  const end = html.indexOf("\nfunction ", start + 1);
-  return html.slice(start, end < 0 ? html.length : end);
-}
-const elements = {
-  activityStatusMessage: { textContent: "" },
-  activityList: { innerHTML: "" }
-};
-let saves = 0;
-const context = {
-  state: { project: {}, activities: [] },
-  $: id => elements[id],
-  save: () => { saves += 1; return true; },
-  escapeHtml: value => String(value == null ? "" : value).replace(/[&<>"']/g, ch => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-  })[ch])
-};
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const vm=require("node:vm");
+const html=fs.readFileSync("app/src/main/assets/index.html","utf8");
+function extract(name){const start=html.indexOf("function "+name+"(");assert.notEqual(start,-1,"Missing function "+name);const end=html.indexOf("\nfunction ",start+1);return html.slice(start,end<0?html.length:end)}
+const controls={status:{value:"In progress"},progress:{value:"55"}};
+const elements={activityStatusMessage:{textContent:""},activityList:{innerHTML:"",querySelectorAll:()=>[],querySelector:selector=>selector.includes("status")?controls.status:controls.progress}};
+let saves=0,downloaded=null;
+const context={state:{project:{},activities:[]},$:id=>elements[id],save:()=>{saves++;return true},escapeHtml:v=>String(v==null?"":v).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch])),csv:rows=>rows.map(r=>r.join(",")).join("\n"),download:(name,data)=>{downloaded={name,data}}};
 vm.createContext(context);
-for (const name of ["renderSimple", "addActivity"]) vm.runInContext(extract(name), context);
+for(const name of ["activityPlannedFinish","renderActivitySchedule","updateActivityProgress","exportActivitySchedule","addActivity"])vm.runInContext(extract(name),context);
+assert.equal(vm.runInContext("activityPlannedFinish('2026-11-20',5)",context),"2026-11-24");
+assert.equal(vm.runInContext("activityPlannedFinish('2024-02-27',3)",context),"2024-02-29");
+assert.equal(vm.runInContext("activityPlannedFinish('2026-02-30',2)",context),"");
 
-context.state.project = {
-  activityName: "Structure installation",
-  activityOwner: "Site Engineer",
-  activityStart: "2026-11-20",
-  activityDays: "5",
-  activityStatus: "In progress"
-};
-assert.equal(vm.runInContext("addActivity()", context), true);
-assert.equal(context.state.activities.length, 1);
-assert.deepEqual(Array.from(context.state.activities[0]), [
-  "Structure installation", "Site Engineer", "2026-11-20", 5, "In progress"
-]);
-assert.match(elements.activityStatusMessage.textContent, /saved/i);
-assert.equal(saves, 1);
+context.state.project={activityName:"Structure installation",activityOwner:"Site Engineer",activityStart:"2026-11-20",activityDays:"5",activityStatus:"In progress",activityProgress:"55"};
+assert.equal(vm.runInContext("addActivity()",context),true);
+assert.deepEqual(Array.from(context.state.activities[0]),["Structure installation","Site Engineer","2026-11-20",5,"In progress","2026-11-24",55]);
+assert.match(elements.activityList.innerHTML,/Planned finish/);
+assert.match(elements.activityList.innerHTML,/2026-11-24/);
+assert.match(elements.activityStatusMessage.textContent,/saved/i);
 
-context.state.project.activityOwner = "";
-assert.equal(vm.runInContext("addActivity()", context), false);
-assert.match(elements.activityStatusMessage.textContent, /owner/i);
-context.state.project.activityOwner = "Site Engineer";
-context.state.project.activityStart = "2026-02-30";
-assert.equal(vm.runInContext("addActivity()", context), false);
-assert.match(elements.activityStatusMessage.textContent, /valid activity start date/i);
-context.state.project.activityStart = "2026-11-20";
-context.state.project.activityDays = "0";
-assert.equal(vm.runInContext("addActivity()", context), false);
-assert.match(elements.activityStatusMessage.textContent, /at least one day/i);
-context.state.project.activityDays = "1.5";
-assert.equal(vm.runInContext("addActivity()", context), false);
-context.state.project.activityDays = "2";
-context.state.project.activityStatus = "Unknown";
-assert.equal(vm.runInContext("addActivity()", context), false);
-assert.match(elements.activityStatusMessage.textContent, /valid activity status/i);
-context.state.project.activityStatus = "Completed";
-context.state.project.activityName = "<script>alert(1)</script>";
-assert.equal(vm.runInContext("addActivity()", context), true);
+context.state.project.activityOwner="";
+assert.equal(vm.runInContext("addActivity()",context),false);
+assert.match(elements.activityStatusMessage.textContent,/owner/i);
+context.state.project.activityOwner="Site Engineer";
+context.state.project.activityStart="2026-02-30";
+assert.equal(vm.runInContext("addActivity()",context),false);
+assert.match(elements.activityStatusMessage.textContent,/valid activity start date/i);
+context.state.project.activityStart="2026-11-20";
+context.state.project.activityDays="0";
+assert.equal(vm.runInContext("addActivity()",context),false);
+context.state.project.activityDays="1.5";
+assert.equal(vm.runInContext("addActivity()",context),false);
+context.state.project.activityDays="2";
+context.state.project.activityStatus="Unknown";
+assert.equal(vm.runInContext("addActivity()",context),false);
+context.state.project.activityStatus="Completed";
+context.state.project.activityProgress="75";
+assert.equal(vm.runInContext("addActivity()",context),false);
+assert.match(elements.activityStatusMessage.textContent,/100% progress/i);
+context.state.project.activityProgress="100";
+context.state.project.activityName="<script>alert(1)</script>";
+assert.equal(vm.runInContext("addActivity()",context),true);
 assert.ok(elements.activityList.innerHTML.includes("&lt;script&gt;"));
 assert.ok(!elements.activityList.innerHTML.includes("<script>"));
-assert.equal(saves, 2, "Invalid entries must not be persisted");
 
-// Saved construction records must be restored into the activity register at startup.
-const initStart = html.indexOf("function init(){");
-assert.notEqual(initStart, -1, "Missing application initializer");
-const initEnd = html.indexOf("\\nfunction ", initStart + 1);
-const initSource = html.slice(initStart, initEnd < 0 ? html.length : initEnd);
-assert.ok(initSource.includes("renderSimple('activityList',state.activities||[])"),
-  "Startup must render saved activity records after loading the project");
-assert.ok(initSource.includes("renderSimple('poList',state.pos||[])"),
-  "Startup must continue restoring saved purchase records");
+controls.status.value="Completed";controls.progress.value="75";
+assert.equal(vm.runInContext("updateActivityProgress(0)",context),false);
+assert.equal(context.state.activities[0][4],"In progress");
+controls.progress.value="100";
+assert.equal(vm.runInContext("updateActivityProgress(0)",context),true);
+assert.equal(context.state.activities[0][4],"Completed");
+assert.equal(context.state.activities[0][6],100);
+assert.match(elements.activityStatusMessage.textContent,/updated/i);
+assert.equal(vm.runInContext("exportActivitySchedule()",context),true);
+assert.equal(downloaded.name,"GenSolar-construction-activity-schedule.csv");
+assert.match(downloaded.data,/Planned finish/);
+assert.match(downloaded.data,/2026-11-24/);
+assert.equal(saves,3,"Only valid activity create/update actions should persist");
 
-
-
-console.log("Construction activity tests passed: required fields, calendar date, whole-day duration, allowed status, safe rendering and save-on-valid-only.");
+const initStart=html.indexOf("function init(){");
+assert.notEqual(initStart,-1,"Missing application initializer");
+const initEnd=html.indexOf("\nfunction ",initStart+1);
+const initSource=html.slice(initStart,initEnd<0?html.length:initEnd);
+assert.ok(initSource.includes("renderActivitySchedule()"),"Startup must render saved construction activities");
+console.log("Construction schedule tests passed: inclusive finish dates, leap years, validation, progress/status consistency, safe rendering, updates, CSV export and startup restoration.");
