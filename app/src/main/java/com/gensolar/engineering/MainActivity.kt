@@ -1667,25 +1667,77 @@ private fun NativeProcurementScreen(
 
     LaunchedEffect(Unit) { refresh() }
 
+    fun isValidIsoDate(value: String): Boolean = try {
+        java.time.LocalDate.parse(value.trim()).toString() == value.trim()
+    } catch (_: Exception) { false }
+
     fun savePo() {
+        val orderValue = amount.trim().toDoubleOrNull()
+        val quantity = orderedQty.trim().toDoubleOrNull()
+        if (ref.isBlank() || supplier.isBlank() || unit.isBlank()) {
+            message = "Enter the PO reference, supplier and unit."
+            return
+        }
+        if (orderValue == null || !orderValue.isFinite() || orderValue <= 0.0) {
+            message = "Order value must be a valid amount greater than zero."
+            return
+        }
+        if (quantity == null || !quantity.isFinite() || quantity <= 0.0) {
+            message = "Ordered quantity must be a valid number greater than zero."
+            return
+        }
+        if (!isValidIsoDate(deliveryDate)) {
+            message = "Enter a valid delivery date in YYYY-MM-DD format."
+            return
+        }
         val payload = JSONObject()
             .put("ref", ref.trim()).put("vendor", supplier.trim())
-            .put("amount", amount.toDoubleOrNull() ?: -1)
-            .put("qty", orderedQty.toDoubleOrNull() ?: -1)
+            .put("amount", orderValue).put("qty", quantity)
             .put("unit", unit.trim()).put("date", deliveryDate.trim()).put("status", "Ordered")
         browser.evaluateJavascript("window.GenSolarEpcBridge.createPurchaseOrder(" + payload + ")") { result ->
             if (result == "true") {
                 message = "Purchase order saved."
                 ref = ""; supplier = ""; amount = ""; orderedQty = ""
                 refresh()
-            } else message = "PO rejected. Check reference, supplier, value, quantity, unit and valid date."
+            } else message = "PO not saved. Check for a duplicate reference or invalid order details."
         }
     }
 
     fun saveReceipt() {
+        val quantity = receiptQty.trim().toDoubleOrNull()
+        val selectedPo = rows.firstOrNull { it.getOrElse(0) { "" } == receiptPo }
+        if (selectedPo == null) {
+            message = "Select a valid purchase order before recording a receipt."
+            return
+        }
+        if (receiver.isBlank()) {
+            message = "Enter the name of the person receiving the materials."
+            return
+        }
+        if (quantity == null || !quantity.isFinite() || quantity <= 0.0) {
+            message = "Received quantity must be a valid number greater than zero."
+            return
+        }
+        if (!isValidIsoDate(receiptDate)) {
+            message = "Enter a valid receipt date in YYYY-MM-DD format."
+            return
+        }
+        val ordered = selectedPo.getOrNull(5)?.toDoubleOrNull()
+        val poUnit = selectedPo.getOrNull(6)?.takeIf { it.isNotBlank() } ?: unit
+        if (ordered != null && ordered > 0.0) {
+            val alreadyReceived = receipts.filter {
+                it.getOrElse(0) { "" } == receiptPo &&
+                    it.getOrElse(2) { "" }.equals(poUnit, ignoreCase = true)
+            }.sumOf { it.getOrElse(1) { "0" }.toDoubleOrNull() ?: 0.0 }
+            val remaining = (ordered - alreadyReceived).coerceAtLeast(0.0)
+            if (quantity > remaining + 1e-9) {
+                message = "Receipt exceeds the remaining PO balance of " + "%.3f".format(remaining) + " " + poUnit + "."
+                return
+            }
+        }
         val payload = JSONObject()
-            .put("poRef", receiptPo).put("qty", receiptQty.toDoubleOrNull() ?: -1)
-            .put("unit", rows.firstOrNull { it.getOrElse(0) { "" } == receiptPo }?.getOrElse(6) { unit } ?: unit)
+            .put("poRef", receiptPo).put("qty", quantity)
+            .put("unit", poUnit)
             .put("date", receiptDate.trim()).put("condition", "Good")
             .put("receiver", receiver.trim()).put("documentRef", "").put("remarks", "")
         browser.evaluateJavascript("window.GenSolarEpcBridge.createGoodsReceipt(" + payload + ")") { result ->
@@ -1693,7 +1745,7 @@ private fun NativeProcurementScreen(
                 message = "Goods receipt saved and PO balance reconciled."
                 receiptQty = ""; receiver = ""
                 refresh()
-            } else message = "Receipt rejected. Check PO balance, quantity, date and receiver."
+            } else message = "Receipt not saved. Recheck the PO balance and receipt details."
         }
     }
 
