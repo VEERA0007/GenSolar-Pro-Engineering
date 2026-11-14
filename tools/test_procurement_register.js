@@ -13,13 +13,20 @@ const elements = {
   vendorTable: { innerHTML: "" },
   vendorStatusMessage: { textContent: "" },
   poStatusMessage: { textContent: "" },
-  poList: { innerHTML: "" }
+  poList: { innerHTML: "" },
+  poStatusRef: { value: "", innerHTML: "" },
+  poStatusHistory: { innerHTML: "" },
+  receiptPoRef: { value: "", innerHTML: "" },
+  goodsReceiptList: { innerHTML: "" },
+  receiptReconciliation: { innerHTML: "" }
 };
 const context = {
   state: {
     project: {},
     vendors: [],
-    pos: []
+    pos: [],
+    poHistory: [],
+    goodsReceipts: []
   },
   $: id => elements[id],
   save: () => true,
@@ -28,7 +35,7 @@ const context = {
   })[ch])
 };
 vm.createContext(context);
-for (const name of ["renderVendorTable", "addVendor", "renderSimple", "addPo"]) {
+for (const name of ["renderVendorTable", "addVendor", "renderSimple", "renderPoLifecycle", "renderGoodsReceipts", "addPo"]) {
   vm.runInContext(extract(name), context);
 }
 
@@ -58,6 +65,8 @@ context.state.project = {
   poRef: "PO-001",
   poVendor: "Supplier A",
   poValue: "250000",
+  poQty: "100",
+  poUnit: "Nos",
   poDate: "2026-12-15",
   poStatus: "Ordered"
 };
