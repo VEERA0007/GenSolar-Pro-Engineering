@@ -18,4 +18,10 @@ const layout=validate.validateImportedCadLayout([{x:1,y:2,w:2,h:1,zoneElevation:
 assert.equal(layout[0].zoneElevation,5);
 assert.equal(layout[0].zoneId,"ZONE-1");
 assert.throws(()=>validate.validateImportedCadLayout([{x:0,y:0,w:0,h:1}]),/invalid geometry/);
+
+assert.ok(source.includes("schema:'GenSolarCAD/2'"),"CAD export must use the versioned exchange schema");
+assert.ok(source.includes("roofZones:projectState.roofZones||[]"),"CAD export must carry roof-zone survey geometry");
+assert.ok(source.includes("layout:model.layout"),"CAD export must carry PV module placement");
+assert.ok(source.includes("localStorage.setItem('gensolar_epc_workspace_v1',JSON.stringify(nextState))"),"CAD import must persist the imported shared project state");
+assert.ok(source.includes("location.reload()"),"Importing roof-zone state must refresh the EPC workspace");
 console.log("CAD JSON roof-zone and PV-layout import validation tests passed.");
