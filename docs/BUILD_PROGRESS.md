@@ -19,11 +19,11 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 | 3D engineering | 30% | Conceptual 3D roof/building and PV visualization with independent layer visibility; multi-roof parametric model, structural components and synchronized drawing sections remain |
 | Structural and wind | 58% | Native Compose STAAD geometry/load inputs connected through the controlled bridge to the existing portal-frame model and STAAD export; complete code verification and engineer-reviewed release remain |
 | Electrical | 68% | Native Compose string-validation inputs connected to the existing temperature, MPPT, cable, protection and battery screening; full topology, coordination, earthing/lightning, transformer/HT and complete SLD remain |
-| Procurement and construction | 45% | Native BOM/BOQ generation from active PV design, editable rates, offline project save and Android CSV export; integrated RFQ/PO, vendor comparison, delivery, site execution and inspection workflows remain |
+| Procurement and construction | 46% | Native BOM/BOQ generation from active PV design, editable rates, offline project save and Android CSV export; integrated RFQ/PO, vendor comparison, delivery, site execution and inspection workflows remain |
 | Documents | 55% | DPR, schedules, PDF/print and backup foundations; revision-controlled drawing register, signatures, acceptance and cross-workspace snapshot assurance remain |
 | Quality and verification | 58% | CI HTML/Kotlin checks, engineering Node regressions, controlled-bridge validation and new BOM quantity/rate-preservation tests; latest push run, instrumented Android tests and broader end-to-end/offline/performance verification remain |
 
-**Calculation:** arithmetic mean of the 14 workspace scores = 48.36%, reported as **48.4%**.
+**Calculation:** arithmetic mean of the 14 workspace scores = 48.43%, reported as **48.4%**.
 
 ## Latest implementation (2026-11-13)
 
@@ -46,6 +46,13 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 - Added save-failure rollback: if local project persistence fails, the previous PO status and audit-history length are restored and the user receives a clear failure message. The UI register and lifecycle history are refreshed after successful persistence or rollback.
 - Expanded `tools/test_po_lifecycle.js` for allowed transitions, invalid/receipt-owned states, reverse-transition rejection, audit history and persistence rollback. The existing GitHub Actions workflow already runs this test file.
 - Commits: [`220d79a`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/220d79a2ef3fe7c25147ca63613d3285cb290d3c) and [`7a8f418`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/7a8f4186390b7db6e780af0ec2fe229e20e9d1d3). The latest commit currently has no reported CI status; do not count this implementation as build-verified until the workflow completes.
+
+## Latest implementation (2026-11-14 — supplier quote comparison)
+
+- Reworked supplier quotation display into a ranked comparison: lowest quoted amount first, then shorter delivery time for equal-price offers. The table shows rank, quoted amount, difference from the lowest offer, delivery days and escaped supplier notes. The screen explicitly reminds users to review technical specifications, warranty and commercial terms before award; lowest price is not treated as an automatic award decision.
+- Made quote creation transactional. Invalid entries are rejected before mutation, and a failed/throwing project save rolls the newly added quotation back instead of leaving unsaved data visible in the project.
+- Expanded `tools/test_procurement_register.js` to cover ranking, tie-break ordering, price differences, HTML escaping and save-failure rollback. The existing Android Actions workflow already executes this test.
+- Commits: [`ad48c93`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/ad48c93548e24d299454276df4423d63bde04874) and [`43b6c7e`](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/43b6c7e94e853bb69b3f54d78374683fa8c85264). CI has not reported a status for the latest commit yet.
 
 ## Current build verification state
 
