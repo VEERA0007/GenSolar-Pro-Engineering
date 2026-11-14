@@ -889,6 +889,36 @@ private fun NativePvDesignScreen(
             }
         }
         Button(onClick = {
+            fun number(value: String): Double? = value.trim().toDoubleOrNull()?.takeIf { it.isFinite() }
+            val capacityValue = number(capacity)
+            val modulePower = number(moduleWp)
+            val lengthValue = number(moduleLength)
+            val widthValue = number(moduleWidth)
+            val gapValue = number(moduleGap)
+            val rowCount = modulesPerRow.trim().toIntOrNull()
+            val altitudeValue = number(sunAltitude)
+            val factorValue = number(areaFactor)
+            val clearanceValue = number(obstacleClearance)
+            val corridorValue = number(corridorWidth)
+            val validationError = when {
+                capacityValue == null || capacityValue <= 0.0 || capacityValue > 100000.0 -> "Capacity must be between 0 and 100,000 kWp."
+                modulePower == null || modulePower !in 1.0..2000.0 -> "Module rating must be between 1 and 2,000 Wp."
+                lengthValue == null || lengthValue !in 1.0..3000.0 -> "Module length must be between 1 and 3,000 mm."
+                widthValue == null || widthValue !in 1.0..3000.0 -> "Module width must be between 1 and 3,000 mm."
+                orientation.trim().lowercase() !in setOf("auto", "portrait", "landscape") -> "Orientation must be auto, portrait or landscape."
+                gapValue == null || gapValue !in 0.0..200.0 -> "Module gap must be between 0 and 200 mm."
+                rowCount == null || rowCount !in 1..100 -> "Modules per row must be a whole number from 1 to 100."
+                altitudeValue == null || altitudeValue !in 0.0..90.0 -> "Sun altitude must be between 0 and 90 degrees."
+                factorValue == null || factorValue !in 0.1..3.0 -> "Planning area factor must be between 0.1 and 3.0."
+                clearanceValue == null || clearanceValue !in 0.0..20.0 -> "Obstacle clearance must be between 0 and 20 metres."
+                corridorEdge.trim().lowercase() !in setOf("left", "right", "top", "bottom", "none") -> "Edge corridor must be left, right, top, bottom or none."
+                corridorValue == null || corridorValue !in 0.0..20.0 -> "Corridor width must be between 0 and 20 metres."
+                else -> null
+            }
+            if (validationError != null) {
+                status = validationError
+                return@Button
+            }
             val values = linkedMapOf(
                 "capacity" to capacity, "wp" to moduleWp, "moduleLength" to moduleLength,
                 "moduleWidth" to moduleWidth, "orientation" to orientation.lowercase(),
