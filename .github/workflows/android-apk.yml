@@ -1531,6 +1531,8 @@ jobs:
         run: node tools/test_native_construction_bridge.js
       - name: Test native procurement project bridge
         run: node tools/test_native_procurement_bridge.js
+      - name: Test native supplier quotation bridge
+        run: node tools/test_native_procurement_bridge.js
       - name: Test native DPR document control bridge
         run: node tools/test_native_dpr_bridge.js
       - name: Test native commissioning QA bridge
