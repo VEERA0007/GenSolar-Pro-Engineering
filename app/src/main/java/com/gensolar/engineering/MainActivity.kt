@@ -2281,8 +2281,25 @@ private fun NativeConstructionScreen(
     fun createActivity() {
         val days = duration.toIntOrNull()
         val percent = progress.toIntOrNull()
-        if (activityName.isBlank() || owner.isBlank() || days == null || percent == null) {
-            message = "Enter activity, owner, whole-day duration and progress."
+        val parsedStart = try { java.time.LocalDate.parse(startDate.trim()) } catch (_: Exception) { null }
+        if (activityName.isBlank() || owner.isBlank()) {
+            message = "Enter both the activity name and responsible owner."
+            return
+        }
+        if (parsedStart == null || parsedStart.toString() != startDate.trim()) {
+            message = "Enter a valid planned start date in YYYY-MM-DD format."
+            return
+        }
+        if (days == null || days < 1) {
+            message = "Duration must be a whole number of at least one day."
+            return
+        }
+        if (percent == null || percent !in 0..100) {
+            message = "Progress must be a whole number from 0 to 100."
+            return
+        }
+        if ((status == "Completed" && percent != 100) || (status == "Not started" && percent != 0)) {
+            message = "Completed activities require 100%; Not started activities require 0%."
             return
         }
         val payload = JSONObject()
@@ -2309,8 +2326,12 @@ private fun NativeConstructionScreen(
 
     fun updateActivity(index: Int, nextStatus: String, nextProgress: String) {
         val percent = nextProgress.toIntOrNull()
-        if (percent == null) {
+        if (percent == null || percent !in 0..100) {
             message = "Progress must be a whole number from 0 to 100."
+            return
+        }
+        if ((nextStatus == "Completed" && percent != 100) || (nextStatus == "Not started" && percent != 0)) {
+            message = "Completed activities require 100%; Not started activities require 0%."
             return
         }
         val script = "window.GenSolarEpcBridge.updateActivity(" + index + "," + JSONObject.quote(nextStatus) + "," + percent + ")"
