@@ -1707,6 +1707,7 @@ private fun NativeProcurementScreen(
     var quoteAmount by remember { mutableStateOf("") }
     var quoteDays by remember { mutableStateOf("7") }
     var quoteNotes by remember { mutableStateOf("") }
+    var quoteRfqRef by remember { mutableStateOf("") }
     var rfqRef by remember { mutableStateOf("") }
     var rfqItem by remember { mutableStateOf("") }
     var rfqQty by remember { mutableStateOf("") }
@@ -1788,10 +1789,11 @@ private fun NativeProcurementScreen(
         }
         val payload = JSONObject().put("name", quoteSupplier.trim()).put("amount", quoted)
             .put("deliveryDays", days).put("notes", quoteNotes.trim())
+            .put("rfqRef", quoteRfqRef.trim())
         browser.evaluateJavascript("window.GenSolarEpcBridge.createVendorQuote(" + payload + ")") { result ->
             if (result == "true") {
                 message = "Supplier quotation saved and comparison updated."
-                quoteSupplier = ""; quoteAmount = ""; quoteDays = "7"; quoteNotes = ""
+                quoteSupplier = ""; quoteAmount = ""; quoteDays = "7"; quoteNotes = ""; quoteRfqRef = ""
                 refresh()
             } else message = "Quotation not saved. Check duplicate supplier name and values."
         }
@@ -1948,6 +1950,7 @@ private fun NativeProcurementScreen(
                     SurveyInput("Delivery days", quoteDays, { quoteDays = it }, Modifier.weight(1f))
                 }
                 SurveyInput("Commercial / warranty notes", quoteNotes, { quoteNotes = it })
+                SurveyInput("Linked RFQ reference (optional)", quoteRfqRef, { quoteRfqRef = it })
                 Button(onClick = { saveQuote() }, modifier = Modifier.fillMaxWidth()) { Text("Save supplier quotation") }
                 if (vendorRows.isEmpty()) Text("No supplier quotations recorded.", color = Color(0xFF60756E), fontSize = 12.sp)
                 vendorRows.forEachIndexed { index, row ->
@@ -1958,6 +1961,7 @@ private fun NativeProcurementScreen(
                             Text((if (index == 0) "LOWEST QUOTE  •  " else "RANK " + (index + 1) + "  •  ") + row.getOrElse(0) { "" }, color = BrandGreen, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             Text("₹" + "%,.2f".format(quote) + "  |  " + row.getOrElse(2) { "0" } + " delivery days  |  +" + "%,.2f".format((quote - lowest).coerceAtLeast(0.0)), color = Color(0xFF60756E), fontSize = 11.sp)
                             if (row.getOrElse(3) { "" }.isNotBlank()) Text(row[3], color = Color(0xFF60756E), fontSize = 10.sp)
+                            if (row.getOrElse(4) { "" }.isNotBlank()) Text("Linked RFQ: " + row[4], color = AccentGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             androidx.compose.material3.OutlinedButton(
                                 onClick = {
                                     supplier = row.getOrElse(0) { "" }
