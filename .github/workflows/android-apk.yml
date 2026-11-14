@@ -1241,7 +1241,7 @@ jobs:
           const assert=require("node:assert/strict"),vm=require("node:vm"),fs=require("node:fs");
           const box={innerHTML:""};
           const model={building:{height:6},layout:[{x:1,y:1,w:2,h:1}],hiddenLayers:[],entities:[{type:"rect",layer:"OBSTACLES",x:3,y:3,w:1,h:1}]};
-          const context={model,$:id=>id==="cad3d"?box:null,n:()=>6,
+          const context={model,state:{roofZones:[]},$:id=>id==="cad3d"?box:null,n:()=>6,
             roofPoly:()=>[{x:0,y:0},{x:10,y:0},{x:10,y:8},{x:0,y:8}]};
           vm.createContext(context);
           const script=fs.readFileSync(__filename,"utf8").split("// TEST HARNESS")[0];
