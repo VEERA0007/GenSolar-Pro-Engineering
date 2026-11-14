@@ -1487,7 +1487,7 @@ window.GenSolarEpcBridge = Object.freeze({
     const issuedTo = String(v.issuedTo || '').trim(), workPackage = String(v.workPackage || '').trim();
     const remarks = String(v.remarks || '').trim();
     if (!ref || !poRef || !item || !Number.isFinite(qty) || qty <= 0 || !issuedTo || !workPackage) return false;
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date + 'T00:00:00Z').toISOString().slice(0,10) !== date) return false;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date + 'T00:00:00Z').toISOString().slice(0,10) !== date) return false;
     const po = (Array.isArray(state.pos) ? state.pos : []).find(row => Array.isArray(row) && String(row[0] || '') === poRef);
     if (!po) return false;
     const lines = Array.isArray(po[8]) ? po[8] : [];
