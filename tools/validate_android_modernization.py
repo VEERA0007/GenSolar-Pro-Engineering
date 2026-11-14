@@ -84,6 +84,7 @@ require("bridge.clearElectrical()" in kotlin and "project.layout" in kotlin and 
 require(all(marker not in kotlin for marker in ("typeof state", "state.layout", "state.electrical", "typeof save", "staadGenerate()", "typeof model")), "Compose workspaces must not call private IIFE variables directly; use GenSolarEpcBridge")
 require("bridge.clearLayout()" in kotlin and "bridge.getProjectSummary()" in kotlin and "project.layout" in kotlin, "PV optimizer must clear stale results and read the shared project through the controlled bridge")
 require("BackHandler(enabled = selected != \"dashboard\")" in kotlin, "Android back navigation must return from workspaces to Home")
+require('"Received: %.3f %s  ·  Remaining: %.3f %s"' in kotlin and '"Delivery progress: %.1f%%"' in kotlin and "receivedReceiptQty / orderedReceiptQty" in kotlin, "Native goods receipt screen must show live received, remaining and delivery-progress values")
 require('browser.evaluateJavascript(' in kotlin and "window.GenSolarEpcBridge.navigate" in kotlin, "Native workspace navigation must call the controlled shared workspace router")
 for destination in ("location", "bom", "procurement", "construction", "dpr"):
     require(f'"{destination}"' in kotlin, "native dashboard or More menu destination missing: " + destination)
