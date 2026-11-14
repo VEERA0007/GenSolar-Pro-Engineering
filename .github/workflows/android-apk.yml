@@ -70,6 +70,8 @@ jobs:
         run: node tools/test_roof_zone_surface_area.js
       - name: Test PV layout allocation across roof zones
         run: node tools/test_multi_roof_layout.js
+      - name: Test multi-roof CAD bounds and 3D rendering
+        run: node tools/test_multi_roof_rendering.js
       - name: Test STAAD portal frame model and STAAD.Pro export
         run: |
           python3 - <<'PY'
