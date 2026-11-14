@@ -2147,7 +2147,8 @@ private fun NativeProcurementScreen(
                             Column(Modifier.fillMaxWidth().padding(11.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(stock.getOrElse(1) { "" } + " · " + stock.getOrElse(0) { "" }, color = BrandGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 Text("Ordered: " + stock.getOrElse(3) { "0" } + " " + stock.getOrElse(2) { "" } + " · Received: " + stock.getOrElse(4) { "0" }, color = Color(0xFF60756E), fontSize = 10.sp)
-                                Text("Available (Good): " + stock.getOrElse(5) { "0" } + " · Short: " + stock.getOrElse(6) { "0" } + " · Damaged: " + stock.getOrElse(7) { "0" } + " · Quarantined: " + stock.getOrElse(8) { "0" }, color = Color(0xFF60756E), fontSize = 10.sp)
+                                Text("Good received: " + stock.getOrElse(5) { "0" } + " · Issued: " + stock.getOrElse(10) { "0" } + " · On hand: " + stock.getOrElse(11) { "0" }, color = BrandGreen, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Short: " + stock.getOrElse(6) { "0" } + " · Damaged: " + stock.getOrElse(7) { "0" } + " · Quarantined: " + stock.getOrElse(8) { "0" }, color = Color(0xFF60756E), fontSize = 10.sp)
                                 Text("Pending delivery: " + stock.getOrElse(9) { "0" } + " " + stock.getOrElse(2) { "" }, color = AccentGreen, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
