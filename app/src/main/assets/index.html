@@ -1182,6 +1182,18 @@ window.GenSolarEpcBridge = Object.freeze({
       receipts: Array.isArray(state.goodsReceipts) ? state.goodsReceipts : []
     }));
   },
+  createVendorQuote: function(input) {
+    const v = input || {}, name = String(v.name || '').trim(), amount = Number(v.amount);
+    const days = Number(v.deliveryDays), notes = String(v.notes || '').trim();
+    if (!name || !Number.isFinite(amount) || amount <= 0 || !Number.isInteger(days) || days < 0) return false;
+    state.vendors = Array.isArray(state.vendors) ? state.vendors : [];
+    if (state.vendors.some(row => Array.isArray(row) && String(row[0] || '').trim().toLowerCase() === name.toLowerCase())) return false;
+    const row = [name, amount, days, notes];
+    state.vendors.push(row);
+    if (!save()) { state.vendors.pop(); return false; }
+    if (typeof renderVendorTable === 'function') renderVendorTable();
+    return true;
+  },
   createPurchaseOrder: function(input) {
     const v = input || {}, ref = String(v.ref || '').trim(), vendor = String(v.vendor || '').trim();
     const amount = Number(v.amount), qty = Number(v.qty), unit = String(v.unit || '').trim();
