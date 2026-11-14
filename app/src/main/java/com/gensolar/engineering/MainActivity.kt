@@ -1837,7 +1837,9 @@ private fun NativeProcurementScreen(
             message = "Enter the PO reference and supplier."
             return
         }
-        val lines = poLineItems.lineSequence().map { it.trim() }.filter { it.isNotBlank() }.mapIndexed { index, line ->
+        val lines = mutableListOf<JSONObject>()
+        val rawLines = poLineItems.lineSequence().map { it.trim() }.filter { it.isNotBlank() }.toList()
+        for ((index, line) in rawLines.withIndex()) {
             val parts = line.split("|").map { it.trim() }
             if (parts.size != 4 || parts[0].isBlank() || parts[2].isBlank()) {
                 message = "Line ${index + 1}: use Description | Quantity | Unit | Rate."
@@ -1849,8 +1851,8 @@ private fun NativeProcurementScreen(
                 message = "Line ${index + 1}: quantity and rate must be greater than zero."
                 return
             }
-            JSONObject().put("item", parts[0]).put("qty", lineQty).put("unit", parts[2]).put("rate", lineRate)
-        }.toList()
+            lines.add(JSONObject().put("item", parts[0]).put("qty", lineQty).put("unit", parts[2]).put("rate", lineRate))
+        }
         if (lines.isEmpty() || lines.size > 30) {
             message = "Add between 1 and 30 valid PO material lines."
             return
