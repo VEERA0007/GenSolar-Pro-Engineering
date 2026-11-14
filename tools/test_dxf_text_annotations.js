@@ -31,6 +31,7 @@ const html=preview(result);
 assert.ok(html.includes("<text"),"Text annotations must appear in the SVG preview");
 assert.ok(html.includes("Main roof | EL 6.25 m | PITCH 12.5 deg"));
 assert.ok(html.includes("PV layout"),"MTEXT annotations must appear in the preview");
+assert.ok(html.includes("Revision 3"),"MTEXT paragraph after DXF \\P must render on a separate line");
 const unsafe=parsed(["0","SECTION","2","ENTITIES","0","TEXT","8","NOTES","10","0","20","0","40","1","1","<script>alert(1)</script>","0","ENDSEC","0","EOF"].join("\n"));
 assert.ok(preview(unsafe).includes("&lt;script&gt;alert(1)&lt;/script&gt;"),"DXF text must be HTML escaped");
 assert.ok(!preview(unsafe).includes("<script>alert(1)</script>"),"DXF text must not inject SVG markup");
