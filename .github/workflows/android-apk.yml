@@ -1117,7 +1117,10 @@ jobs:
           assert.equal(parsed.counts.LINE,1);
           assert.equal(parsed.counts.CIRCLE,1);
           assert.equal(parsed.counts.LWPOLYLINE,1);
-          assert.equal(parsed.counts.POINT,1);\n          assert.equal(parsed.counts.POLYLINE,1);\n          const legacy=parsed.entities.find(x=>x.type==="POLYLINE");\n          assert.equal(legacy.closed,true);\n          assert.equal(legacy.vertices.length,3);
+          assert.equal(parsed.counts.POINT,1);
+          assert.equal(parsed.counts.POLYLINE,1);\n          const legacy=parsed.entities.find(x=>x.type==="POLYLINE");
+          assert.equal(legacy.closed,true);
+          assert.equal(legacy.vertices.length,3);
           const poly=parsed.entities.find(x=>x.type==="LWPOLYLINE");
           assert.equal(poly.closed,true);
           assert.equal(poly.vertices.length,3);
@@ -1155,7 +1158,8 @@ jobs:
           const html=renderImportedDxf(data);
           for(const tag of ["<svg","<line","<circle","<path","<polyline","Imported DXF drawing preview"])
             assert.ok(html.includes(tag),"Missing preview output: "+tag);
-          assert.ok(html.includes("<polygon")||html.includes("<polyline"),"Legacy and lightweight polylines must render");\n          assert.ok(html.includes("&lt;img src=x onerror=alert(1)&gt;"),"Layer labels must be HTML-escaped");
+          assert.ok(html.includes("<polygon")||html.includes("<polyline"),"Legacy and lightweight polylines must render");
+          assert.ok(html.includes("&lt;img src=x onerror=alert(1)&gt;"),"Layer labels must be HTML-escaped");
           assert.ok(!html.includes("<img src=x onerror=alert(1)>"),"Untrusted layer text must not become markup");
           assert.ok(html.includes('viewBox="0 0 900 540"'),"Preview must use the fixed viewBox");
           assert.match(renderImportedDxf({bounds:null,layers:[],entities:[]}),/No supported DXF geometry/);
@@ -1241,7 +1245,9 @@ jobs:
           assert.equal(model.entities[1].type,"poly");assert.equal(model.entities[1].closed,true);
           assert.equal(model.entities[2].r,.1);
           assert.ok(model.entities[3].points.length>=8,"ARC should be approximated by a CAD polyline");
-          assert.equal(model.entities[4].type,"poly","Legacy POLYLINE must convert to editable CAD polygon");\n          assert.equal(model.entities[4].closed,true);\n          assert.equal(model.entities[5].type,"text","DXF TEXT must become editable CAD text");
+          assert.equal(model.entities[4].type,"poly","Legacy POLYLINE must convert to editable CAD polygon");
+          assert.equal(model.entities[4].closed,true);
+          assert.equal(model.entities[5].type,"text","DXF TEXT must become editable CAD text");
           assert.equal(model.entities[5].x,.1,"DXF text insertion point must convert from mm to metres");
           assert.equal(model.entities[5].height,.18,"DXF text height must convert from mm to metres");
           assert.equal(model.entities[5].rotation,15,"DXF text rotation must be retained");
