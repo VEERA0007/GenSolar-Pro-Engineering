@@ -1772,14 +1772,14 @@ private data class NativeCadViewport(val scale: Float, val offsetX: Float, val o
 
 private fun parseNativeCadSnapshot(json: JSONObject): NativeCadSnapshot {
     val rows = json.optJSONArray("entities") ?: org.json.JSONArray()
+    fun point(value: JSONObject?): NativeCadPoint? {
+        if (value == null) return null
+        val x = value.optDouble("x", Double.NaN)
+        val y = value.optDouble("y", Double.NaN)
+        return if (x.isFinite() && y.isFinite()) NativeCadPoint(x, y) else null
+    }
     val entities = (0 until rows.length()).mapNotNull { index ->
         val row = rows.optJSONObject(index) ?: return@mapNotNull null
-        fun point(value: JSONObject?): NativeCadPoint? {
-            if (value == null) return null
-            val x = value.optDouble("x", Double.NaN)
-            val y = value.optDouble("y", Double.NaN)
-            return if (x.isFinite() && y.isFinite()) NativeCadPoint(x, y) else null
-        }
         val pointsArray = row.optJSONArray("points") ?: org.json.JSONArray()
         val points = (0 until pointsArray.length()).mapNotNull { point(pointsArray.optJSONObject(it)) }
         NativeCadEntity(
