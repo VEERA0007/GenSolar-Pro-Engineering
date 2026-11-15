@@ -1102,7 +1102,7 @@ const n=(id,d=0)=>{const v=Number($(id)?.value);return Number.isFinite(v)?v:d};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const snap=v=>{const g=n('cadSnap',.25);return g>0?Math.round(v/g)*g:v};
 const activeLayer=()=> $('cadLayer')?.value||'ROOF';
-function saveUndo(){model.undo.push(JSON.stringify({entities:model.entities,layout:model.layout,underlay:model.underlay,building:model.building,outputs:model.outputs}));if(model.undo.length>40)model.undo.shift()}
+function saveUndo(){model.undo.push(JSON.stringify({entities:model.entities,layout:model.layout,underlay:model.underlay,building:model.building,outputs:model.outputs,hiddenLayers:model.hiddenLayers||[]}));if(model.undo.length>40)model.undo.shift()}
 window.gensolarImportDxf=function(data){
  const factors={1:.0254,2:.3048,4:.001,5:.01,6:1,7:1000,10:.9144},factor=factors[data?.units];
  if(!Number.isFinite(factor))return{count:0,message:'Editable CAD handoff skipped: DXF units are unitless or unsupported. Set/confirm units in the source drawing first.'};
@@ -1138,7 +1138,7 @@ function renderLayerVisibility(){
   draw();render3d();save();
  }));
 }
-function save(){try{localStorage.setItem(STORE,JSON.stringify(model));localStorage.setItem(CAT,JSON.stringify(model.catalogue));$('studioStatus').textContent='Saved locally · '+new Date().toLocaleString();}catch(e){$('studioStatus').textContent='Save failed: '+e.message}}
+function save(){try{localStorage.setItem(STORE,JSON.stringify(model));localStorage.setItem(CAT,JSON.stringify(model.catalogue));$('studioStatus').textContent='Saved locally · '+new Date().toLocaleString();return true}catch(e){$('studioStatus').textContent='Save failed: '+e.message;return false}}
 function load(){try{const v=JSON.parse(localStorage.getItem(STORE)||'null');if(v&&v.version===1){model.entities=v.entities||[];model.layout=v.layout||[];model.building=v.building||model.building;model.outputs=v.outputs||{};model.hiddenLayers=Array.isArray(v.hiddenLayers)?v.hiddenLayers:[];model.underlay=v.underlay||null;syncUnderlayControls();}const c=JSON.parse(localStorage.getItem(CAT)||'[]');model.catalogue=Array.isArray(c)?c:[];refreshCatalogue();renderLayerVisibility();draw();render3d();renderLayout();$('studioStatus').textContent='Loaded local workspace.';}catch(e){$('studioStatus').textContent='Saved workspace could not be read: '+e.message}}
 function openStudio(){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='cadstudio'));document.querySelectorAll('[data-foot]').forEach(b=>b.classList.toggle('active',b.dataset.foot==='cadstudio'));document.querySelectorAll('.stage').forEach(b=>b.classList.toggle('active',b.dataset.stage==='engineering'));document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));draw();render3d();refreshCatalogue();renderLayout()}
 function addEntity(e){e.id=e.id||uid();e.layer=e.layer||activeLayer();model.entities.push(e);return e}
@@ -1186,7 +1186,7 @@ canvas.addEventListener('pointerup',()=>{if(drag){drag=null;draw();render3d();sa
 canvas.addEventListener('dblclick',ev=>{if(model.activeTool==='poly'){ev.preventDefault();if(model.pending.length>2)finishPoly()}});
 function setTool(t){model.activeTool=t;model.pending=[];document.querySelectorAll('[data-cad-tool]').forEach(b=>{b.classList.toggle('gold',b.dataset.cadTool===t);b.classList.toggle('alt',b.dataset.cadTool!==t)});$('cadHint').textContent=t==='poly'?'Tap points around the roof boundary. Double-click to close the polygon.':'Active tool: '+t+'. Tap/click in the drawing to create or edit geometry.';draw()}
 document.querySelectorAll('[data-cad-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.cadTool)));
-$('cadUndo').onclick=()=>{const v=model.undo.pop();if(v){const p=JSON.parse(v);model.entities=p.entities;model.layout=p.layout;model.underlay=p.underlay||null;syncUnderlayControls();model.building=p.building;model.outputs=p.outputs;draw();render3d();renderLayout();save()}};
+$('cadUndo').onclick=()=>{const v=model.undo.pop();if(v){const p=JSON.parse(v);model.entities=p.entities;model.layout=p.layout;model.underlay=p.underlay||null;syncUnderlayControls();model.building=p.building;model.outputs=p.outputs;model.hiddenLayers=p.hiddenLayers||[];draw();render3d();renderLayout();save()}};
 $('cadDuplicate').onclick=()=>{const e=model.entities.find(x=>x.id===model.selected);if(!e)return;saveUndo();const copy=duplicateCadEntity(e);model.entities.push(copy);model.selected=copy.id;draw();render3d();save()};
 $('cadRotate').onclick=()=>{const e=model.entities.find(x=>x.id===model.selected);if(!e)return;if(e.type==='circle'){$('cadHint').textContent='A circle is rotationally symmetric; no rotation is needed.';return}saveUndo();rotateCadEntity(e);draw();render3d();save()};
 $('cadDelete').onclick=()=>{if(model.selected){saveUndo();model.entities=model.entities.filter(e=>e.id!==model.selected);model.selected=null;draw();render3d();save()}};
@@ -1248,6 +1248,26 @@ $('cadLayer').onchange=draw;$('cadSnap').onchange=draw;
 const footer=document.querySelector('.foot');if(footer&&!footer.querySelector('[data-foot="cadstudio"]')){const b=document.createElement('button');b.dataset.foot='cadstudio';b.innerHTML='<b>⌗</b>CAD / 3D';b.onclick=openStudio;footer.insertBefore(b,footer.lastElementChild)}
 document.querySelectorAll('[data-open="cadstudio"]').forEach(b=>b.onclick=openStudio);
 load();setTool('select');draw();
+function translateCadEntity(entity,dx,dy){
+ if(!entity||!Number.isFinite(dx)||!Number.isFinite(dy))return false;
+ if(entity.type==='rect'||entity.type==='circle'||entity.type==='text'){entity.x+=dx;entity.y+=dy}
+ else if(entity.type==='line'||entity.type==='dim'){if(!entity.a||!entity.b)return false;entity.a.x+=dx;entity.a.y+=dy;entity.b.x+=dx;entity.b.y+=dy}
+ else if(entity.type==='poly'){if(!Array.isArray(entity.points))return false;entity.points.forEach(point=>{point.x+=dx;point.y+=dy})}
+ else return false;
+ return true;
+}
+function cadCaptureState(){
+ return JSON.parse(JSON.stringify({entities:model.entities||[],layout:model.layout||[],underlay:model.underlay||null,building:model.building||{},outputs:model.outputs||{},hiddenLayers:model.hiddenLayers||[],selected:model.selected||null}));
+}
+function cadRestoreState(snapshot,undoLength){
+ model.entities=snapshot.entities;model.layout=snapshot.layout;model.underlay=snapshot.underlay;model.building=snapshot.building;model.outputs=snapshot.outputs;model.hiddenLayers=snapshot.hiddenLayers;model.selected=snapshot.selected;model.undo.length=undoLength;
+ renderLayerVisibility();draw();render3d();
+}
+function cadCommitMutation(snapshot,undoLength){
+ let saved=false;try{saved=save()===true}catch(error){saved=false}
+ if(!saved){cadRestoreState(snapshot,undoLength);return false}
+ renderLayerVisibility();draw();render3d();return true;
+}
 window.GenSolarEpcBridge = Object.freeze({
   version: 1,
   navigate: function(destination) {
@@ -1626,7 +1646,68 @@ window.GenSolarEpcBridge = Object.freeze({
     }));
   },
   getCadSnapshot: function() {
-    return JSON.parse(JSON.stringify({building:model.building||{},entities:model.entities||[]}));
+    return JSON.parse(JSON.stringify({
+      building:model.building||{},
+      entities:model.entities||[],
+      layout:model.layout||[],
+      selected:model.selected||'',
+      hiddenLayers:Array.isArray(model.hiddenLayers)?model.hiddenLayers:[]
+    }));
+  },
+  selectCadEntityAt: function(xValue, yValue) {
+    const x=Number(xValue),y=Number(yValue);
+    if(!Number.isFinite(x)||!Number.isFinite(y))return false;
+    const entity=hit({x,y});
+    model.selected=entity?String(entity.id):null;
+    draw();
+    return model.selected||false;
+  },
+  moveCadEntity: function(id, dxValue, dyValue) {
+    const key=String(id||''),dx=Number(dxValue),dy=Number(dyValue);
+    const entity=(model.entities||[]).find(item=>String(item.id)===key);
+    if(!entity||!Number.isFinite(dx)||!Number.isFinite(dy)||Math.abs(dx)>10000||Math.abs(dy)>10000)return false;
+    const before=cadCaptureState(),undoLength=model.undo.length;
+    saveUndo();
+    if(!translateCadEntity(entity,dx,dy)){model.undo.length=undoLength;return false}
+    return cadCommitMutation(before,undoLength);
+  },
+  duplicateCadEntity: function(id) {
+    const entity=(model.entities||[]).find(item=>String(item.id)===String(id||''));
+    if(!entity)return false;
+    const before=cadCaptureState(),undoLength=model.undo.length;
+    saveUndo();
+    const copy=duplicateCadEntity(entity);
+    if(!copy||!copy.id){model.undo.length=undoLength;return false}
+    model.entities.push(copy);model.selected=copy.id;
+    return cadCommitMutation(before,undoLength)?copy.id:false;
+  },
+  rotateCadEntityBy90: function(id) {
+    const entity=(model.entities||[]).find(item=>String(item.id)===String(id||''));
+    if(!entity||entity.type==='circle')return false;
+    const before=cadCaptureState(),undoLength=model.undo.length;
+    saveUndo();
+    if(!rotateCadEntity(entity)){model.undo.length=undoLength;return false}
+    return cadCommitMutation(before,undoLength);
+  },
+  deleteCadEntity: function(id) {
+    const key=String(id||''),index=(model.entities||[]).findIndex(item=>String(item.id)===key);
+    if(index<0)return false;
+    const before=cadCaptureState(),undoLength=model.undo.length;
+    saveUndo();model.entities.splice(index,1);
+    if(String(model.selected||'')===key)model.selected=null;
+    return cadCommitMutation(before,undoLength);
+  },
+  setCadLayerVisible: function(layerValue, visibleValue) {
+    const layer=String(layerValue||'').trim().slice(0,80),visible=visibleValue===true;
+    if(!layer)return false;
+    model.hiddenLayers=Array.isArray(model.hiddenLayers)?model.hiddenLayers:[];
+    const hidden=model.hiddenLayers.includes(layer);
+    if(visible===!hidden)return false;
+    const before=cadCaptureState(),undoLength=model.undo.length;
+    saveUndo();
+    model.hiddenLayers=visible?model.hiddenLayers.filter(item=>item!==layer):model.hiddenLayers.concat([layer]);
+    if(!visible){const selected=(model.entities||[]).find(item=>String(item.id)===String(model.selected||''));if(selected&&selected.layer===layer)model.selected=null}
+    return cadCommitMutation(before,undoLength);
   },
   saveProject: function() {
     return save();
