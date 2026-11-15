@@ -124,6 +124,7 @@ function createHarness(saveResult = true) {
   assert.equal(roof.h,10);
   assert.equal(h.bridge.rotateCadEntityBy90("circle-1"),false,"Rotationally symmetric circles are not modified");
 
+  h.model.selected="poly-1";
   assert.equal(h.bridge.setCadLayerVisible("OBSTACLES",false),true);
   assert.ok(h.model.hiddenLayers.includes("OBSTACLES"));
   assert.equal(h.model.selected,null,"Hiding the selected layer must clear selection");
