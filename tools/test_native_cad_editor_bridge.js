@@ -87,7 +87,7 @@ function createHarness(saveResult = true) {
   };
   vm.createContext(context);
   vm.runInContext(transforms + "\n" + helpers + "\n" + bridge, context);
-  return {bridge:context.window.GenSolarEpcBridge,model};
+  return {bridge:context.window.GenSolarEpcBridge,model,state};
 }
 
 {
