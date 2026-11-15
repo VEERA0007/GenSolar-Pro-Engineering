@@ -98,6 +98,11 @@ require('browser.evaluateJavascript(' in kotlin and "window.GenSolarEpcBridge.na
 for destination in ("location", "bom", "procurement", "construction", "dpr"):
     require(f'"{destination}"' in kotlin, "native dashboard or More menu destination missing: " + destination)
 
+require("NativeCadPreview(" in kotlin and "private fun NativeCadPreview(" in kotlin and "ComposeCanvas(" in kotlin and "detectTapGestures" in kotlin, "Native CAD editor must render and hit-select shared project geometry in Compose")
+require("b.moveCadEntity(" in kotlin and "b.duplicateCadEntity(" in kotlin and "b.rotateCadEntityBy90(" in kotlin and "b.deleteCadEntity(" in kotlin and "b.setCadLayerVisible(" in kotlin, "Native CAD controls must invoke real shared-model edit operations")
+require(all(marker in html for marker in ("selectCadEntityAt: function(", "moveCadEntity: function(", "duplicateCadEntity: function(", "rotateCadEntityBy90: function(", "deleteCadEntity: function(", "setCadLayerVisible: function(", "cadCommitMutation(", "translateCadEntity(")), "Controlled CAD bridge must expose transactional selection, editing and layer operations")
+require((ROOT / "tools/test_native_cad_editor_bridge.js").exists(), "Native CAD bridge regression test missing")
+subprocess.run(["node", str(ROOT / "tools/test_native_cad_editor_bridge.js")], cwd=ROOT, check=True)
 solver = ROOT / "app/src/main/assets/structural_solver.js"
 require(solver.exists() and "GenSolarStructuralSolver" in solver.read_text(encoding="utf-8"), "Inbuilt structural solver asset missing")
 require("staadRunAnalysis" in html and "staadAnalysisSchedule" in html, "Inbuilt structural analysis UI is not wired")
