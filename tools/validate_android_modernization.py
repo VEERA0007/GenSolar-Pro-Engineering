@@ -98,6 +98,7 @@ require('browser.evaluateJavascript(' in kotlin and "window.GenSolarEpcBridge.na
 for destination in ("location", "bom", "procurement", "construction", "dpr"):
     require(f'"{destination}"' in kotlin, "native dashboard or More menu destination missing: " + destination)
 
+require("snapshot.layout.forEach" in kotlin and "snapshot.roofZones.forEach" in kotlin and "layout:model.layout||[]" in html and "roofZones:Array.isArray(state.roofZones)" in html, "Native CAD preview must render actual PV modules and surveyed roof zones")
 require("NativeCadPreview(" in kotlin and "private fun NativeCadPreview(" in kotlin and "ComposeCanvas(" in kotlin and "detectTapGestures" in kotlin, "Native CAD editor must render and hit-select shared project geometry in Compose")
 require("b.moveCadEntity(" in kotlin and "b.duplicateCadEntity(" in kotlin and "b.rotateCadEntityBy90(" in kotlin and "b.deleteCadEntity(" in kotlin and "b.setCadLayerVisible(" in kotlin, "Native CAD controls must invoke real shared-model edit operations")
 require(all(marker in html for marker in ("selectCadEntityAt: function(", "moveCadEntity: function(", "duplicateCadEntity: function(", "rotateCadEntityBy90: function(", "deleteCadEntity: function(", "setCadLayerVisible: function(", "cadCommitMutation(", "translateCadEntity(")), "Controlled CAD bridge must expose transactional selection, editing and layer operations")
