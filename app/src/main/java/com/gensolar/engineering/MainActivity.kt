@@ -1494,7 +1494,7 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
     var status by remember { mutableStateOf("Loading the active project CAD model…") }
     val area = (roofLength.toDoubleOrNull() ?: 0.0) * (roofWidth.toDoubleOrNull() ?: 0.0)
     val selected = snapshot.entities.firstOrNull { it.id == snapshot.selectedId }
-    val layers = (listOf("ROOF", "WALLS", "OBSTACLES", "DIMENSIONS", "PV_MODULES", "GENERAL") +
+    val layers = (listOf("ROOF", "WALLS", "OBSTACLES", "DIMENSIONS", "PV_MODULES", "ROOF_ZONES", "GENERAL") +
         snapshot.entities.map { it.layer }).filter { it.isNotBlank() }.distinct().sorted()
 
     fun readSnapshot(updateStatus: Boolean = true) {
@@ -1642,7 +1642,7 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
                     Text("02  NATIVE 2D DRAWING", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                     TextButton(onClick = { readSnapshot() }) { Text("Refresh") }
                 }
-                Text(snapshot.entities.size.toString() + " entities · " + snapshot.hiddenLayers.size.toString() + " hidden layers", color = Color(0xFF60756E), fontSize = 10.sp)
+                Text(snapshot.entities.size.toString() + " entities · " + snapshot.layout.size.toString() + " PV modules · " + snapshot.roofZones.size.toString() + " roof zones", color = Color(0xFF60756E), fontSize = 10.sp)
                 NativeCadPreview(
                     snapshot = snapshot,
                     onSelect = { x, y ->
@@ -1746,8 +1746,14 @@ private data class NativeCadEntity(
     val closed: Boolean = false
 )
 
+private data class NativeCadModule(val x: Double, val y: Double, val width: Double, val height: Double)
+
+private data class NativeCadRoofZone(val name: String, val vertices: List<NativeCadPoint>)
+
 private data class NativeCadSnapshot(
     val entities: List<NativeCadEntity> = emptyList(),
+    val layout: List<NativeCadModule> = emptyList(),
+    val roofZones: List<NativeCadRoofZone> = emptyList(),
     val selectedId: String = "",
     val hiddenLayers: Set<String> = emptySet()
 )
@@ -1791,12 +1797,36 @@ private fun parseNativeCadSnapshot(json: JSONObject): NativeCadSnapshot {
             closed = row.optBoolean("closed", false)
         )
     }
+    val moduleRows = json.optJSONArray("layout") ?: org.json.JSONArray()
+    val layout = (0 until moduleRows.length()).mapNotNull { index ->
+        val row = moduleRows.optJSONObject(index) ?: return@mapNotNull null
+        val x = row.optDouble("x", Double.NaN)
+        val y = row.optDouble("y", Double.NaN)
+        val width = row.optDouble("w", Double.NaN)
+        val height = row.optDouble("h", Double.NaN)
+        if (x.isFinite() && y.isFinite() && width.isFinite() && height.isFinite() && width > 0 && height > 0) {
+            NativeCadModule(x, y, width, height)
+        } else null
+    }
+    val zoneRows = json.optJSONArray("roofZones") ?: org.json.JSONArray()
+    val roofZones = (0 until zoneRows.length()).mapNotNull { index ->
+        val row = zoneRows.optJSONObject(index) ?: return@mapNotNull null
+        val vertices = row.optJSONArray("vertices") ?: org.json.JSONArray()
+        val points = (0 until vertices.length()).mapNotNull { point(vertices.optJSONObject(it)) }
+        if (points.size >= 3) NativeCadRoofZone(row.optString("name", "Roof zone"), points) else null
+    }
     val hidden = json.optJSONArray("hiddenLayers") ?: org.json.JSONArray()
     val hiddenLayers = (0 until hidden.length()).map { hidden.optString(it) }.filter { it.isNotBlank() }.toSet()
-    return NativeCadSnapshot(entities, json.optString("selected"), hiddenLayers)
+    return NativeCadSnapshot(
+        entities = entities,
+        layout = layout,
+        roofZones = roofZones,
+        selectedId = json.optString("selected"),
+        hiddenLayers = hiddenLayers
+    )
 }
 
-private fun nativeCadBounds(entities: List<NativeCadEntity>): NativeCadBounds {
+private fun nativeCadBounds(entities: List<NativeCadEntity>, layout: List<NativeCadModule>, roofZones: List<NativeCadRoofZone>): NativeCadBounds {
     val xs = mutableListOf<Double>()
     val ys = mutableListOf<Double>()
     fun add(point: NativeCadPoint) {
@@ -1805,6 +1835,11 @@ private fun nativeCadBounds(entities: List<NativeCadEntity>): NativeCadBounds {
             ys += point.y
         }
     }
+    layout.forEach { module ->
+        add(NativeCadPoint(module.x, module.y))
+        add(NativeCadPoint(module.x + module.width, module.y + module.height))
+    }
+    roofZones.forEach { zone -> zone.vertices.forEach(::add) }
     entities.forEach { entity ->
         when (entity.type) {
             "rect" -> {
@@ -1851,7 +1886,7 @@ private fun NativeCadPreview(
     modifier: Modifier = Modifier,
     onSelect: (Double, Double) -> Unit
 ) {
-    val bounds = remember(snapshot.entities) { nativeCadBounds(snapshot.entities) }
+    val bounds = remember(snapshot.entities, snapshot.layout, snapshot.roofZones) { nativeCadBounds(snapshot.entities, snapshot.layout, snapshot.roofZones) }
     ComposeCanvas(
         modifier = modifier.fillMaxWidth().height(300.dp).pointerInput(snapshot.entities, bounds) {
             detectTapGestures { tap ->
@@ -1868,6 +1903,32 @@ private fun NativeCadPreview(
             viewport.offsetX + point.x.toFloat() * viewport.scale,
             viewport.offsetY - point.y.toFloat() * viewport.scale
         )
+        if ("ROOF_ZONES" !in snapshot.hiddenLayers) {
+            snapshot.roofZones.forEach { zone ->
+                if (zone.vertices.size >= 3) {
+                    val path = Path().apply {
+                        val first = screen(zone.vertices.first())
+                        moveTo(first.x, first.y)
+                        zone.vertices.drop(1).forEach { point ->
+                            val mapped = screen(point)
+                            lineTo(mapped.x, mapped.y)
+                        }
+                        close()
+                    }
+                    drawPath(path, Color(0xFF0A805C).copy(alpha = 0.10f))
+                    drawPath(path, Color(0xFF0A805C), style = Stroke(1.2f))
+                }
+            }
+        }
+        if ("PV_MODULES" !in snapshot.hiddenLayers) {
+            snapshot.layout.forEach { module ->
+                val topLeft = screen(NativeCadPoint(module.x, module.y + module.height))
+                val bottomRight = screen(NativeCadPoint(module.x + module.width, module.y))
+                val moduleSize = Size((bottomRight.x - topLeft.x).coerceAtLeast(0.5f), (bottomRight.y - topLeft.y).coerceAtLeast(0.5f))
+                drawRect(Color(0xFF2476B8).copy(alpha = 0.28f), topLeft, moduleSize)
+                drawRect(Color(0xFF2476B8), topLeft, moduleSize, style = Stroke(1.0f))
+            }
+        }
         snapshot.entities.forEach { entity ->
             if (entity.layer in snapshot.hiddenLayers) return@forEach
             val color = when (entity.layer) {
