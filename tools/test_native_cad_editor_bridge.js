@@ -66,15 +66,16 @@ function createHarness(saveResult = true) {
     ],
     selected:"roof-1",
     hiddenLayers:[],
-    layout:[],
+    layout:[{x:1,y:1,w:1.2,h:2}],
     underlay:null,
     building:{height:6,thickness:0.2},
     outputs:{},
     undo:[]
   };
+  const state={roofZones:[{id:"zone-1",name:"Main roof",vertices:[{x:0,y:0},{x:10,y:0},{x:10,y:6}]}]};
   const context = {
     model,
-    state:{},
+    state,
     window:{},
     uid:()=>"copy-"+(++serial),
     save:()=>saveResult,
@@ -93,10 +94,16 @@ function createHarness(saveResult = true) {
   const h=createHarness();
   const initial=h.bridge.getCadSnapshot();
   assert.equal(initial.entities.length,4);
+  assert.equal(initial.layout.length,1);
+  assert.equal(initial.roofZones.length,1);
   assert.equal(initial.selected,"roof-1");
   assert.deepEqual(Array.from(initial.hiddenLayers),[]);
   initial.entities[0].x=999;
+  initial.layout[0].x=999;
+  initial.roofZones[0].vertices[0].x=999;
   assert.equal(h.model.entities[0].x,0,"Snapshots must not expose mutable project entities");
+  assert.equal(h.model.layout[0].x,1,"Snapshots must not expose mutable PV layout");
+  assert.equal(h.state.roofZones[0].vertices[0].x,0,"Snapshots must not expose mutable roof-zone geometry");
 
   assert.equal(h.bridge.selectCadEntityAt(2,2),"roof-1");
   assert.equal(h.model.selected,"roof-1");
