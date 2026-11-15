@@ -18,6 +18,43 @@ const transforms = html.slice(transformStart, transformEnd);
 const helpers = html.slice(helperStart, bridgeStart);
 const bridge = html.slice(bridgeStart, bridgeEnd + 4);
 
+const cadScriptStart = html.indexOf("const model={version:1");
+const saveStart = html.indexOf("function save()", cadScriptStart);
+const saveEnd = html.indexOf("\nfunction load()", saveStart);
+assert.ok(saveStart > cadScriptStart && saveEnd > saveStart, "CAD local save function must exist");
+const saveSource = html.slice(saveStart, saveEnd);
+{
+  const values = new Map([
+    ["gensolar_integrated_studio_v1","previous-model"],
+    ["gensolar_module_catalogue_v1","previous-catalogue"]
+  ]);
+  let failCatalogue = false;
+  const status = {textContent:""};
+  const context = {
+    STORE:"gensolar_integrated_studio_v1",
+    CAT:"gensolar_module_catalogue_v1",
+    model:{entities:[{id:"persisted"}],catalogue:[]},
+    $:()=>status,
+    localStorage:{
+      getItem:key=>values.has(key)?values.get(key):null,
+      setItem:(key,value)=>{
+        if(failCatalogue&&key==="gensolar_module_catalogue_v1")throw new Error("quota");
+        values.set(key,String(value));
+      },
+      removeItem:key=>values.delete(key)
+    }
+  };
+  vm.createContext(context);
+  vm.runInContext(saveSource,context);
+  assert.equal(vm.runInContext("save()",context),true,"Successful localStorage writes must be confirmed");
+  assert.ok(JSON.parse(values.get("gensolar_integrated_studio_v1")).entities[0].id==="persisted");
+  values.set("gensolar_integrated_studio_v1","previous-model");
+  values.set("gensolar_module_catalogue_v1","previous-catalogue");
+  failCatalogue=true;
+  assert.equal(vm.runInContext("save()",context),false,"A partial storage failure must be reported");
+  assert.equal(values.get("gensolar_integrated_studio_v1"),"previous-model","Partial writes must restore the previous CAD model");
+  assert.equal(values.get("gensolar_module_catalogue_v1"),"previous-catalogue","Partial writes must preserve the previous catalogue");
+}
 function createHarness(saveResult = true) {
   let serial = 0;
   const model = {
