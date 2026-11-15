@@ -1650,6 +1650,7 @@ window.GenSolarEpcBridge = Object.freeze({
       building:model.building||{},
       entities:model.entities||[],
       layout:model.layout||[],
+      roofZones:Array.isArray(state.roofZones)?state.roofZones:[],
       selected:model.selected||'',
       hiddenLayers:Array.isArray(model.hiddenLayers)?model.hiddenLayers:[]
     }));
