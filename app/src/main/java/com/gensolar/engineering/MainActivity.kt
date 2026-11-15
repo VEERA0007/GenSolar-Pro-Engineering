@@ -21,6 +21,13 @@ import androidx.activity.addCallback
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas as ComposeCanvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -1481,19 +1488,131 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
     var roofWidth by remember { mutableStateOf(prefs.getString("width", "20") ?: "20") }
     var wallHeight by remember { mutableStateOf(prefs.getString("height", "6") ?: "6") }
     var roofThickness by remember { mutableStateOf(prefs.getString("thickness", "0.2") ?: "0.2") }
-    var result by remember { mutableStateOf("No parametric CAD model created in this session.") }
-    var status by remember { mutableStateOf("Set the building geometry, then create the model in the integrated CAD engine.") }
+    var moveX by remember { mutableStateOf("1") }
+    var moveY by remember { mutableStateOf("0") }
+    var snapshot by remember { mutableStateOf(NativeCadSnapshot()) }
+    var status by remember { mutableStateOf("Loading the active project CAD model…") }
     val area = (roofLength.toDoubleOrNull() ?: 0.0) * (roofWidth.toDoubleOrNull() ?: 0.0)
-    Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
+    val selected = snapshot.entities.firstOrNull { it.id == snapshot.selectedId }
+    val layers = (listOf("ROOF", "WALLS", "OBSTACLES", "DIMENSIONS", "PV_MODULES", "GENERAL") +
+        snapshot.entities.map { it.layer }).filter { it.isNotBlank() }.distinct().sorted()
+
+    fun readSnapshot(updateStatus: Boolean = true) {
+        browser.evaluateJavascript("JSON.stringify(window.GenSolarEpcBridge.getCadSnapshot())") { raw ->
+            try {
+                val payload = org.json.JSONTokener(raw ?: "null").nextValue() as? String
+                    ?: throw IllegalStateException("CAD snapshot was not returned.")
+                snapshot = parseNativeCadSnapshot(JSONObject(payload))
+                if (updateStatus) {
+                    status = if (snapshot.entities.isEmpty()) {
+                        "No CAD entities yet. Create the building model or import a DXF in the detailed workspace."
+                    } else {
+                        snapshot.entities.size.toString() + " editable entities loaded from the active offline project."
+                    }
+                }
+            } catch (error: Exception) {
+                if (updateStatus) status = "CAD model unavailable: " + (error.message ?: "unknown response")
+            }
+        }
+    }
+
+    fun runCadAction(expression: String, successMessage: String) {
+        status = "UPDATING CAD MODEL"
+        val script = "(function(){try{var b=window.GenSolarEpcBridge;if(!b)return JSON.stringify({ok:false,error:'Native CAD bridge unavailable.'});var value=" +
+            expression +
+            ";return JSON.stringify({ok:value!==false&&value!==null,error:value===false?'CAD operation was rejected.':''});}catch(e){return JSON.stringify({ok:false,error:String(e.message||e)});}})()"
+        browser.evaluateJavascript(script) { raw ->
+            try {
+                val payload = org.json.JSONTokener(raw ?: "null").nextValue() as? String
+                    ?: throw IllegalStateException("CAD action returned no result.")
+                val response = JSONObject(payload)
+                status = if (response.optBoolean("ok")) successMessage else response.optString("error", "CAD operation failed.")
+                readSnapshot(false)
+            } catch (error: Exception) {
+                status = "CAD operation failed: " + (error.message ?: "unknown response")
+                readSnapshot(false)
+            }
+        }
+    }
+
+    fun createBuilding() {
+        val length = roofLength.toDoubleOrNull()
+        val width = roofWidth.toDoubleOrNull()
+        val height = wallHeight.toDoubleOrNull()
+        val thickness = roofThickness.toDoubleOrNull()
+        if (length == null || width == null || height == null || thickness == null ||
+            !length.isFinite() || !width.isFinite() || !height.isFinite() || !thickness.isFinite() ||
+            length !in 1.0..1000.0 || width !in 1.0..1000.0 || height !in 1.0..100.0 || thickness !in 0.05..5.0) {
+            status = "Enter valid positive building dimensions within the supported modelling range."
+            return
+        }
+        prefs.edit().putString("length", roofLength).putString("width", roofWidth)
+            .putString("height", wallHeight).putString("thickness", roofThickness).apply()
+        val values = linkedMapOf(
+            "cadRoofLength" to roofLength,
+            "cadRoofWidth" to roofWidth,
+            "cadWallHeight" to wallHeight,
+            "cadRoofThickness" to roofThickness
+        )
+        val payload = JSONObject(values).toString()
+        val script = """
+            (function(){
+              try {
+                var data = $payload, keys = Object.keys(data);
+                for (var i=0;i<keys.length;i++) {
+                  var field=document.getElementById(keys[i]);
+                  if(!field) return JSON.stringify({ok:false,error:'CAD parameter '+keys[i]+' is unavailable.'});
+                  field.value=data[keys[i]];
+                  field.dispatchEvent(new Event('input',{bubbles:true}));
+                  field.dispatchEvent(new Event('change',{bubbles:true}));
+                }
+                var button=document.getElementById('cadCreateBuilding');
+                var bridge=window.GenSolarEpcBridge;
+                if(!button||!bridge) return JSON.stringify({ok:false,error:'Parametric CAD action is unavailable.'});
+                button.click();
+                var model=bridge.getCadSnapshot();
+                return JSON.stringify({ok:!!model.building&&Array.isArray(model.entities),entities:model.entities?model.entities.length:0});
+              } catch(e) { return JSON.stringify({ok:false,error:String(e.message||e)}); }
+            })()
+        """.trimIndent()
+        status = "CREATING PARAMETRIC MODEL"
+        browser.evaluateJavascript(script) { raw ->
+            try {
+                val responseText = org.json.JSONTokener(raw ?: "null").nextValue() as? String
+                    ?: throw IllegalStateException("CAD model response was empty.")
+                val response = JSONObject(responseText)
+                status = if (response.optBoolean("ok")) {
+                    "Parametric building geometry saved to the shared CAD model."
+                } else response.optString("error", "Building model was not created.")
+                readSnapshot(false)
+            } catch (error: Exception) {
+                status = "Building model could not be confirmed: " + (error.message ?: "unknown response")
+            }
+        }
+    }
+
+    LaunchedEffect(browser) { readSnapshot() }
+
+    Column(
+        modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = BrandGreen)
+        ) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("CAD & 3D ENGINEERING", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                Text("Build the rooftop model.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-                Text("Create an editable parametric building footprint and 3D projection using the integrated CAD model. Geometry is stored in the shared project workspace.", color = Color(0xFFD7E8E1), fontSize = 12.sp, lineHeight = 18.sp)
+                Text("CAD & 2D ENGINEERING", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Text("Edit the live project drawing.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    "Select entities in the native drawing preview, move them by measured offsets, duplicate, rotate, delete and control drawing layers. Every edit is saved through the shared CAD project bridge.",
+                    color = Color(0xFFD7E8E1), fontSize = 12.sp, lineHeight = 18.sp
+                )
             }
         }
         Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
-            Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 Text("01  BUILDING PARAMETERS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                 Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     SurveyInput("Roof length (m)", roofLength, { roofLength = it }, Modifier.weight(1f))
@@ -1507,60 +1626,295 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
                     Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
                             Text("ROOF FOOTPRINT", color = Color(0xFF60756E), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                            Text(String.format("%.2f m²", area), color = BrandGreen, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(String.format(java.util.Locale.US, "%.2f m²", area), color = BrandGreen, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
                         }
-                        Text(String.format("%.1f sq.ft", area * 10.7639), color = AccentGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(String.format(java.util.Locale.US, "%.1f sq.ft", area * 10.7639), color = AccentGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Button(onClick = { createBuilding() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Create / update parametric building")
+                }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("02  NATIVE 2D DRAWING", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                    TextButton(onClick = { readSnapshot() }) { Text("Refresh") }
+                }
+                Text(snapshot.entities.size.toString() + " entities · " + snapshot.hiddenLayers.size.toString() + " hidden layers", color = Color(0xFF60756E), fontSize = 10.sp)
+                NativeCadPreview(
+                    snapshot = snapshot,
+                    onSelect = { x, y ->
+                        val xArg = String.format(java.util.Locale.US, "%.6f", x)
+                        val yArg = String.format(java.util.Locale.US, "%.6f", y)
+                        runCadAction("b.selectCadEntityAt(" + xArg + "," + yArg + ")", "CAD selection updated.")
+                    }
+                )
+                Text("Tap an entity to select it. Coordinates and dimensions are in metres.", color = Color(0xFF667A75), fontSize = 10.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("03  DRAWING LAYERS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    layers.forEach { layer ->
+                        val visible = layer !in snapshot.hiddenLayers
+                        FilterChip(
+                            selected = visible,
+                            onClick = {
+                                val encoded = JSONObject.quote(layer)
+                                runCadAction("b.setCadLayerVisible(" + encoded + "," + (!visible).toString() + ")", layer + if (visible) " hidden." else " visible.")
+                            },
+                            label = { Text(layer, fontSize = 10.sp) }
+                        )
                     }
                 }
             }
         }
-        Button(onClick = {
-            val values = linkedMapOf("cadRoofLength" to roofLength, "cadRoofWidth" to roofWidth, "cadWallHeight" to wallHeight, "cadRoofThickness" to roofThickness)
-            prefs.edit().putString("length", roofLength).putString("width", roofWidth).putString("height", wallHeight).putString("thickness", roofThickness).apply()
-            val payload = JSONObject(values).toString()
-            val script = """
-                (function(){
-                  var data = $payload, keys = Object.keys(data);
-                  for (var i=0;i<keys.length;i++) {
-                    var field=document.getElementById(keys[i]);
-                    if(!field) return JSON.stringify({error:'CAD parameter '+keys[i]+' is unavailable.'});
-                    field.value=data[keys[i]];
-                    field.dispatchEvent(new Event('input',{bubbles:true}));
-                    field.dispatchEvent(new Event('change',{bubbles:true}));
-                  }
-                  var button=document.getElementById('cadCreateBuilding');
-                  if(!button) return JSON.stringify({error:'Parametric building action is unavailable.'});
-                  var bridge=window.GenSolarEpcBridge;
-                  if(!bridge) return JSON.stringify({error:'Native project bridge is unavailable.'});
-                  button.click();
-                  var model=bridge.getCadSnapshot();
-                  if(!model.building||!model.entities) return JSON.stringify({error:'CAD model was not created.'});
-                  var roof=model.entities.filter(function(e){return e.layer==='ROOF'&&e.type==='rect'}).slice(-1)[0];
-                  return JSON.stringify({entities:model.entities.length,height:model.building.height,thickness:model.building.thickness,width:roof?roof.w:0,length:roof?roof.h:0});
-                })()
-            """.trimIndent()
-            browser.evaluateJavascript(script) { raw ->
-                try {
-                    val response = org.json.JSONTokener(raw ?: "{}").nextValue() as? String ?: "{}"
-                    val json = JSONObject(response)
-                    if (json.has("error")) status = json.optString("error")
-                    else {
-                        result = String.format("%.2f × %.2f m · %.2f m wall height", json.optDouble("width"), json.optDouble("length"), json.optDouble("height"))
-                        status = "Parametric roof and wall entities created in the shared CAD model (" + json.optInt("entities") + " total entities). Open detailed CAD for editing, 3D view and exports."
-                    }
-                } catch (_: Exception) { status = "CAD response could not be read. Open the detailed CAD workspace to inspect the model." }
-            }
-        }, modifier = Modifier.fillMaxWidth()) { Text("Create parametric building model") }
         Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
-            Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("MODEL STATUS", color = AccentGreen, fontWeight = FontWeight.ExtraBold)
-                Text(result, color = BrandGreen, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                Text(status, color = Color(0xFF60756E), fontSize = 11.sp, lineHeight = 16.sp)
+            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("04  SELECTED ENTITY", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                if (selected == null) {
+                    Text("No entity selected. Tap a visible drawing object above.", color = Color(0xFF60756E), fontSize = 12.sp)
+                } else {
+                    Text(selected.type.uppercase() + " · " + selected.layer, color = BrandGreen, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text("Entity ID: " + selected.id, color = Color(0xFF60756E), fontSize = 10.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SurveyInput("Move X (m)", moveX, { moveX = it }, Modifier.weight(1f))
+                        SurveyInput("Move Y (m)", moveY, { moveY = it }, Modifier.weight(1f))
+                    }
+                    Button(
+                        onClick = {
+                            val dx = moveX.toDoubleOrNull()
+                            val dy = moveY.toDoubleOrNull()
+                            if (dx == null || dy == null || !dx.isFinite() || !dy.isFinite()) {
+                                status = "Enter finite X and Y offsets in metres."
+                            } else {
+                                runCadAction(
+                                    "b.moveCadEntity(" + JSONObject.quote(selected.id) + "," +
+                                        String.format(java.util.Locale.US, "%.6f", dx) + "," +
+                                        String.format(java.util.Locale.US, "%.6f", dy) + ")",
+                                    "Selected entity moved and saved."
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Move selected entity") }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { runCadAction("b.duplicateCadEntity(" + JSONObject.quote(selected.id) + ")", "Entity duplicated and saved.") },
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Duplicate") }
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { runCadAction("b.rotateCadEntityBy90(" + JSONObject.quote(selected.id) + ")", "Entity rotated 90° and saved.") },
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Rotate 90°") }
+                    }
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { runCadAction("b.deleteCadEntity(" + JSONObject.quote(selected.id) + ")", "Entity deleted and saved.") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Delete selected entity") }
+                }
             }
         }
-        androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) { Text("Open CAD editor, 2D tools, 3D preview & DXF exports") }
-        Text("Concept geometry only. Verify dimensions, levels, structural details and drawing units before construction or fabrication.", color = Color(0xFF667A75), fontSize = 10.sp)
-        Spacer(Modifier.height(8.dp))
+        Text(status, color = AccentGreen, fontSize = 11.sp, lineHeight = 16.sp)
+        androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) {
+            Text("Open advanced CAD, DXF import/export and 3D workspace")
+        }
+        Text(
+            "The native editor operates on the shared CAD entity model. DXF conversion, advanced drafting tools and conceptual 3D rendering remain in the detailed workspace; structural and fabrication drawings require qualified review.",
+            color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp
+        )
+    }
+}
+
+private data class NativeCadPoint(val x: Double, val y: Double)
+
+private data class NativeCadEntity(
+    val id: String,
+    val type: String,
+    val layer: String,
+    val x: Double = 0.0,
+    val y: Double = 0.0,
+    val width: Double = 0.0,
+    val height: Double = 0.0,
+    val radius: Double = 0.0,
+    val a: NativeCadPoint? = null,
+    val b: NativeCadPoint? = null,
+    val points: List<NativeCadPoint> = emptyList(),
+    val closed: Boolean = false
+)
+
+private data class NativeCadSnapshot(
+    val entities: List<NativeCadEntity> = emptyList(),
+    val selectedId: String = "",
+    val hiddenLayers: Set<String> = emptySet()
+)
+
+private data class NativeCadBounds(
+    val minX: Double,
+    val minY: Double,
+    val maxX: Double,
+    val maxY: Double
+) {
+    val width: Double get() = (maxX - minX).coerceAtLeast(1.0)
+    val height: Double get() = (maxY - minY).coerceAtLeast(1.0)
+}
+
+private data class NativeCadViewport(val scale: Float, val offsetX: Float, val offsetY: Float)
+
+private fun parseNativeCadSnapshot(json: JSONObject): NativeCadSnapshot {
+    val rows = json.optJSONArray("entities") ?: org.json.JSONArray()
+    val entities = (0 until rows.length()).mapNotNull { index ->
+        val row = rows.optJSONObject(index) ?: return@mapNotNull null
+        fun point(value: JSONObject?): NativeCadPoint? {
+            if (value == null) return null
+            val x = value.optDouble("x", Double.NaN)
+            val y = value.optDouble("y", Double.NaN)
+            return if (x.isFinite() && y.isFinite()) NativeCadPoint(x, y) else null
+        }
+        val pointsArray = row.optJSONArray("points") ?: org.json.JSONArray()
+        val points = (0 until pointsArray.length()).mapNotNull { point(pointsArray.optJSONObject(it)) }
+        NativeCadEntity(
+            id = row.optString("id"),
+            type = row.optString("type"),
+            layer = row.optString("layer", "GENERAL"),
+            x = row.optDouble("x", 0.0),
+            y = row.optDouble("y", 0.0),
+            width = row.optDouble("w", 0.0),
+            height = row.optDouble("h", 0.0),
+            radius = row.optDouble("r", 0.0),
+            a = point(row.optJSONObject("a")),
+            b = point(row.optJSONObject("b")),
+            points = points,
+            closed = row.optBoolean("closed", false)
+        )
+    }
+    val hidden = json.optJSONArray("hiddenLayers") ?: org.json.JSONArray()
+    val hiddenLayers = (0 until hidden.length()).map { hidden.optString(it) }.filter { it.isNotBlank() }.toSet()
+    return NativeCadSnapshot(entities, json.optString("selected"), hiddenLayers)
+}
+
+private fun nativeCadBounds(entities: List<NativeCadEntity>): NativeCadBounds {
+    val xs = mutableListOf<Double>()
+    val ys = mutableListOf<Double>()
+    fun add(point: NativeCadPoint) {
+        if (point.x.isFinite() && point.y.isFinite()) {
+            xs += point.x
+            ys += point.y
+        }
+    }
+    entities.forEach { entity ->
+        when (entity.type) {
+            "rect" -> {
+                add(NativeCadPoint(entity.x, entity.y))
+                add(NativeCadPoint(entity.x + entity.width, entity.y + entity.height))
+            }
+            "circle" -> {
+                add(NativeCadPoint(entity.x - entity.radius, entity.y - entity.radius))
+                add(NativeCadPoint(entity.x + entity.radius, entity.y + entity.radius))
+            }
+            "line", "dim" -> {
+                entity.a?.let(::add)
+                entity.b?.let(::add)
+            }
+            "poly" -> entity.points.forEach(::add)
+            else -> add(NativeCadPoint(entity.x, entity.y))
+        }
+    }
+    if (xs.isEmpty() || ys.isEmpty()) return NativeCadBounds(0.0, 0.0, 30.0, 20.0)
+    var minX = xs.minOrNull() ?: 0.0
+    var minY = ys.minOrNull() ?: 0.0
+    var maxX = xs.maxOrNull() ?: 30.0
+    var maxY = ys.maxOrNull() ?: 20.0
+    if (maxX - minX < 0.1) { minX -= 0.5; maxX += 0.5 }
+    if (maxY - minY < 0.1) { minY -= 0.5; maxY += 0.5 }
+    return NativeCadBounds(minX, minY, maxX, maxY)
+}
+
+private fun nativeCadViewport(bounds: NativeCadBounds, width: Float, height: Float): NativeCadViewport {
+    val safeWidth = width.coerceAtLeast(80f)
+    val safeHeight = height.coerceAtLeast(80f)
+    val scale = minOf(
+        (safeWidth - 36f) / bounds.width.toFloat(),
+        (safeHeight - 36f) / bounds.height.toFloat()
+    ).coerceAtLeast(0.01f)
+    val offsetX = (safeWidth - bounds.width.toFloat() * scale) / 2f - bounds.minX.toFloat() * scale
+    val offsetY = (safeHeight - bounds.height.toFloat() * scale) / 2f + bounds.maxY.toFloat() * scale
+    return NativeCadViewport(scale, offsetX, offsetY)
+}
+
+@Composable
+private fun NativeCadPreview(
+    snapshot: NativeCadSnapshot,
+    modifier: Modifier = Modifier,
+    onSelect: (Double, Double) -> Unit
+) {
+    val bounds = remember(snapshot.entities) { nativeCadBounds(snapshot.entities) }
+    ComposeCanvas(
+        modifier = modifier.fillMaxWidth().height(300.dp).pointerInput(snapshot.entities, bounds) {
+            detectTapGestures { tap ->
+                val viewport = nativeCadViewport(bounds, size.width.toFloat(), size.height.toFloat())
+                val worldX = (tap.x - viewport.offsetX) / viewport.scale
+                val worldY = (viewport.offsetY - tap.y) / viewport.scale
+                onSelect(worldX.toDouble(), worldY.toDouble())
+            }
+        }
+    ) {
+        drawRect(Color(0xFFFBFDFC))
+        val viewport = nativeCadViewport(bounds, size.width, size.height)
+        fun screen(point: NativeCadPoint): Offset = Offset(
+            viewport.offsetX + point.x.toFloat() * viewport.scale,
+            viewport.offsetY - point.y.toFloat() * viewport.scale
+        )
+        snapshot.entities.forEach { entity ->
+            if (entity.layer in snapshot.hiddenLayers) return@forEach
+            val color = when (entity.layer) {
+                "ROOF" -> Color(0xFF087F5B)
+                "OBSTACLES" -> Color(0xFFC24A3A)
+                "PV_MODULES" -> Color(0xFF2476B8)
+                "DIMENSIONS" -> Color(0xFF9A6A00)
+                "WALLS" -> Color(0xFF60756E)
+                else -> Color(0xFF334B45)
+            }
+            val selected = entity.id == snapshot.selectedId
+            val stroke = if (selected) 3.5f else 1.6f
+            when (entity.type) {
+                "rect" -> {
+                    val topLeft = screen(NativeCadPoint(entity.x, entity.y + entity.height))
+                    val bottomRight = screen(NativeCadPoint(entity.x + entity.width, entity.y))
+                    val rectSize = Size((bottomRight.x - topLeft.x).coerceAtLeast(0.5f), (bottomRight.y - topLeft.y).coerceAtLeast(0.5f))
+                    if (entity.layer == "ROOF") drawRect(color.copy(alpha = 0.13f), topLeft, rectSize)
+                    drawRect(color, topLeft, rectSize, style = Stroke(stroke))
+                }
+                "circle" -> {
+                    val center = screen(NativeCadPoint(entity.x, entity.y))
+                    drawCircle(color, (entity.radius.toFloat() * viewport.scale).coerceAtLeast(1f), center, style = Stroke(stroke))
+                }
+                "line", "dim" -> {
+                    val a = entity.a
+                    val b = entity.b
+                    if (a != null && b != null) drawLine(color, screen(a), screen(b), strokeWidth = stroke)
+                }
+                "poly" -> {
+                    if (entity.points.size >= 2) {
+                        val path = Path().apply {
+                            val first = screen(entity.points.first())
+                            moveTo(first.x, first.y)
+                            entity.points.drop(1).forEach { point ->
+                                val mapped = screen(point)
+                                lineTo(mapped.x, mapped.y)
+                            }
+                            if (entity.closed) close()
+                        }
+                        if (entity.closed && entity.layer == "ROOF") drawPath(path, color.copy(alpha = 0.12f))
+                        drawPath(path, color, style = Stroke(stroke))
+                    }
+                }
+                "text" -> drawCircle(color, 3.5f, screen(NativeCadPoint(entity.x, entity.y)))
+            }
+        }
     }
 }
 
