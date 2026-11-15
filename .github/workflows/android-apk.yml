@@ -1539,6 +1539,8 @@ jobs:
         run: node tools/test_native_commissioning_bridge.js
       - name: Test native customer handover bridge
         run: node tools/test_native_handover_bridge.js
+      - name: Test native CAD editor bridge
+        run: node tools/test_native_cad_editor_bridge.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
