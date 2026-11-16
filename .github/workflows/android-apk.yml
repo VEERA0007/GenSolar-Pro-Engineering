@@ -66,6 +66,8 @@ jobs:
           node --check /tmp/gensolar-inline.js
       - name: Validate Kotlin Compose Android shell with Python
         run: python3 tools/validate_android_modernization.py
+      - name: Test native CAD 3D projection geometry
+        run: gradle testDebugUnitTest --stacktrace
       - name: Test roof zone pitch-corrected surface area
         run: node tools/test_roof_zone_surface_area.js
       - name: Test PV layout allocation across roof zones

@@ -1491,6 +1491,7 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
     var moveX by remember { mutableStateOf("1") }
     var moveY by remember { mutableStateOf("0") }
     var snapshot by remember { mutableStateOf(NativeCadSnapshot()) }
+    var previewMode by remember { mutableStateOf("2D") }
     var status by remember { mutableStateOf("Loading the active project CAD model…") }
     val area = (roofLength.toDoubleOrNull() ?: 0.0) * (roofWidth.toDoubleOrNull() ?: 0.0)
     val selected = snapshot.entities.firstOrNull { it.id == snapshot.selectedId }
@@ -1606,7 +1607,7 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
                 Text("CAD & 2D ENGINEERING", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                 Text("Edit the live project drawing.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
                 Text(
-                    "Select entities in the native drawing preview, move them by measured offsets, duplicate, rotate, delete and control drawing layers. Every edit is saved through the shared CAD project bridge.",
+                    "Edit the shared project drawing in native 2D, then switch to an elevation-aware 3D model view of roof zones, walls, PV modules and obstacles. CAD edits are saved through the offline project bridge.",
                     color = Color(0xFFD7E8E1), fontSize = 12.sp, lineHeight = 18.sp
                 )
             }
@@ -1639,19 +1640,31 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
         Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("02  NATIVE 2D DRAWING", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("02  NATIVE DRAWING VIEW", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                     TextButton(onClick = { readSnapshot() }) { Text("Refresh") }
                 }
                 Text(snapshot.entities.size.toString() + " entities · " + snapshot.layout.size.toString() + " PV modules · " + snapshot.roofZones.size.toString() + " roof zones", color = Color(0xFF60756E), fontSize = 10.sp)
-                NativeCadPreview(
-                    snapshot = snapshot,
-                    onSelect = { x, y ->
-                        val xArg = String.format(java.util.Locale.US, "%.6f", x)
-                        val yArg = String.format(java.util.Locale.US, "%.6f", y)
-                        runCadAction("b.selectCadEntityAt(" + xArg + "," + yArg + ")", "CAD selection updated.")
-                    }
-                )
-                Text("Tap an entity to select it. Coordinates and dimensions are in metres.", color = Color(0xFF667A75), fontSize = 10.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = previewMode == "2D", onClick = { previewMode = "2D" }, label = { Text("2D editor") })
+                    FilterChip(selected = previewMode == "3D", onClick = { previewMode = "3D" }, label = { Text("3D model") })
+                }
+                if (previewMode == "2D") {
+                    NativeCadPreview(
+                        snapshot = snapshot,
+                        onSelect = { x, y ->
+                            val xArg = String.format(java.util.Locale.US, "%.6f", x)
+                            val yArg = String.format(java.util.Locale.US, "%.6f", y)
+                            runCadAction("b.selectCadEntityAt(" + xArg + "," + yArg + ")", "CAD selection updated.")
+                        }
+                    )
+                    Text("Tap an entity to select it. Coordinates and dimensions are in metres.", color = Color(0xFF667A75), fontSize = 10.sp)
+                } else {
+                    NativeCad3DPreview(snapshot = snapshot)
+                    Text(
+                        "Elevation-aware isometric preview · roof, walls, obstacles and PV modules. This is a coordination view, not a structural certification model.",
+                        color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp
+                    )
+                }
             }
         }
         Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
@@ -1720,10 +1733,10 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
         }
         Text(status, color = AccentGreen, fontSize = 11.sp, lineHeight = 16.sp)
         androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) {
-            Text("Open advanced CAD, DXF import/export and 3D workspace")
+            Text("Open advanced CAD and DXF import / export")
         }
         Text(
-            "The native editor operates on the shared CAD entity model. DXF conversion, advanced drafting tools and conceptual 3D rendering remain in the detailed workspace; structural and fabrication drawings require qualified review.",
+            "The native 2D editor and 3D coordination view use the shared CAD project model. DXF conversion and advanced drafting remain in the detailed workspace; structural and fabrication drawings require qualified engineering review.",
             color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp
         )
     }
@@ -1746,14 +1759,27 @@ private data class NativeCadEntity(
     val closed: Boolean = false
 )
 
-private data class NativeCadModule(val x: Double, val y: Double, val width: Double, val height: Double)
+private data class NativeCadModule(
+    val x: Double,
+    val y: Double,
+    val width: Double,
+    val height: Double,
+    val elevation: Double = 0.0
+)
 
-private data class NativeCadRoofZone(val name: String, val vertices: List<NativeCadPoint>)
+private data class NativeCadRoofZone(
+    val name: String,
+    val elevation: Double,
+    val vertices: List<NativeCadPoint>
+)
 
 private data class NativeCadSnapshot(
     val entities: List<NativeCadEntity> = emptyList(),
     val layout: List<NativeCadModule> = emptyList(),
     val roofZones: List<NativeCadRoofZone> = emptyList(),
+    val buildingLength: Double = 0.0,
+    val buildingWidth: Double = 0.0,
+    val buildingHeight: Double = 0.0,
     val selectedId: String = "",
     val hiddenLayers: Set<String> = emptySet()
 )
@@ -1805,7 +1831,7 @@ private fun parseNativeCadSnapshot(json: JSONObject): NativeCadSnapshot {
         val width = row.optDouble("w", Double.NaN)
         val height = row.optDouble("h", Double.NaN)
         if (x.isFinite() && y.isFinite() && width.isFinite() && height.isFinite() && width > 0 && height > 0) {
-            NativeCadModule(x, y, width, height)
+            NativeCadModule(x, y, width, height, row.optDouble("zoneElevation", 0.0).takeIf { it.isFinite() } ?: 0.0)
         } else null
     }
     val zoneRows = json.optJSONArray("roofZones") ?: org.json.JSONArray()
@@ -1813,14 +1839,21 @@ private fun parseNativeCadSnapshot(json: JSONObject): NativeCadSnapshot {
         val row = zoneRows.optJSONObject(index) ?: return@mapNotNull null
         val vertices = row.optJSONArray("vertices") ?: org.json.JSONArray()
         val points = (0 until vertices.length()).mapNotNull { point(vertices.optJSONObject(it)) }
-        if (points.size >= 3) NativeCadRoofZone(row.optString("name", "Roof zone"), points) else null
+        if (points.size >= 3) NativeCadRoofZone(row.optString("name", "Roof zone"), row.optDouble("elevation", 0.0).takeIf { it.isFinite() } ?: 0.0, points) else null
     }
     val hidden = json.optJSONArray("hiddenLayers") ?: org.json.JSONArray()
     val hiddenLayers = (0 until hidden.length()).map { hidden.optString(it) }.filter { it.isNotBlank() }.toSet()
+    val building = json.optJSONObject("building") ?: JSONObject()
+    val buildingLength = building.optDouble("length", 0.0).takeIf { it.isFinite() && it > 0.0 } ?: 0.0
+    val buildingWidth = building.optDouble("width", 0.0).takeIf { it.isFinite() && it > 0.0 } ?: 0.0
+    val buildingHeight = building.optDouble("height", 0.0).takeIf { it.isFinite() && it > 0.0 } ?: 0.0
     return NativeCadSnapshot(
         entities = entities,
         layout = layout,
         roofZones = roofZones,
+        buildingLength = buildingLength,
+        buildingWidth = buildingWidth,
+        buildingHeight = buildingHeight,
         selectedId = json.optString("selected"),
         hiddenLayers = hiddenLayers
     )
@@ -1974,6 +2007,202 @@ private fun NativeCadPreview(
                     }
                 }
                 "text" -> drawCircle(color, 3.5f, screen(NativeCadPoint(entity.x, entity.y)))
+            }
+        }
+    }
+}
+
+
+internal data class NativeCad3DPoint(val x: Double, val y: Double, val z: Double)
+
+internal data class NativeCadProjectedPoint(val x: Float, val y: Float)
+
+internal data class NativeCad3DViewport(val scale: Float, val offsetX: Float, val offsetY: Float)
+
+internal fun nativeCadProjectPoint(point: NativeCad3DPoint): NativeCadProjectedPoint {
+    require(point.x.isFinite() && point.y.isFinite() && point.z.isFinite()) {
+        "3D CAD coordinates must be finite."
+    }
+    val projectedX = (point.x - point.y) * 0.8660254037844386
+    val projectedY = (point.x + point.y) * 0.5 - point.z * 0.9
+    require(projectedX.isFinite() && projectedY.isFinite()) { "3D CAD projection overflowed." }
+    return NativeCadProjectedPoint(projectedX.toFloat(), projectedY.toFloat())
+}
+
+internal fun nativeCadViewport3D(
+    points: List<NativeCad3DPoint>,
+    width: Float,
+    height: Float,
+    padding: Float = 20f
+): NativeCad3DViewport {
+    require(points.isNotEmpty()) { "At least one 3D model point is required." }
+    require(width.isFinite() && height.isFinite() && padding.isFinite() && padding >= 0f &&
+        width > padding * 2f && height > padding * 2f) {
+        "3D viewport dimensions must exceed its padding."
+    }
+    val projected = points.map(::nativeCadProjectPoint)
+    val minX = projected.minOf { it.x }
+    val maxX = projected.maxOf { it.x }
+    val minY = projected.minOf { it.y }
+    val maxY = projected.maxOf { it.y }
+    val spanX = (maxX - minX).coerceAtLeast(1f)
+    val spanY = (maxY - minY).coerceAtLeast(1f)
+    val scale = minOf((width - padding * 2f) / spanX, (height - padding * 2f) / spanY)
+    require(scale.isFinite() && scale > 0f) { "3D model cannot fit inside the viewport." }
+    return NativeCad3DViewport(scale, padding - minX * scale, padding - minY * scale)
+}
+
+@Composable
+private fun NativeCad3DPreview(snapshot: NativeCadSnapshot, modifier: Modifier = Modifier) {
+    val zones = remember(snapshot.roofZones, snapshot.entities, snapshot.buildingLength, snapshot.buildingWidth) {
+        if (snapshot.roofZones.isNotEmpty()) {
+            snapshot.roofZones
+        } else {
+            val roof = snapshot.entities.firstOrNull { it.layer == "ROOF" && it.type == "rect" }
+            val roofPolygon = snapshot.entities.firstOrNull { it.layer == "ROOF" && it.type == "poly" && it.closed && it.points.size >= 3 }
+            when {
+                roofPolygon != null -> listOf(NativeCadRoofZone("Building roof", 0.0, roofPolygon.points))
+                roof != null && roof.width > 0.0 && roof.height > 0.0 -> listOf(
+                    NativeCadRoofZone(
+                        "Building roof", 0.0,
+                        listOf(
+                            NativeCadPoint(roof.x, roof.y),
+                            NativeCadPoint(roof.x + roof.width, roof.y),
+                            NativeCadPoint(roof.x + roof.width, roof.y + roof.height),
+                            NativeCadPoint(roof.x, roof.y + roof.height)
+                        )
+                    )
+                )
+                snapshot.buildingLength > 0.0 && snapshot.buildingWidth > 0.0 -> listOf(
+                    NativeCadRoofZone(
+                        "Building roof", 0.0,
+                        listOf(
+                            NativeCadPoint(0.0, 0.0),
+                            NativeCadPoint(snapshot.buildingLength, 0.0),
+                            NativeCadPoint(snapshot.buildingLength, snapshot.buildingWidth),
+                            NativeCadPoint(0.0, snapshot.buildingWidth)
+                        )
+                    )
+                )
+                else -> emptyList()
+            }
+        }
+    }
+    val wallHeight = snapshot.buildingHeight.takeIf { it.isFinite() && it in 0.5..100.0 } ?: 6.0
+    val obstacles = remember(snapshot.entities, zones) {
+        val baseElevation = zones.firstOrNull()?.elevation ?: 0.0
+        snapshot.entities.filter { it.layer == "OBSTACLES" }.mapNotNull { entity ->
+            val points = when (entity.type) {
+                "rect" -> if (entity.width > 0.0 && entity.height > 0.0) listOf(
+                    NativeCadPoint(entity.x, entity.y),
+                    NativeCadPoint(entity.x + entity.width, entity.y),
+                    NativeCadPoint(entity.x + entity.width, entity.y + entity.height),
+                    NativeCadPoint(entity.x, entity.y + entity.height)
+                ) else emptyList()
+                "circle" -> if (entity.radius > 0.0) (0 until 24).map { index ->
+                    val angle = 2.0 * Math.PI * index / 24.0
+                    NativeCadPoint(entity.x + entity.radius * kotlin.math.cos(angle), entity.y + entity.radius * kotlin.math.sin(angle))
+                } else emptyList()
+                "poly" -> if (entity.closed && entity.points.size >= 3) entity.points else emptyList()
+                else -> emptyList()
+            }
+            if (points.size >= 3) points.map { NativeCad3DPoint(it.x, it.y, baseElevation + 0.04) } else null
+        }
+    }
+    val modelPoints = remember(zones, snapshot.layout, obstacles, wallHeight) {
+        buildList {
+            zones.forEach { zone ->
+                zone.vertices.forEach { point ->
+                    add(NativeCad3DPoint(point.x, point.y, zone.elevation))
+                    add(NativeCad3DPoint(point.x, point.y, zone.elevation - wallHeight))
+                }
+            }
+            snapshot.layout.forEach { module ->
+                val z = module.elevation + 0.06
+                add(NativeCad3DPoint(module.x, module.y, z))
+                add(NativeCad3DPoint(module.x + module.width, module.y, z))
+                add(NativeCad3DPoint(module.x + module.width, module.y + module.height, z))
+                add(NativeCad3DPoint(module.x, module.y + module.height, z))
+            }
+            obstacles.flatten().forEach(::add)
+        }
+    }
+    if (modelPoints.isEmpty()) {
+        Surface(
+            modifier = modifier.fillMaxWidth().height(220.dp),
+            shape = RoundedCornerShape(14.dp),
+            color = Color(0xFFF3F6F5)
+        ) {
+            Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.Center) {
+                Text("NO 3D MODEL DATA", color = BrandGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("Create a parametric building or save measured roof zones and PV layout data to preview the actual project model.", color = Color(0xFF60756E), fontSize = 11.sp, lineHeight = 16.sp)
+            }
+        }
+        return
+    }
+    ComposeCanvas(modifier = modifier.fillMaxWidth().height(320.dp)) {
+        drawRect(Color(0xFFFBFDFC))
+        val viewport = nativeCadViewport3D(modelPoints, size.width, size.height)
+        fun screen(point: NativeCad3DPoint): Offset {
+            val projected = nativeCadProjectPoint(point)
+            return Offset(
+                projected.x * viewport.scale + viewport.offsetX,
+                projected.y * viewport.scale + viewport.offsetY
+            )
+        }
+        fun polygon(points: List<NativeCad3DPoint>, fill: Color, outline: Color) {
+            if (points.size < 3) return
+            val path = Path().apply {
+                val first = screen(points.first())
+                moveTo(first.x, first.y)
+                points.drop(1).forEach { point ->
+                    val mapped = screen(point)
+                    lineTo(mapped.x, mapped.y)
+                }
+                close()
+            }
+            drawPath(path, fill)
+            drawPath(path, outline, style = Stroke(1.1f))
+        }
+        zones.forEach { zone ->
+            if ("WALLS" !in snapshot.hiddenLayers) {
+                val base = zone.elevation - wallHeight
+                zone.vertices.indices.forEach { index ->
+                    val next = (index + 1) % zone.vertices.size
+                    val topA = zone.vertices[index]
+                    val topB = zone.vertices[next]
+                    polygon(
+                        listOf(
+                            NativeCad3DPoint(topA.x, topA.y, zone.elevation),
+                            NativeCad3DPoint(topB.x, topB.y, zone.elevation),
+                            NativeCad3DPoint(topB.x, topB.y, base),
+                            NativeCad3DPoint(topA.x, topA.y, base)
+                        ),
+                        if (index % 2 == 0) Color(0xFFDCE7E2) else Color(0xFFCAD9D2),
+                        Color(0xFF60756E)
+                    )
+                }
+            }
+            if ("ROOF" !in snapshot.hiddenLayers) {
+                polygon(zone.vertices.map { NativeCad3DPoint(it.x, it.y, zone.elevation) }, Color(0xFF77B99C).copy(alpha = 0.72f), Color(0xFF087F5B))
+            }
+        }
+        if ("OBSTACLES" !in snapshot.hiddenLayers) {
+            obstacles.forEach { polygon(it, Color(0xFFD98A63).copy(alpha = 0.78f), Color(0xFF9D4D2B)) }
+        }
+        if ("PV_MODULES" !in snapshot.hiddenLayers) {
+            snapshot.layout.forEach { module ->
+                val z = module.elevation + 0.06
+                polygon(
+                    listOf(
+                        NativeCad3DPoint(module.x, module.y, z),
+                        NativeCad3DPoint(module.x + module.width, module.y, z),
+                        NativeCad3DPoint(module.x + module.width, module.y + module.height, z),
+                        NativeCad3DPoint(module.x, module.y + module.height, z)
+                    ),
+                    Color(0xFF2476B8).copy(alpha = 0.72f),
+                    Color(0xFF155E91)
+                )
             }
         }
     }

@@ -103,6 +103,9 @@ require("NativeCadPreview(" in kotlin and "private fun NativeCadPreview(" in kot
 require("b.moveCadEntity(" in kotlin and "b.duplicateCadEntity(" in kotlin and "b.rotateCadEntityBy90(" in kotlin and "b.deleteCadEntity(" in kotlin and "b.setCadLayerVisible(" in kotlin, "Native CAD controls must invoke real shared-model edit operations")
 require(all(marker in html for marker in ("selectCadEntityAt: function(", "moveCadEntity: function(", "duplicateCadEntity: function(", "rotateCadEntityBy90: function(", "deleteCadEntity: function(", "setCadLayerVisible: function(", "cadCommitMutation(", "translateCadEntity(")), "Controlled CAD bridge must expose transactional selection, editing and layer operations")
 require((ROOT / "tools/test_native_cad_editor_bridge.js").exists(), "Native CAD bridge regression test missing")
+require("NativeCad3DPreview(" in kotlin and "nativeCadProjectPoint(" in kotlin and "nativeCadViewport3D(" in kotlin and "buildingHeight" in kotlin and "zoneElevation" in kotlin, "Native CAD 3D preview must project actual building, roof-zone and PV elevation data")
+require((ROOT / "app/src/test/java/com/gensolar/engineering/NativeCadProjectionTest.kt").exists(), "Native CAD 3D projection unit tests missing")
+require("gradle testDebugUnitTest --stacktrace" in (ROOT / ".github/workflows/android-apk.yml").read_text(encoding="utf-8"), "Native CAD 3D unit tests must run in GitHub Actions")
 subprocess.run(["node", str(ROOT / "tools/test_native_cad_editor_bridge.js")], cwd=ROOT, check=True)
 solver = ROOT / "app/src/main/assets/structural_solver.js"
 require(solver.exists() and "GenSolarStructuralSolver" in solver.read_text(encoding="utf-8"), "Inbuilt structural solver asset missing")
