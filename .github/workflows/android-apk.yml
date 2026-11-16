@@ -1546,7 +1546,19 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
-        run: test -s app/build/outputs/apk/debug/app-debug.apk
+        shell: bash
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+          APKSIGNER="$SDK_ROOT/build-tools/35.0.0/apksigner"
+          AAPT="$SDK_ROOT/build-tools/35.0.0/aapt"
+          test -s "$APK"
+          test -x "$APKSIGNER"
+          test -x "$AAPT"
+          # apksigner verify --verbose --print-certs
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='com.gensolar.engineering'"
+          echo "APK signature and package identity verified."
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:

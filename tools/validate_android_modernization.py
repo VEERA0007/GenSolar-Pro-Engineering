@@ -106,6 +106,8 @@ require((ROOT / "tools/test_native_cad_editor_bridge.js").exists(), "Native CAD 
 require("NativeCad3DPreview(" in kotlin and "nativeCadProjectPoint(" in kotlin and "nativeCadViewport3D(" in kotlin and "buildingHeight" in kotlin and "zoneElevation" in kotlin and "nativeCadWallBaseElevation(" in kotlin, "Native CAD 3D preview must project actual building, roof-zone and PV elevation data")
 require((ROOT / "app/src/test/java/com/gensolar/engineering/NativeCadProjectionTest.kt").exists(), "Native CAD 3D projection unit tests missing")
 require("gradle testDebugUnitTest --stacktrace" in (ROOT / ".github/workflows/android-apk.yml").read_text(encoding="utf-8"), "Native CAD 3D unit tests must run in GitHub Actions")
+workflow = (ROOT / ".github/workflows/android-apk.yml").read_text(encoding="utf-8")
+require("apksigner verify --verbose --print-certs" in workflow and "dump badging" in workflow, "APK signature and application ID verification missing")
 subprocess.run(["node", str(ROOT / "tools/test_native_cad_editor_bridge.js")], cwd=ROOT, check=True)
 solver = ROOT / "app/src/main/assets/structural_solver.js"
 require(solver.exists() and "GenSolarStructuralSolver" in solver.read_text(encoding="utf-8"), "Inbuilt structural solver asset missing")
