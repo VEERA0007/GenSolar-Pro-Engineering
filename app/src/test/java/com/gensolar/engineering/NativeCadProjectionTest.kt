@@ -2,6 +2,7 @@ package com.gensolar.engineering
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class NativeCadProjectionTest {
@@ -43,6 +44,14 @@ class NativeCadProjectionTest {
             assertTrue("Projected X must stay inside the drawing viewport", x >= padding - 0.01f && x <= 340f + 0.01f)
             assertTrue("Projected Y must stay inside the drawing viewport", y >= padding - 0.01f && y <= 300f + 0.01f)
         }
+    }
+
+    @Test
+    fun wallGeometryUsesOnlyAValidatedBuildingHeight() {
+        assertEquals(-1.0, nativeCadWallBaseElevation(5.0, 6.0)!!, 0.0001)
+        assertNull(nativeCadWallBaseElevation(5.0, 0.0))
+        assertNull(nativeCadWallBaseElevation(5.0, Double.NaN))
+        assertNull(nativeCadWallBaseElevation(Double.NaN, 6.0))
     }
 
     @Test(expected = IllegalArgumentException::class)

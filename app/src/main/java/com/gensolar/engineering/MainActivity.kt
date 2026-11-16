@@ -1604,7 +1604,7 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
             colors = CardDefaults.cardColors(containerColor = BrandGreen)
         ) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("CAD & 2D ENGINEERING", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Text("CAD / 2D / 3D ENGINEERING", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                 Text("Edit the live project drawing.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
                 Text(
                     "Edit the shared project drawing in native 2D, then switch to an elevation-aware 3D model view of roof zones, walls, PV modules and obstacles. CAD edits are saved through the offline project bridge.",
@@ -2019,6 +2019,12 @@ internal data class NativeCadProjectedPoint(val x: Float, val y: Float)
 
 internal data class NativeCad3DViewport(val scale: Float, val offsetX: Float, val offsetY: Float)
 
+internal fun nativeCadWallBaseElevation(roofElevation: Double, buildingHeight: Double): Double? {
+    if (!roofElevation.isFinite() || !buildingHeight.isFinite() || buildingHeight !in 0.5..100.0) return null
+    return roofElevation - buildingHeight
+}
+
+
 internal fun nativeCadProjectPoint(point: NativeCad3DPoint): NativeCadProjectedPoint {
     require(point.x.isFinite() && point.y.isFinite() && point.z.isFinite()) {
         "3D CAD coordinates must be finite."
@@ -2088,7 +2094,7 @@ private fun NativeCad3DPreview(snapshot: NativeCadSnapshot, modifier: Modifier =
             }
         }
     }
-    val wallHeight = snapshot.buildingHeight.takeIf { it.isFinite() && it in 0.5..100.0 } ?: 6.0
+    val wallBases = zones.map { zone -> nativeCadWallBaseElevation(zone.elevation, snapshot.buildingHeight) }
     val obstacles = remember(snapshot.entities, zones) {
         val baseElevation = zones.firstOrNull()?.elevation ?: 0.0
         snapshot.entities.filter { it.layer == "OBSTACLES" }.mapNotNull { entity ->
@@ -2109,12 +2115,12 @@ private fun NativeCad3DPreview(snapshot: NativeCadSnapshot, modifier: Modifier =
             if (points.size >= 3) points.map { NativeCad3DPoint(it.x, it.y, baseElevation + 0.04) } else null
         }
     }
-    val modelPoints = remember(zones, snapshot.layout, obstacles, wallHeight) {
+    val modelPoints = remember(zones, snapshot.layout, obstacles, wallBases) {
         buildList {
-            zones.forEach { zone ->
+            zones.forEachIndexed { zoneIndex, zone ->
                 zone.vertices.forEach { point ->
                     add(NativeCad3DPoint(point.x, point.y, zone.elevation))
-                    add(NativeCad3DPoint(point.x, point.y, zone.elevation - wallHeight))
+                    wallBases[zoneIndex]?.let { base -> add(NativeCad3DPoint(point.x, point.y, base)) }
                 }
             }
             snapshot.layout.forEach { module ->
@@ -2164,9 +2170,9 @@ private fun NativeCad3DPreview(snapshot: NativeCadSnapshot, modifier: Modifier =
             drawPath(path, fill)
             drawPath(path, outline, style = Stroke(1.1f))
         }
-        zones.forEach { zone ->
-            if ("WALLS" !in snapshot.hiddenLayers) {
-                val base = zone.elevation - wallHeight
+        zones.forEachIndexed { zoneIndex, zone ->
+            val base = wallBases[zoneIndex]
+            if (base != null && "WALLS" !in snapshot.hiddenLayers) {
                 zone.vertices.indices.forEach { index ->
                     val next = (index + 1) % zone.vertices.size
                     val topA = zone.vertices[index]
