@@ -500,7 +500,8 @@ private fun GenSolarApp(
                         onNavigate(destination)
                     }
                 )
-            } else if (selected == "measurement") {\n                MeasurementScreen(modifier = Modifier.fillMaxSize().padding(padding), onRequestGps = onRequestGps)\n            } else if (selected == "staad" && !advancedStaad) {
+            } else if (selected == "measurement") {
+                MeasurementScreen(modifier = Modifier.fillMaxSize().padding(padding), onRequestGps = onRequestGps)\n            } else if (selected == "staad" && !advancedStaad) {
                 NativeStaadScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedStaad = true }
             } else if (selected == "location" && !advancedLocation) {
                 NativeLocationScreen(browser, Modifier.fillMaxSize().padding(padding), onRequestGps) { advancedLocation = true }
@@ -576,7 +577,8 @@ private fun NativeDashboard(modifier: Modifier = Modifier, onNavigate: (String) 
     var search by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("All") }
     val workspaces = listOf(
-        Triple("Site survey & GPS", "Roof measurements, site photos and coordinates.", "site"),\n        Triple("Measurement & 3D survey", "Distance, object, room, rooftop and GPS measurement tools.", "measurement"),
+        Triple("Site survey & GPS", "Roof measurements, site photos and coordinates.", "site"),
+        Triple("Measurement & 3D survey", "Distance, object, room, rooftop and GPS measurement tools.", "measurement"),
         Triple("PV design & layout", "Module placement, setbacks and array sizing.", "layout"),
         Triple("CAD / 2D / 3D studio", "Drawing tools, DXF exchange and 3D model.", "cadstudio"),
         Triple("Solar shade analysis", "Sun path, obstruction direction and shade profile.", "shade"),
