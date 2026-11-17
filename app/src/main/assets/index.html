@@ -1290,8 +1290,6 @@ window.GenSolarEpcBridge = Object.freeze({
       const field=root.querySelector('[data-k="'+key+'"]'),value=Number(data[key]);
       if(!field||!Number.isFinite(value))return{ok:false,error:'Missing or invalid battery input: '+key};
       field.value=String(value);
-      field.dispatchEvent(new Event('input',{bubbles:true}));
-      field.dispatchEvent(new Event('change',{bubbles:true}));
     }
     const button=$('calcBattery');
     if(!button)return{ok:false,error:'Battery calculation action is unavailable.'};
