@@ -170,3 +170,13 @@ A green CI build verifies only the checks configured in GitHub Actions and APK p
 - Added CSV quoting for commas, quotes and line breaks, plus spreadsheet-formula prefix protection for user-controlled text.
 - Added Kotlin unit tests for record validation, CSV escaping, formula protection and export ordering, and extended the Python modernization validator to require the native persistence, history and export wiring.
 - The feature is committed to `main`; the GitHub Actions workflow is the verification gate. ARCore camera point picking, Depth API capture, mesh generation and project-linked measurement history remain incomplete.
+
+
+## Latest implementation (2026-11-18 — native battery bank design)
+
+- Added a native Jetpack Compose battery workspace reachable from the Electrical section and More menu. It loads the active project's saved battery inputs/result, stores native input drafts offline, and writes calculation results back through the controlled EPC bridge.
+- Extracted the battery sizing logic into a browser/Node-compatible pure JavaScript engine with strict finite/range checks. It calculates usable energy, required nominal capacity, integer series-module count, parallel strings, total module count, installed kWh/Ah and continuous charge/discharge current capacity.
+- The solver checks the entered module continuous discharge-current limit and, when a charger current is supplied, the module charge-current limit. A current-limit shortfall produces REVIEW REQUIRED rather than silently accepting the bank.
+- Added Node regression tests for a 3 kW / 8 hour example, 51.2 V bus with 12.8 V modules, 4S × 7P topology, Ah/kWh totals, current overloads, charger limits, non-integer voltage ratios and invalid inputs. Added the test to GitHub Actions and the Python modernization validator.
+- The native screen is an engineering sizing and current-capacity screen, not a chemistry/BMS certification or inverter approval. Battery datasheet, BMS, fuse, cable, thermal and manufacturer compatibility checks remain required before release.
+- GitHub Actions verification is pending for this implementation.

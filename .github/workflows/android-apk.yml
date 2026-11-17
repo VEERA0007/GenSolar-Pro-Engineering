@@ -1514,6 +1514,8 @@ jobs:
           assert.equal(circle.radius,500);
           console.log("PV DXF round-trip passed: explicit millimetre units, roof zones, modules, obstacles, access corridors and geometry scale");
           JS
+      - name: Test battery bank sizing and current limits
+        run: node tools/test_battery_engine.js
       - name: Test BOM generation and rate preservation
         run: node tools/test_bom_generation.js
       - name: Test procurement register validation and safe rendering

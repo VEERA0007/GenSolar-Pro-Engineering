@@ -137,3 +137,19 @@ require(measurement_test.exists(), "Measurement history Kotlin regression tests 
 require("gradle testDebugUnitTest --stacktrace" in (ROOT / ".github/workflows/android-apk.yml").read_text(encoding="utf-8"), "Measurement history tests must run in GitHub Actions")
 
 require("onExportFile = onExportFile" in kotlin and "MeasurementScreen(" in kotlin, "Measurement history export callback must be wired from the Android host to the Compose screen")
+
+
+battery_engine = ROOT / "app/src/main/assets/battery_engine.js"
+battery_screen = ROOT / "app/src/main/java/com/gensolar/engineering/BatteryScreen.kt"
+battery_test = ROOT / "tools/test_battery_engine.js"
+require(battery_engine.exists() and battery_screen.exists() and battery_test.exists(), "Native battery engine, Compose screen or regression test missing")
+battery_source = battery_engine.read_text(encoding="utf-8")
+battery_ui = battery_screen.read_text(encoding="utf-8")
+require("battery_engine.js" in html and "GenSolarBatteryEngine.calculate" in html, "Battery engine asset must be loaded and used by the EPC solver")
+require("calculateBattery: function(input)" in html and "getBatterySnapshot: function()" in html and "battery: state.battery || null" in html, "Controlled EPC bridge must expose and persist the active battery result")
+require(all(key in html for key in ("batteryBusV", "batteryModuleV", "batteryModuleAh", "batteryModuleMaxDischargeA", "batteryModuleMaxChargeA", "batteryChargerCurrentA")), "Battery module voltage, capacity and charge/discharge limits must be project-backed")
+require("NativeBatteryScreen(" in kotlin and "onOpenBattery" in kotlin and 'selected == "battery"' in kotlin, "Native electrical navigation must expose the Compose battery workspace")
+require("GenSolarEpcBridge.calculateBattery" in battery_ui and "getBatterySnapshot" in battery_ui and "gensolar_native_battery" in battery_ui, "Native battery screen must load and save the active project calculation with offline input persistence")
+require("seriesModules" in battery_source and "parallelStrings" in battery_source and "designDischargeCurrentA" in battery_source and "availableChargeCurrentA" in battery_source, "Battery solver must calculate bank topology and charge/discharge current capacity")
+require("node tools/test_battery_engine.js" in workflow, "Battery solver regression suite must run in GitHub Actions")
+subprocess.run(["node", str(battery_test)], cwd=ROOT, check=True)

@@ -13,13 +13,13 @@ An offline-first Android solar EPC engineering workspace for site survey, PV lay
 
 - **Native Android shell:** Compose app bar, Home dashboard, bottom navigation, More menu and Android back-to-Home behavior.
 - **Engineering workspaces:** bundled HTML/CSS/JavaScript EPC workspaces hosted locally in WebView, plus native Compose workspaces. The native dashboard routes to each workspace through the shared application router.
-- **Measurement & 3D survey (v0.3.0 foundation):** native point-coordinate distance, object volume/surface area, room floor/perimeter/wall area, rectangular rooftop slope-area and preliminary PV module estimate, and GPS point-to-point distance. ARCore support detection and optional camera permission are declared; live AR point-picking, depth overlay, room scanning and 3D capture remain in the next implementation phase.
+- **Measurement & 3D survey (v0.3.0 foundation):** native point-coordinate distance, object volume/surface area, room floor/perimeter/wall area, rectangular rooftop slope-area and preliminary PV module estimate, GPS point-to-point distance, bounded on-device measurement history and CSV export. ARCore support detection and optional camera permission are declared; live AR point-picking, depth overlay, room scanning and 3D capture remain pending.
 - **Project and site:** project save/load foundations, survey details, roof-zone geometry, GPS coordinates, site media, local project JSON and ZIP backup/restore.
 - **PV design:** module catalogue inputs, capacity and module sizing, polygon-based preliminary layout, obstacle/setback/access-corridor checks, module schedule and DXF/CSV export.
 - **Solar resource:** user-entered GHI/DNI/DHI/GTI and yield inputs, performance-loss budget and monthly generation estimate. Resource-source validation and full weather integration remain incomplete.
 - **CAD / 3D:** editable 2D geometry, DXF import/export, image survey underlay calibration, snapping, orthogonal drawing, layer visibility and conceptual 3D visualization. This is not a full AutoCAD/DWG replacement.
 - **Structural:** IS 875-oriented wind input screens, portal-frame model and STAAD.Pro `.STD` export, steel take-off, preliminary foundation/RCC screens and an in-app 2D elastic portal-frame solver.
-- **Electrical:** PV string and MPPT checks, temperature-adjusted voltage, inverter compatibility, battery sizing, cable/protection screening and SLD generation foundations.
+- **Electrical and battery:** native Compose battery-bank sizing connected to the tested EPC project engine; module series/parallel topology, nominal/usable kWh, bank Ah, continuous discharge/charge current limits, plus PV string/MPPT, cable, protection and SLD screening.
 - **Project delivery:** BOM/BOQ, vendor/RFQ, fabrication, construction, commissioning, DPR and handover registers.
 
 ## Build and download the debug APK

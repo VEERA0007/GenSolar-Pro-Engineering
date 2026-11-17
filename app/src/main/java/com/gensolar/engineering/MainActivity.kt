@@ -333,7 +333,10 @@ private fun GenSolarApp(
     var advancedConstruction by remember { mutableStateOf(false) }
     var advancedProcurement by remember { mutableStateOf(false) }
     BackHandler(enabled = selected != "dashboard") {
-        if (selected == "site" && advancedSite) {
+        if (selected == "battery") {
+            selected = "electrical"
+            onNavigate("electrical")
+        } else if (selected == "site" && advancedSite) {
             advancedSite = false
         } else if (selected == "layout" && advancedLayout) {
             advancedLayout = false
@@ -415,6 +418,7 @@ private fun GenSolarApp(
                             listOf(
                                 "location" to "GPS / Map",
                                 "electrical" to "Electrical design",
+                                "battery" to "Battery bank design",
                                 "staad" to "STAAD structural",
                                 "bom" to "BOM / BOQ",
                                 "procurement" to "Procurement",
@@ -436,7 +440,7 @@ private fun GenSolarApp(
                                         advancedBom = false
                                         advancedConstruction = false
                                         advancedProcurement = false
-                                        onNavigate(key)
+                                        onNavigate(if (key == "battery") "electrical" else key)
                                     }
                                 )
                             }
@@ -510,8 +514,18 @@ private fun GenSolarApp(
                 NativeShadeScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedShade = true }
             } else if (selected == "cadstudio" && !advancedCad) {
                 NativeCadScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedCad = true }
+            } else if (selected == "battery") {
+                NativeBatteryScreen(browser, Modifier.fillMaxSize().padding(padding)) {
+                    selected = "electrical"
+                    onNavigate("electrical")
+                }
             } else if (selected == "electrical" && !advancedElectrical) {
-                NativeElectricalScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedElectrical = true }
+                NativeElectricalScreen(
+                    browser = browser,
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    onOpenAdvanced = { advancedElectrical = true },
+                    onOpenBattery = { selected = "battery"; onNavigate("electrical") }
+                )
             } else if (selected == "layout" && !advancedLayout) {
                 NativePvDesignScreen(
                     browser = browser,
@@ -1005,7 +1019,7 @@ private fun NativePvDesignScreen(
 
 
 @Composable
-private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifier, onOpenAdvanced: () -> Unit) {
+private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifier, onOpenAdvanced: () -> Unit, onOpenBattery: () -> Unit) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("gensolar_native_electrical", android.content.Context.MODE_PRIVATE) }
     val defaults = listOf("acKw" to "80", "mpptMin" to "200", "mpptMax" to "1000", "maxDc" to "1100", "minTemp" to "5", "mpptCurrent" to "30", "bifacialCurrentGain" to "0", "mpptCount" to "4", "maxCellTemp" to "70", "vmpCoeff" to "-0.35")
@@ -1130,7 +1144,8 @@ private fun NativeElectricalScreen(browser: WebView, modifier: Modifier = Modifi
                 Text(status, color = Color(0xFF60756E), fontSize = 11.sp)
             }
         }
-        androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) { Text("Open MPPT allocation, battery, cable & protection tools") }
+        androidx.compose.material3.OutlinedButton(onClick = onOpenBattery, modifier = Modifier.fillMaxWidth()) { Text("Open native battery bank designer") }
+        androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) { Text("Open MPPT allocation, cable & protection tools") }
         Text("Preliminary screening only. Verify inverter datasheets, MPPT operating and short-circuit limits, protection coordination, cable sizing and applicable electrical standards.", color = Color(0xFF667A75), fontSize = 10.sp)
         Spacer(Modifier.height(8.dp))
     }
