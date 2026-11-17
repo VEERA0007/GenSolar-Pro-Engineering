@@ -162,3 +162,11 @@ A green CI build verifies only the checks configured in GitHub Actions and APK p
 - Additional persistence hardening and regression corrections: [atomic CAD save](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/6c09346b844029cba17429d9f57c8e77148ae8ef), [save rollback tests](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/f880bad46b91cf02a3aeea3b8dd75bfc253139d9), [layer-selection test correction](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/087573801085825526774ebcab4f4859b4c18a2c).
 - This is a staged native migration: advanced drafting tools, DXF import/export and conceptual 3D rendering remain in the detailed workspace. Full 3D editing, DWG conversion, fabrication drawings and structural release are not claimed.
 - The new CAD commits require a fresh full workflow and APK verification; Build #515 is a verified baseline only, not verification of this implementation.
+
+## Latest implementation (2026-11-18 — offline measurement history)
+
+- Added a native saved-measurement register for the Distance, Object, Room, Solar roof and GPS calculators. Users explicitly save a calculated result; the history view shows the latest 50 records and exports all retained records as CSV through the Android document picker.
+- Added bounded app-private SharedPreferences persistence (maximum 200 records) with synchronous write confirmation. If stored history is malformed or a write fails, a new record is not reported as saved and existing data is not intentionally replaced.
+- Added CSV quoting for commas, quotes and line breaks, plus spreadsheet-formula prefix protection for user-controlled text.
+- Added Kotlin unit tests for record validation, CSV escaping, formula protection and export ordering, and extended the Python modernization validator to require the native persistence, history and export wiring.
+- The feature is committed to `main`; the GitHub Actions workflow is the verification gate. ARCore camera point picking, Depth API capture, mesh generation and project-linked measurement history remain incomplete.

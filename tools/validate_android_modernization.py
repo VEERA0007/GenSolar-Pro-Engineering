@@ -119,3 +119,19 @@ require("obstructionWidthDeg" in html and "shadeInterval" in html, "Directional 
 subprocess.run(["node", str(ROOT / "tools/test_structural_solver.js")], cwd=ROOT, check=True)
 subprocess.run(["node", str(ROOT / "tools/test_shade_engine.js")], cwd=ROOT, check=True)
 print(f"Android modernization checks passed: Kotlin 2.0.21, Compose Material 3, Java 17, secure local WebView bridge, {len(audit.ids)} unique HTML IDs and all native navigation targets.")
+
+
+measurement_screen = ROOT / "app/src/main/java/com/gensolar/engineering/MeasurementScreen.kt"
+measurement_store = ROOT / "app/src/main/java/com/gensolar/engineering/MeasurementHistory.kt"
+measurement_test = ROOT / "app/src/test/java/com/gensolar/engineering/MeasurementHistoryTest.kt"
+require(measurement_screen.exists() and measurement_store.exists(), "Native measurement history source files missing")
+measurement_ui = measurement_screen.read_text(encoding="utf-8")
+measurement_data = measurement_store.read_text(encoding="utf-8")
+require("MeasurementHistoryStore(context)" in measurement_ui and "historyStore.append(record)" in measurement_ui, "Measurement UI must persist saved results to app-private offline storage")
+require('listOf("Distance","Object","Room","Solar roof","GPS","History")' in measurement_ui and "MeasurementHistoryTool(history)" in measurement_ui, "Native measurement workspace must expose its saved history")
+require("MeasurementHistoryCodec.toCsv(records)" in measurement_ui and "GenSolar-measurement-history.csv" in measurement_ui and "onExportFile" in measurement_ui, "Measurement history must export through the Android document picker")
+require("getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)" in measurement_data and ".commit()" in measurement_data and "MAX_RECORDS = 200" in measurement_data, "Measurement history must use bounded app-private persistence with confirmed writes")
+require("validationError(record)" in measurement_data and "return null" in measurement_data, "Corrupt or invalid measurement history must not be overwritten by an append")
+require("firstOrNull() in listOf('=', '+', '-', '@')" in measurement_data, "CSV export must neutralize spreadsheet formula-like cells")
+require(measurement_test.exists(), "Measurement history Kotlin regression tests missing")
+require("gradle testDebugUnitTest --stacktrace" in (ROOT / ".github/workflows/android-apk.yml").read_text(encoding="utf-8"), "Measurement history tests must run in GitHub Actions")
