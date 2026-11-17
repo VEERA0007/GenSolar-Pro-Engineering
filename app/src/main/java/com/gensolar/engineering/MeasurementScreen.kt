@@ -109,7 +109,7 @@ fun MeasurementScreen(
     val ok=listOf(a,b,c).all { it!=null && it.isFinite() && it>0.0 }
     val volume=if(ok) a!!*b!!*c!! else null
     val surface=if(ok) 2*(a!!*b!!+a*c!!+b*c!!) else null
-    val summary=if(ok) String.format(Locale.getDefault(),"%.3f m³ volume; %.3f m² surface",volume,surface) else "Check dimensions"
+    val summary=if(ok) String.format(Locale.getDefault(),"%.3f m³ volume; %.3f m² surface",volume!!,surface!!) else "Check dimensions"
     ToolCard("Object dimensions","Calculate estimated volume and surface area from width, height and depth.") {
         Field("Width (m)",w,{w=it}); Field("Height (m)",h,{h=it}); Field("Depth (m)",d,{d=it})
         Result("VOLUME",volume?.let { String.format(Locale.getDefault(),"%.3f m³",it) } ?: "Check inputs")
@@ -125,7 +125,7 @@ fun MeasurementScreen(
     val floor=if(ok) a!!*b!! else null
     val perimeter=if(ok) 2*(a!!+b!!) else null
     val walls=if(ok) 2*(a!!+b!!)*c!! else null
-    val summary=if(ok) String.format(Locale.getDefault(),"%.2f m² floor; %.2f m perimeter; %.2f m² gross walls",floor,perimeter,walls) else "Check dimensions"
+    val summary=if(ok) String.format(Locale.getDefault(),"%.2f m² floor; %.2f m perimeter; %.2f m² gross walls",floor!!,perimeter!!,walls!!) else "Check dimensions"
     ToolCard("Room dimensions","Estimate floor area, perimeter and gross wall area.") {
         Field("Length (m)",l,{l=it}); Field("Width (m)",w,{w=it}); Field("Wall height (m)",h,{h=it})
         Result("FLOOR AREA",floor?.let { String.format(Locale.getDefault(),"%.2f m² · %.1f sq.ft",it,it*10.7639) } ?: "Check inputs")
@@ -144,7 +144,7 @@ fun MeasurementScreen(
     val usableArea=(area ?: 0.0)*(u ?: 0.0)/100.0
     val count=if(ok) MeasurementMath.panelCount(usableArea,x!!,y!!) else 0
     val capacity=if(ok) count*p!!/1000.0 else null
-    val summary=if(ok) String.format(Locale.getDefault(),"%.2f m² roof; %d modules; %.2f kWp",area,count,capacity) else "Check roof and module inputs"
+    val summary=if(ok) String.format(Locale.getDefault(),"%.2f m² roof; %d modules; %.2f kWp",area!!,count,capacity!!) else "Check roof and module inputs"
     ToolCard("Solar rooftop estimator","Rectangular roof estimate. Usable percentage is a planning allowance for setbacks, access and obstructions.") {
         Field("Roof length (m)",l,{l=it}); Field("Roof width (m)",w,{w=it}); Field("Slope (degrees)",slope,{slope=it})
         Field("Usable area (%)",usable,{usable=it}); Field("Panel length (m)",pl,{pl=it}); Field("Panel width (m)",pw,{pw=it}); Field("Panel rating (W)",watts,{watts=it})

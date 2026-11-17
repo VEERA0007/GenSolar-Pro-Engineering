@@ -135,3 +135,5 @@ require("validationError(record)" in measurement_data and "return null" in measu
 require("firstOrNull() in listOf('=', '+', '-', '@')" in measurement_data, "CSV export must neutralize spreadsheet formula-like cells")
 require(measurement_test.exists(), "Measurement history Kotlin regression tests missing")
 require("gradle testDebugUnitTest --stacktrace" in (ROOT / ".github/workflows/android-apk.yml").read_text(encoding="utf-8"), "Measurement history tests must run in GitHub Actions")
+
+require("onExportFile = onExportFile" in kotlin and "MeasurementScreen(" in kotlin, "Measurement history export callback must be wired from the Android host to the Compose screen")
