@@ -500,7 +500,7 @@ private fun GenSolarApp(
                         onNavigate(destination)
                     }
                 )
-            } else if (selected == "staad" && !advancedStaad) {
+            } else if (selected == "measurement") {\n                MeasurementScreen(modifier = Modifier.fillMaxSize().padding(padding), onRequestGps = onRequestGps)\n            } else if (selected == "staad" && !advancedStaad) {
                 NativeStaadScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedStaad = true }
             } else if (selected == "location" && !advancedLocation) {
                 NativeLocationScreen(browser, Modifier.fillMaxSize().padding(padding), onRequestGps) { advancedLocation = true }
@@ -576,7 +576,7 @@ private fun NativeDashboard(modifier: Modifier = Modifier, onNavigate: (String) 
     var search by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("All") }
     val workspaces = listOf(
-        Triple("Site survey & GPS", "Roof measurements, site photos and coordinates.", "site"),
+        Triple("Site survey & GPS", "Roof measurements, site photos and coordinates.", "site"),\n        Triple("Measurement & 3D survey", "Distance, object, room, rooftop and GPS measurement tools.", "measurement"),
         Triple("PV design & layout", "Module placement, setbacks and array sizing.", "layout"),
         Triple("CAD / 2D / 3D studio", "Drawing tools, DXF exchange and 3D model.", "cadstudio"),
         Triple("Solar shade analysis", "Sun path, obstruction direction and shade profile.", "shade"),
@@ -593,7 +593,7 @@ private fun NativeDashboard(modifier: Modifier = Modifier, onNavigate: (String) 
     val filtered = workspaces.filter { item ->
         val matchesSearch = search.isBlank() || (item.first + " " + item.second).contains(search, ignoreCase = true)
         val group = when (item.third) {
-            "site", "location" -> "Survey"
+            "site", "location", "measurement" -> "Survey"
             "layout", "cadstudio", "shade" -> "Design"
             "electrical", "staad" -> "Engineering"
             else -> "Delivery"
@@ -713,7 +713,7 @@ private fun NativeWorkspaceTile(
     modifier: Modifier = Modifier
 ) {
     val symbol = when (destination) {
-        "site", "location" -> "⌖"
+        "site", "location", "measurement" -> "⌖"
         "layout" -> "▦"
         "cadstudio" -> "⌗"
         "shade" -> "☼"
