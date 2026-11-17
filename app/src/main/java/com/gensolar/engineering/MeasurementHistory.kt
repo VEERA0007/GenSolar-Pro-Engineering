@@ -39,7 +39,8 @@ object MeasurementHistoryCodec {
     }
 
     private fun csvCell(value: String): String {
-        val safe = if (value.trimStart().firstOrNull() in listOf('=', '+', '-', '@')) "'$value" else value
+        val first = value.trimStart().firstOrNull()
+        val safe = if (first == '=' || first == '+' || first == '-' || first == '@') "'$value" else value
         return "\"" + safe.replace("\"", "\"\"") + "\""
     }
 }
@@ -74,7 +75,8 @@ class MeasurementHistoryStore(context: Context) {
         val raw = preferences.getString(KEY, null) ?: return emptyList()
         return try {
             val json = JSONArray(raw)
-            val records = (0 until json.length()).map { index ->
+            val records = mutableListOf<MeasurementRecord>()
+            for (index in 0 until json.length()) {
                 val item = json.optJSONObject(index) ?: return null
                 val record = MeasurementRecord(
                     id = item.optString("id", ""),
@@ -85,7 +87,7 @@ class MeasurementHistoryStore(context: Context) {
                     createdAtEpochMs = item.optLong("createdAtEpochMs", 0L)
                 )
                 if (MeasurementHistoryCodec.validationError(record) != null) return null
-                record
+                records.add(record)
             }
             records.takeLast(MAX_RECORDS)
         } catch (_: Exception) {

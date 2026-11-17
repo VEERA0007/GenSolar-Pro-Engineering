@@ -132,7 +132,7 @@ require('listOf("Distance","Object","Room","Solar roof","GPS","History")' in mea
 require("MeasurementHistoryCodec.toCsv(records)" in measurement_ui and "GenSolar-measurement-history.csv" in measurement_ui and "onExportFile" in measurement_ui, "Measurement history must export through the Android document picker")
 require("getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)" in measurement_data and ".commit()" in measurement_data and "MAX_RECORDS = 200" in measurement_data, "Measurement history must use bounded app-private persistence with confirmed writes")
 require("validationError(record)" in measurement_data and "return null" in measurement_data, "Corrupt or invalid measurement history must not be overwritten by an append")
-require("firstOrNull() in listOf('=', '+', '-', '@')" in measurement_data, "CSV export must neutralize spreadsheet formula-like cells")
+require("val first = value.trimStart().firstOrNull()" in measurement_data and "first == '=' " in measurement_data or "first == '='" in measurement_data, "CSV export must neutralize spreadsheet formula-like cells")
 require(measurement_test.exists(), "Measurement history Kotlin regression tests missing")
 require("gradle testDebugUnitTest --stacktrace" in (ROOT / ".github/workflows/android-apk.yml").read_text(encoding="utf-8"), "Measurement history tests must run in GitHub Actions")
 
