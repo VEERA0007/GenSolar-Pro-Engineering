@@ -1,5 +1,15 @@
 # GenSolar Pro Engineering — Build Progress
 
+## Latest implementation (2026-11-17 — Measurement & 3D Survey foundation)
+
+- Added a native Jetpack Compose Measurement & 3D Survey workspace to the dashboard on `main`, with Distance, Object, Room, Solar roof and GPS tools.
+- Added pure Kotlin measurement helpers for 3D point distance, GPS haversine distance, sloped rectangular roof surface area and preliminary module-count estimation, with unit tests.
+- Added ARCore availability reporting, the optional ARCore manifest declaration and camera capability declarations. ARCore 1.57.0 initially failed manifest merge because its AAR required minSdk 24 while this application retains minSdk 23. The dependency was corrected to ARCore 1.51.0, preserving minSdk 23; AR runtime operation still requires Android API 24+ and a supported device.
+- Live camera point-picking, Depth API sampling, room/roof scanning, 3D mesh generation, measurement history integration and report export are explicitly pending. The current screen is a usable calculator/GPS foundation, not a completed AR scanner.
+- GitHub Actions Build #543 passed the Kotlin/HTML checks, configured engineering regression tests, debug APK packaging, APK signature/package verification and artifact upload. Artifact ZIP: 9,270,287 bytes; SHA-256: `e2b3c4f46dc12b83798a979fa0f1116e00220a1c82f45f5996d6a3dea371e68a`. [Build #543](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/44034496433).
+- The existing 14-workspace overall completion estimate is not changed by this foundation-only addition; the live AR scanner remains a distinct incomplete feature slice.
+
+
 Last assessed: 2026-11-15 (native Compose CAD editing and transactional project bridge implemented; full validation of the new CAD slice pending)
 
 ## Overall completion estimate: 49.1%
