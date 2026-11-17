@@ -501,7 +501,8 @@ private fun GenSolarApp(
                     }
                 )
             } else if (selected == "measurement") {
-                MeasurementScreen(modifier = Modifier.fillMaxSize().padding(padding), onRequestGps = onRequestGps)\n            } else if (selected == "staad" && !advancedStaad) {
+                MeasurementScreen(modifier = Modifier.fillMaxSize().padding(padding), onRequestGps = onRequestGps)
+            } else if (selected == "staad" && !advancedStaad) {
                 NativeStaadScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedStaad = true }
             } else if (selected == "location" && !advancedLocation) {
                 NativeLocationScreen(browser, Modifier.fillMaxSize().padding(padding), onRequestGps) { advancedLocation = true }
