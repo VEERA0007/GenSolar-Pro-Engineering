@@ -22,7 +22,7 @@ assert.equal(profile.length,24);
 assert.ok(profile.every(x=>Number.isFinite(x.altitude)&&Number.isFinite(x.azimuth)));
 assert.throws(()=>e.solarPosition('2026-06-21','09:00',91,78,-330),/valid range/);
 assert.throws(()=>e.solarPosition('2026-02-29','09:00',17.385,78.4867,330),/calendar date/,'non-leap February 29 must be rejected');
-assert.throws(()=>e.solarPosition('2024-02-29','09:00',17.385,78.4867,330),undefined,'leap-day input is accepted');
+assert.doesNotThrow(()=>e.solarPosition('2024-02-29','09:00',17.385,78.4867,330),'valid leap-day input is accepted');
 assert.throws(()=>e.solarPosition('2026-04-31','09:00',17.385,78.4867,330),/calendar date/,'April has only 30 days');
 assert.throws(()=>e.assess({...hyderabad,obstructionHeight:2,obstructionDistance:5,obstructionAzimuth:NaN,obstructionWidthDeg:30}),/bearing/,'non-finite obstruction bearing must be rejected');
 assert.throws(()=>e.assess({...hyderabad,obstructionHeight:2,obstructionDistance:5,obstructionAzimuth:361,obstructionWidthDeg:30}),/bearing/,'bearing above 360 degrees must be rejected');
