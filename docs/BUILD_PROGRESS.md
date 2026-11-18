@@ -1,5 +1,13 @@
 # GenSolar Pro Engineering — Build Progress
 
+## Latest implementation (2026-11-19 — measurement history management)
+
+- Added individual measurement deletion and a confirmed clear-all action to the native Measurement & 3D Survey history screen. The UI refreshes from app-private storage only after the synchronous persistence operation succeeds; failed writes leave the existing records in place.
+- Added CSV-export reminder before destructive clear-all, and retained the existing 200-record bound and spreadsheet-formula-safe CSV export.
+- Added a pure Kotlin regression test confirming selective deletion preserves all other records and their order.
+- Commits: [store deletion/clear API](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/f79d8248208e576461b888c2a74fe4910b6b4783), [Compose history controls](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/b2857c31bd7b39e366c171e2e58f2e90bcc97842), [history deletion test](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/cef1662fc761fb76e7866719f1db734f87e44dd3), and [unused callback cleanup](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/e92c9c4a25d2ea7b3a2283a6994156e37601ab50).
+- CI status for the final commit has not yet been reported by the connected status endpoint. Do not count this slice as build-verified until the Android Actions run completes successfully and its artifact is inspected.
+
 ## Latest implementation (2026-11-17 — Measurement & 3D Survey foundation)
 
 - Added a native Jetpack Compose Measurement & 3D Survey workspace to the dashboard on `main`, with Distance, Object, Room, Solar roof and GPS tools.
