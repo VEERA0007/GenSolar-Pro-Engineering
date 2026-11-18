@@ -6,10 +6,13 @@ function angularDifference(a,b){return Math.abs(((a-b+540)%360)-180)}
 function solarPosition(date,time,latitude,longitude,timezoneOffsetMinutes){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(time))throw new Error('Date and local time are required');
  const [year,month,day]=date.split('-').map(Number),[hour,minute]=time.split(':').map(Number);
- if(month<1||month>12||day<1||day>31||hour>23||minute>59)throw new Error('Invalid date or local time');
+ if(year<1||year>9999||month<1||month>12||day<1||hour>23||minute>59)throw new Error('Invalid date or local time');
+ const leap=year%4===0&&(year%100!==0||year%400===0),monthDays=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31];
+ if(day>monthDays[month-1])throw new Error('Invalid calendar date');
  if(!Number.isFinite(latitude)||latitude<-90||latitude>90||!Number.isFinite(longitude)||longitude<-180||longitude>180)throw new Error('Latitude or longitude is outside its valid range');
  if(!Number.isFinite(timezoneOffsetMinutes)||Math.abs(timezoneOffsetMinutes)>840)throw new Error('Invalid timezone offset');
- const utc=Date.UTC(year,month-1,day,hour,minute)-timezoneOffsetMinutes*60000;
+ const localDate=new Date(0);localDate.setUTCFullYear(year,month-1,day);localDate.setUTCHours(hour,minute,0,0);
+ const utc=localDate.getTime()-timezoneOffsetMinutes*60000;
  const dt=new Date(utc), doy=Math.floor((Date.UTC(dt.getUTCFullYear(),dt.getUTCMonth(),dt.getUTCDate())-Date.UTC(dt.getUTCFullYear(),0,0))/86400000);
  const utcHour=dt.getUTCHours()+dt.getUTCMinutes()/60+dt.getUTCSeconds()/3600;
  const gamma=2*Math.PI/365*(doy-1+(utcHour-12)/24);
@@ -22,8 +25,9 @@ function solarPosition(date,time,latitude,longitude,timezoneOffsetMinutes){
 }
 function assess(input){
  const p=solarPosition(input.date,input.time,input.latitude,input.longitude,input.timezoneOffsetMinutes);
- const height=Number(input.obstructionHeight),distance=Number(input.obstructionDistance),bearing=wrap360(Number(input.obstructionAzimuth)),width=Number(input.obstructionWidthDeg);
- if(!Number.isFinite(height)||height<0||!Number.isFinite(distance)||distance<0||!Number.isFinite(width)||width<0||width>360)throw new Error('Obstruction height, distance or angular width is invalid');
+ const height=Number(input.obstructionHeight),distance=Number(input.obstructionDistance),rawBearing=Number(input.obstructionAzimuth),width=Number(input.obstructionWidthDeg);
+ if(!Number.isFinite(height)||height<0||!Number.isFinite(distance)||distance<0||!Number.isFinite(rawBearing)||rawBearing<0||rawBearing>360||!Number.isFinite(width)||width<0||width>360)throw new Error('Obstruction height, distance, bearing or angular width is invalid');
+ const bearing=wrap360(rawBearing);
  const shadow=p.altitude>0.01?height/Math.tan(p.altitude*RAD):null,delta=angularDifference(p.azimuth,bearing);
  const directional=delta<=width/2,blocks=p.altitude>0.01&&shadow!==null&&shadow>=distance&&directional;
  return {...p,shadowLengthM:shadow,angularDifferenceDeg:delta,directionallyAligned:directional,potentialDirectShade:blocks};
