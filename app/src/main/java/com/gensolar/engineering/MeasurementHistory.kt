@@ -24,6 +24,9 @@ object MeasurementHistoryCodec {
         return null
     }
 
+    fun withoutId(records: List<MeasurementRecord>, id: String): List<MeasurementRecord> =
+        records.filterNot { it.id == id }
+
     fun toCsv(records: List<MeasurementRecord>): String {
         val rows = records.map { record ->
             listOf(
@@ -56,8 +59,27 @@ class MeasurementHistoryStore(context: Context) {
         if (MeasurementHistoryCodec.validationError(record) != null) return false
         val existing = readRecords() ?: return false
         val updated = (existing.filterNot { it.id == record.id } + record).takeLast(MAX_RECORDS)
+        return writeRecords(updated)
+    }
+
+    @Synchronized
+    fun remove(recordId: String): Boolean {
+        if (recordId.isBlank()) return false
+        val existing = readRecords() ?: return false
+        if (existing.none { it.id == recordId }) return false
+        return writeRecords(MeasurementHistoryCodec.withoutId(existing, recordId))
+    }
+
+    @Synchronized
+    fun clearAll(): Boolean {
+        val existing = readRecords() ?: return false
+        if (existing.isEmpty()) return true
+        return preferences.edit().remove(KEY).commit()
+    }
+
+    private fun writeRecords(records: List<MeasurementRecord>): Boolean {
         val json = JSONArray()
-        updated.forEach { item ->
+        records.forEach { item ->
             json.put(
                 JSONObject()
                     .put("id", item.id)
