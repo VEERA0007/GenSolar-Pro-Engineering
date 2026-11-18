@@ -85,14 +85,6 @@ fun MeasurementScreen(
             "History" -> MeasurementHistoryTool(
                 records = history,
                 onExportFile = { fileName,content,mimeType -> onExportFile(fileName,content,mimeType) },
-                onDeleteRecord = { record ->
-                    if (historyStore.remove(record.id)) {
-                        history = historyStore.load()
-                        saveStatus = "Measurement deleted."
-                    } else {
-                        saveStatus = "Could not delete this measurement. Existing history was left unchanged."
-                    }
-                },
                 onRequestDelete = { pendingDelete = it },
                 onRequestClear = { confirmClearHistory = true }
             )
@@ -237,7 +229,6 @@ fun MeasurementScreen(
 @Composable private fun MeasurementHistoryTool(
     records: List<MeasurementRecord>,
     onExportFile: (String,String,String) -> Unit,
-    onDeleteRecord: (MeasurementRecord) -> Unit,
     onRequestDelete: (MeasurementRecord) -> Unit,
     onRequestClear: () -> Unit
 ) {
