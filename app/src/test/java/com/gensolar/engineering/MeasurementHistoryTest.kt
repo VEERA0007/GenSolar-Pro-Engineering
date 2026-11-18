@@ -30,6 +30,15 @@ class MeasurementHistoryTest {
     }
 
     @Test
+    fun removesOnlyTheSelectedRecordAndPreservesOrder() {
+        val first = record(id = "first")
+        val second = record(id = "second")
+        val third = record(id = "third")
+        assertEquals(listOf(first, third), MeasurementHistoryCodec.withoutId(listOf(first, second, third), "second"))
+        assertEquals(listOf(first, second, third), MeasurementHistoryCodec.withoutId(listOf(first, second, third), "missing"))
+    }
+
+    @Test
     fun csvEscapesCommasQuotesAndLineBreaks() {
         val csv = MeasurementHistoryCodec.toCsv(
             listOf(record(title = "Roof, east", details = "Survey note: \"checked\"\nsecond line"))
