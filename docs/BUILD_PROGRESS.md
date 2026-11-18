@@ -180,3 +180,12 @@ A green CI build verifies only the checks configured in GitHub Actions and APK p
 - Added Node regression tests for a 3 kW / 8 hour example, 51.2 V bus with 12.8 V modules, 4S × 7P topology, Ah/kWh totals, current overloads, charger limits, non-integer voltage ratios and invalid inputs. Added the test to GitHub Actions and the Python modernization validator.
 - The native screen is an engineering sizing and current-capacity screen, not a chemistry/BMS certification or inverter approval. Battery datasheet, BMS, fuse, cable, thermal and manufacturer compatibility checks remain required before release.
 - GitHub Actions verification is pending for this implementation.
+
+
+## Latest implementation (2026-11-18 — Native multi-obstruction shade analysis)
+
+- Native Compose shade workspace now supports a primary obstruction plus up to eight additional objects, validates each row, and calculates combined obstruction alignment/blocking at the selected time.
+- Added aggregated day-profile samples and per-obstruction result details using the existing timezone-aware solar-position engine; calculations remain geometric screening, not module-level shade-loss simulation.
+- Shade calculation inputs and result/profile snapshots are saved through the shared project bridge and included in project summaries. SharedPreferences retains native input drafts.
+- Added regression coverage for multiple obstruction aggregation, blocking intervals, day-profile sample integrity and invalid obstruction counts. CI runs the shade-engine tests explicitly.
+- CI verification of this commit is pending.

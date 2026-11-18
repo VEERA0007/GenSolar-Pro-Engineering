@@ -1664,6 +1664,21 @@ window.GenSolarEpcBridge = Object.freeze({
     }
     return true;
   },
+  setShadeAnalysis: function(input) {
+    const value=input||{},obstacles=value.obstructions,lat=Number(value.latitude),lon=Number(value.longitude),offset=Number(value.timezoneOffsetMinutes);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(String(value.date||''))||!/^\d{2}:\d{2}$/.test(String(value.time||''))||!Number.isFinite(lat)||lat<-90||lat>90||!Number.isFinite(lon)||lon<-180||lon>180||!Number.isFinite(offset)||Math.abs(offset)>840||!Array.isArray(obstacles)||obstacles.length<1||obstacles.length>9||!value.result||typeof value.result!=='object')return false;
+    const normalized=obstacles.map(o=>({height:Number(o.height),distance:Number(o.distance),bearing:Number(o.bearing),width:Number(o.width)}));
+    if(normalized.some(o=>!Number.isFinite(o.height)||o.height<0||!Number.isFinite(o.distance)||o.distance<0||!Number.isFinite(o.bearing)||o.bearing<0||o.bearing>360||!Number.isFinite(o.width)||o.width<0||o.width>360))return false;
+    const result=JSON.parse(JSON.stringify(value.result));
+    if(JSON.stringify(result).length>1000000)return false;
+    const previous=state.shadeAnalysis;
+    state.shadeAnalysis={date:String(value.date),time:String(value.time),latitude:lat,longitude:lon,timezoneOffsetMinutes:offset,obstructions:normalized,result:result,updatedAt:new Date().toISOString()};
+    if(!save()){state.shadeAnalysis=previous;return false}
+    return true;
+  },
+  getShadeAnalysis: function() {
+    return state.shadeAnalysis?JSON.parse(JSON.stringify(state.shadeAnalysis)):null;
+  },
   getProjectSummary: function() {
     return JSON.parse(JSON.stringify({
       meta: state.meta || {},
@@ -1672,6 +1687,7 @@ window.GenSolarEpcBridge = Object.freeze({
       electrical: state.electrical || null,
       protection: state.protection || null,
       battery: state.battery || null,
+      shadeAnalysis: state.shadeAnalysis || null,
       bom: Array.isArray(state.bom) ? state.bom : []
     }));
   },

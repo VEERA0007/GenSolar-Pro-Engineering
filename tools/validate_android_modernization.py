@@ -83,7 +83,7 @@ require("FIELD SURVEY" in kotlin and "gensolar_native_survey" in kotlin and "sav
 require("PV ARRAY DESIGN" in kotlin and "gensolar_native_pv_design" in kotlin and "generateLayout" in kotlin and "NativePvDesignScreen(" in kotlin, "Native PV design screen or optimizer integration missing")
 require("ELECTRICAL ENGINEERING" in kotlin and "gensolar_native_electrical" in kotlin and "calcElectrical" in kotlin and "NativeElectricalScreen(" in kotlin, "Native electrical string validation screen or calculator integration missing")
 require("CAD / 2D / 3D ENGINEERING" in kotlin and "gensolar_native_cad" in kotlin and "cadCreateBuilding" in kotlin and "NativeCadScreen(" in kotlin and "NativeCadPreview(" in kotlin, "Native CAD Compose editor or shared CAD engine integration missing")
-require("SOLAR RESOURCE & SHADE" in kotlin and "gensolar_native_shade" in kotlin and "GenSolarShadeEngine.assess($input)" in kotlin and "GenSolarShadeEngine.dayProfile($input,30)" in kotlin and 'selected == "shade"' in kotlin, "Native shade screen, offline input persistence, solar calculation bridge or day-profile integration missing")
+require("SOLAR RESOURCE & SHADE" in kotlin and "gensolar_native_shade" in kotlin and "GenSolarShadeEngine.assessMultiple($input,$extras)" in kotlin and "GenSolarShadeEngine.dayProfileMultiple($input,$extras,30)" in kotlin and "additionalObstructions" in kotlin and 'selected == "shade"' in kotlin, "Native multi-obstruction shade screen, input persistence, solar calculation or day-profile integration missing")
 require("SITE GPS & SOLAR RESOURCE" in kotlin and "gensolar_native_location" in kotlin and "requestNativeGps" in kotlin and "onNativeGps(latitude: Double" in kotlin and "navigator.geolocation.getCurrentPosition" in kotlin and 'selected == "location"' in kotlin, "Native GPS/resource screen, Android geolocation bridge or project synchronization missing")
 require("SAVING GPS AND RESOURCE DATA" in kotlin and "PROJECT SAVE FAILED" in kotlin, "Native GPS screen must report the confirmed project save result")
 require("STRUCTURAL ENGINEERING" in kotlin and "gensolar_native_staad" in kotlin and "bridge.generateStaad()" in kotlin and "staadSpan" in kotlin and 'selected == "staad"' in kotlin, "Native STAAD geometry/load workspace or structural model-generation bridge missing")
@@ -115,6 +115,8 @@ require("staadRunAnalysis" in html and "staadAnalysisSchedule" in html, "Inbuilt
 shade = ROOT / "app/src/main/assets/shade_engine.js"
 require(shade.exists() and "GenSolarShadeEngine" in shade.read_text(encoding="utf-8"), "Solar shade engine asset missing")
 require("GenSolarShadeEngine.assess" in html and "GenSolarShadeEngine.dayProfile" in html, "Solar shade engine is not wired to the UI")
+require("setShadeAnalysis: function(input)" in html and "getShadeAnalysis: function()" in html and "shadeAnalysis: state.shadeAnalysis || null" in html, "Shade results must persist in and be retrievable from the active offline project")
+require("assessMultiple" in shade.read_text(encoding="utf-8") and "dayProfileMultiple" in shade.read_text(encoding="utf-8"), "Multi-obstruction shade aggregation missing")
 require("obstructionWidthDeg" in html and "shadeInterval" in html, "Directional obstruction controls or day profile interval missing")
 subprocess.run(["node", str(ROOT / "tools/test_structural_solver.js")], cwd=ROOT, check=True)
 subprocess.run(["node", str(ROOT / "tools/test_shade_engine.js")], cwd=ROOT, check=True)

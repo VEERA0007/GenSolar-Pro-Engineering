@@ -28,9 +28,21 @@ function assess(input){
  const directional=delta<=width/2,blocks=p.altitude>0.01&&shadow!==null&&shadow>=distance&&directional;
  return {...p,shadowLengthM:shadow,angularDifferenceDeg:delta,directionallyAligned:directional,potentialDirectShade:blocks};
 }
+function assessMultiple(input,obstructions){
+ const extra=obstructions===undefined?[]:obstructions;
+ if(!Array.isArray(extra)||extra.length>8)throw new Error('Provide no more than eight additional obstructions');
+ const primary={obstructionHeight:input.obstructionHeight,obstructionDistance:input.obstructionDistance,obstructionAzimuth:input.obstructionAzimuth,obstructionWidthDeg:input.obstructionWidthDeg};
+ const results=[primary,...extra].map(o=>assess({...input,...o}));
+ const blocking=results.filter(r=>r.potentialDirectShade),aligned=results.filter(r=>r.directionallyAligned),shadows=results.map(r=>r.shadowLengthM).filter(Number.isFinite);
+ return {date:input.date,time:input.time,altitude:results[0].altitude,azimuth:results[0].azimuth,obstructionCount:results.length,alignedCount:aligned.length,blockingCount:blocking.length,maxShadowLengthM:shadows.length?Math.max(...shadows):null,potentialDirectShade:blocking.length>0,results};
+}
 function dayProfile(input,stepMinutes){
  const step=Number(stepMinutes||60);if(!Number.isInteger(step)||step<15||step>180||1440%step!==0)throw new Error('Profile interval must divide 24 hours and be 15–180 minutes');
  const rows=[];for(let m=0;m<1440;m+=step){const hh=String(Math.floor(m/60)).padStart(2,'0'),mm=String(m%60).padStart(2,'0');rows.push(assess({...input,time:hh+':'+mm}))}return rows;
 }
-root.GenSolarShadeEngine=Object.freeze({solarPosition,assess,dayProfile,angularDifference});
+function dayProfileMultiple(input,obstructions,stepMinutes){
+ const step=Number(stepMinutes||60);if(!Number.isInteger(step)||step<15||step>180||1440%step!==0)throw new Error('Profile interval must divide 24 hours and be 15–180 minutes');
+ const rows=[];for(let m=0;m<1440;m+=step){const hh=String(Math.floor(m/60)).padStart(2,'0'),mm=String(m%60).padStart(2,'0');rows.push(assessMultiple({...input,time:hh+':'+mm},obstructions))}return rows;
+}
+root.GenSolarShadeEngine=Object.freeze({solarPosition,assess,assessMultiple,dayProfile,dayProfileMultiple,angularDifference});
 })(typeof window!=='undefined'?window:globalThis);

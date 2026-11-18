@@ -1382,6 +1382,9 @@ private fun NativeLocationScreen(
 }
 
 @Composable
+private data class NativeShadeObstructionInput(val height: String = "", val distance: String = "", val bearing: String = "", val width: String = "")
+
+@Composable
 private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, onOpenAdvanced: () -> Unit) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("gensolar_native_shade", android.content.Context.MODE_PRIVATE) }
@@ -1393,13 +1396,35 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
     var distance by remember { mutableStateOf(prefs.getString("distance", "5") ?: "5") }
     var bearing by remember { mutableStateOf(prefs.getString("bearing", "180") ?: "180") }
     var width by remember { mutableStateOf(prefs.getString("width", "45") ?: "45") }
+    var additionalObstructions by remember {
+        mutableStateOf(
+            try {
+                val saved = prefs.getString("additionalObstructions", null)
+                if (saved == null) listOf(NativeShadeObstructionInput()) else {
+                    val array = org.json.JSONArray(saved)
+                    (0 until array.length()).map { i ->
+                        val row = array.optJSONObject(i) ?: org.json.JSONObject()
+                        NativeShadeObstructionInput(row.optString("height"), row.optString("distance"), row.optString("bearing"), row.optString("width"))
+                    }
+                }
+            } catch (_: Exception) { listOf(NativeShadeObstructionInput()) }
+        )
+    }
     var output by remember { mutableStateOf("Enter the project coordinates and obstruction geometry to calculate solar position and shadow reach.") }
     var status by remember { mutableStateOf("NO SIMULATION RUN") }
     var profile by remember { mutableStateOf("") }
     fun persist() {
+        val rows = org.json.JSONArray()
+        additionalObstructions.forEach { row ->
+            rows.put(org.json.JSONObject().put("height",row.height).put("distance",row.distance).put("bearing",row.bearing).put("width",row.width))
+        }
         prefs.edit().putString("date", date).putString("time", time).putString("lat", latitude)
             .putString("lon", longitude).putString("height", height).putString("distance", distance)
-            .putString("bearing", bearing).putString("width", width).apply()
+            .putString("bearing", bearing).putString("width", width).putString("additionalObstructions", rows.toString()).apply()
+    }
+    fun updateAdditional(index: Int, row: NativeShadeObstructionInput) {
+        additionalObstructions = additionalObstructions.toMutableList().also { it[index] = row }
+        persist()
     }
     fun runSimulation(dayProfile: Boolean) {
         val lat = latitude.toDoubleOrNull()
@@ -1408,22 +1433,40 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
         val d = distance.toDoubleOrNull()
         val az = bearing.toDoubleOrNull()
         val w = width.toDoubleOrNull()
-        if (lat == null || lon == null || h == null || d == null || az == null || w == null ||
+        val dateTime = try {
+            java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).apply { isLenient = false }.parse("$date $time")
+        } catch (_: Exception) { null }
+        if (lat == null || lon == null || h == null || d == null || az == null || w == null || dateTime == null ||
             lat !in -90.0..90.0 || lon !in -180.0..180.0 || h < 0 || d < 0 || az !in 0.0..360.0 || w !in 0.0..360.0 ||
             !date.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) || !time.matches(Regex("\\d{2}:\\d{2}"))) {
             status = "CHECK INPUTS"
-            output = "Enter a valid date, local time, latitude (−90 to 90), longitude (−180 to 180), and non-negative obstruction dimensions."
+            output = "Enter a valid date/time, latitude (−90 to 90), longitude (−180 to 180), and non-negative obstruction dimensions."
             return
         }
+        val extras = org.json.JSONArray()
+        val allObstructions = org.json.JSONArray().put(org.json.JSONObject().put("height",h).put("distance",d).put("bearing",az).put("width",w))
+        for (row in additionalObstructions) {
+            if (listOf(row.height,row.distance,row.bearing,row.width).all { it.isBlank() }) continue
+            val rh=row.height.toDoubleOrNull(); val rd=row.distance.toDoubleOrNull(); val rb=row.bearing.toDoubleOrNull(); val rw=row.width.toDoubleOrNull()
+            if (rh==null||rd==null||rb==null||rw==null||rh<0||rd<0||rb !in 0.0..360.0||rw !in 0.0..360.0) {
+                status="CHECK ADDITIONAL OBSTRUCTION"
+                output="Complete every field in each additional obstruction row, or clear the row. Height and distance must be non-negative; bearings and width must be 0–360°."
+                return
+            }
+            val item=org.json.JSONObject().put("obstructionHeight",rh).put("obstructionDistance",rd).put("obstructionAzimuth",rb).put("obstructionWidthDeg",rw)
+            extras.put(item)
+            allObstructions.put(org.json.JSONObject().put("height",rh).put("distance",rd).put("bearing",rb).put("width",rw))
+        }
+        if (extras.length()>8) { status="OBSTRUCTION LIMIT"; output="The native screening supports one primary plus eight additional obstructions."; return }
         persist()
-        val zoneOffset = java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 60000
+        val zoneOffset = java.util.TimeZone.getDefault().getOffset(dateTime.time) / 60000
         val input = JSONObject().put("date", date).put("time", time).put("latitude", lat).put("longitude", lon)
             .put("timezoneOffsetMinutes", zoneOffset).put("obstructionHeight", h).put("obstructionDistance", d)
             .put("obstructionAzimuth", az).put("obstructionWidthDeg", w)
         val expression = if (dayProfile) {
-            "JSON.stringify((function(){var a=GenSolarShadeEngine.dayProfile($input,30),s=a.filter(function(x){return x.altitude>0}),m=s.reduce(function(v,x){return Math.max(v,x.altitude)},0),n=a.filter(function(x){return x.potentialDirectShade}).length;return {samples:a.length,daylightSamples:s.length,maxAltitude:m,shadeSamples:n}})())"
+            "JSON.stringify((function(){var a=GenSolarShadeEngine.dayProfileMultiple($input,$extras,30),s=a.filter(function(x){return x.altitude>0}),m=s.reduce(function(v,x){return Math.max(v,x.altitude)},0),n=a.filter(function(x){return x.blockingCount>0}).length,b=a.reduce(function(v,x){return v+x.blockingCount},0);return {samples:a.length,daylightSamples:s.length,maxAltitude:m,shadeSamples:n,blockingObstructionIntervals:b,profile:a}})())"
         } else {
-            "JSON.stringify(GenSolarShadeEngine.assess($input))"
+            "JSON.stringify(GenSolarShadeEngine.assessMultiple($input,$extras))"
         }
         status = "CALCULATING"
         browser.evaluateJavascript("(function(){try{return $expression}catch(e){return JSON.stringify({error:e.message})}})()") { raw ->
@@ -1435,15 +1478,23 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
                     output = result.optString("error")
                 } else if (dayProfile) {
                     status = "DAY PROFILE COMPLETE"
-                    profile = "30-minute profile · ${result.optInt("samples")} samples · ${result.optInt("daylightSamples")} daylight samples · ${result.optInt("shadeSamples")} potential shade intervals"
+                    profile = "30-minute profile · ${result.optInt("samples")} samples · ${result.optInt("daylightSamples")} daylight samples · ${result.optInt("shadeSamples")} shaded samples · ${result.optInt("blockingObstructionIntervals")} obstruction/sample hits"
                     output = "Maximum solar altitude: ${"%.1f".format(java.util.Locale.US, result.optDouble("maxAltitude"))}°"
                 } else {
                     val altitude = result.optDouble("altitude")
-                    val shadow = result.optDouble("shadowLengthM")
-                    val shade = result.optBoolean("potentialDirectShade")
-                    status = if (altitude <= 0.01) "SUN BELOW HORIZON" else if (shade) "POTENTIAL DIRECT SHADE" else "NO DIRECT SHADE REACH"
-                    output = "Solar altitude: ${"%.1f".format(java.util.Locale.US, altitude)}°\nSolar azimuth: ${"%.1f".format(java.util.Locale.US, result.optDouble("azimuth"))}°\nShadow length: ${if (shadow.isFinite()) "%.2f".format(java.util.Locale.US, shadow) + " m" else "No direct sun"}\nBearing difference: ${"%.1f".format(java.util.Locale.US, result.optDouble("angularDifferenceDeg"))}°\nDirection aligned: ${result.optBoolean("directionallyAligned")}"
-                    profile = ""
+                    val shadow = result.optDouble("maxShadowLengthM")
+                    status = if (altitude <= 0.01) "SUN BELOW HORIZON" else if (result.optInt("blockingCount")>0) "POTENTIAL DIRECT SHADE" else if (result.optInt("alignedCount")>0) "DIRECTIONALLY ALIGNED" else "NO DIRECT SHADE ALIGNMENT"
+                    output = "Solar altitude: ${"%.1f".format(java.util.Locale.US, altitude)}°\nSolar azimuth: ${"%.1f".format(java.util.Locale.US, result.optDouble("azimuth"))}°\nLongest screened shadow: ${if (shadow.isFinite()) "%.2f".format(java.util.Locale.US, shadow) + " m" else "No direct sun"}\nObstructions: ${result.optInt("obstructionCount")} · aligned: ${result.optInt("alignedCount")} · blocking: ${result.optInt("blockingCount")}"
+                    profile = result.optJSONArray("results")?.let { array ->
+                        (0 until array.length()).joinToString("\n") { i ->
+                            "Obstruction ${i+1}: shadow ${array.optJSONObject(i)?.optDouble("shadowLengthM",Double.NaN)?.let { if(it.isFinite()) "%.2f".format(java.util.Locale.US,it)+" m" else "no direct sun" }}, bearing difference ${"%.1f".format(java.util.Locale.US,array.optJSONObject(i)?.optDouble("angularDifferenceDeg")?:0.0)}°, ${if(array.optJSONObject(i)?.optBoolean("potentialDirectShade")==true) "BLOCKING" else "not blocking"}"
+                        }
+                    } ?: ""
+                }
+                val projectPayload=JSONObject().put("date",date).put("time",time).put("latitude",lat).put("longitude",lon)
+                    .put("timezoneOffsetMinutes",zoneOffset).put("obstructions",allObstructions).put("result",result)
+                browser.evaluateJavascript("(function(){var b=window.GenSolarEpcBridge;return b&&b.setShadeAnalysis($projectPayload)})()") { saved ->
+                    status += if (saved=="true") " · PROJECT SAVED" else " · PROJECT SAVE FAILED"
                 }
             } catch (_: Exception) {
                 status = "ENGINE NOT READY"
@@ -1455,8 +1506,8 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text("SOLAR RESOURCE & SHADE", color = Color(0xFFF3B51B), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Text("Model the sun. Screen obstructions.", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
-                Text("Timezone-aware solar position, obstruction bearing and geometric shadow-length screening using the integrated shade engine.", color = Color(0xFFD7E8E1), fontSize = 12.sp)
+                Text("Model the sun. Screen multiple obstructions.", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Timezone-aware solar position, up to nine obstruction directions and geometric shadow screening. Results are saved to the active offline project.", color = Color(0xFFD7E8E1), fontSize = 12.sp)
             }
         }
         Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
@@ -1473,7 +1524,7 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
         }
         Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                Text("02  OBSTRUCTION GEOMETRY", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                Text("02  PRIMARY OBSTRUCTION", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SurveyInput("Height (m)", height, { height = it }, Modifier.weight(1f))
                     SurveyInput("Distance (m)", distance, { distance = it }, Modifier.weight(1f))
@@ -1482,22 +1533,50 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
                     SurveyInput("Bearing / azimuth (°)", bearing, { bearing = it }, Modifier.weight(1f))
                     SurveyInput("Angular width (°)", width, { width = it }, Modifier.weight(1f))
                 }
-                Button(onClick = { runSimulation(false) }, modifier = Modifier.fillMaxWidth()) { Text("Run solar & shadow simulation") }
-                Button(onClick = { runSimulation(true) }, modifier = Modifier.fillMaxWidth()) { Text("Generate 30-minute day profile") }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("03  ADDITIONAL OBSTRUCTIONS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = { if (additionalObstructions.size<8) { additionalObstructions=additionalObstructions+NativeShadeObstructionInput();persist() } }) { Text("＋ Add") }
+                }
+                Text("Up to eight additional objects. A fully blank row is ignored; partially completed rows are rejected.", color = Color(0xFF667A75), fontSize = 10.sp)
+                additionalObstructions.forEachIndexed { index, row ->
+                    Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F6F5))) {
+                        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Obstruction ${index+2}", color = BrandGreen, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Spacer(Modifier.weight(1f))
+                                TextButton(onClick = { additionalObstructions=additionalObstructions.toMutableList().also { it.removeAt(index) };persist() }) { Text("Remove") }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                SurveyInput("Height (m)", row.height, { updateAdditional(index,row.copy(height=it)) }, Modifier.weight(1f))
+                                SurveyInput("Distance (m)", row.distance, { updateAdditional(index,row.copy(distance=it)) }, Modifier.weight(1f))
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                SurveyInput("Bearing (°)", row.bearing, { updateAdditional(index,row.copy(bearing=it)) }, Modifier.weight(1f))
+                                SurveyInput("Angular width (°)", row.width, { updateAdditional(index,row.copy(width=it)) }, Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+                Button(onClick = { runSimulation(false) }, modifier = Modifier.fillMaxWidth()) { Text("Assess all obstructions at selected time") }
+                Button(onClick = { runSimulation(true) }, modifier = Modifier.fillMaxWidth()) { Text("Generate 30-minute multi-obstruction profile") }
             }
         }
         Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(status, color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
-                Text(output, color = Color(0xFF173B32), fontSize = 14.sp, lineHeight = 21.sp)
-                if (profile.isNotBlank()) Text(profile, color = Color(0xFF667A75), fontSize = 11.sp)
+                Text(output, color = Color(0xFF173B32), fontSize = 14.sp, lineHeight = 21.dp)
+                if (profile.isNotBlank()) Text(profile, color = Color(0xFF667A75), fontSize = 11.sp, lineHeight = 17.dp)
             }
         }
         Button(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) { Text("Open detailed shade workspace & visualization") }
-        Text("Preliminary geometric screening only. It is not a bankable PVsyst-grade shade-loss simulation; validate obstruction geometry, horizon profile, diffuse shading and module mismatch separately.", color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp)
+        Text("Preliminary geometric screening only. This multi-obstruction model is directional geometry, not bankable PVsyst-grade shade-loss simulation; diffuse shading, 3D mesh and module-level electrical mismatch remain outside this calculation.", color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp)
     }
 }
-
 @Composable
 private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onOpenAdvanced: () -> Unit) {
     val context = LocalContext.current

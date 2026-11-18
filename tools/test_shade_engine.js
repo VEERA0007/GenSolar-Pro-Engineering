@@ -23,4 +23,26 @@ assert.ok(profile.every(x=>Number.isFinite(x.altitude)&&Number.isFinite(x.azimut
 assert.throws(()=>e.solarPosition('2026-06-21','09:00',91,78,-330),/valid range/);
 assert.throws(()=>e.dayProfile(hyderabad,50),/interval/);
 function wrap(v){return ((v%360)+360)%360}
+
+// Multiple-obstruction aggregation: primary plus up to eight additional entries.
+const multiInput={...hyderabad,time:'09:00',obstructionHeight:2,obstructionDistance:5,obstructionAzimuth:180,obstructionWidthDeg:45};
+const multiSolar=e.solarPosition(multiInput.date,multiInput.time,multiInput.latitude,multiInput.longitude,multiInput.timezoneOffsetMinutes);
+const alignedBearing=multiSolar.azimuth;
+const multi=e.assessMultiple(multiInput,[
+ {obstructionHeight:4,obstructionDistance:0,obstructionAzimuth:alignedBearing,obstructionWidthDeg:12},
+ {obstructionHeight:3,obstructionDistance:50,obstructionAzimuth:wrap(alignedBearing+180),obstructionWidthDeg:10}
+]);
+assert.equal(multi.obstructionCount,3,'primary obstruction plus two additional entries');
+assert.equal(multi.blockingCount,1,'only the aligned zero-distance obstruction blocks');
+assert.equal(multi.potentialDirectShade,true);
+assert.ok(multi.results.every(x=>Number.isFinite(x.altitude)&&Number.isFinite(x.azimuth)));
+assert.throws(()=>e.assessMultiple(multiInput,Array(9).fill({obstructionHeight:1,obstructionDistance:1,obstructionAzimuth:0,obstructionWidthDeg:0})),/eight additional/);
+const multiProfile=e.dayProfileMultiple(multiInput,[
+ {obstructionHeight:4,obstructionDistance:0,obstructionAzimuth:alignedBearing,obstructionWidthDeg:12}
+],60);
+assert.equal(multiProfile.length,24);
+assert.ok(multiProfile.every(x=>x.obstructionCount===2&&x.results.length===2));
+assert.ok(multiProfile.some(x=>x.blockingCount>0),'day profile should identify blocking samples for aligned obstruction');
+assert.throws(()=>e.dayProfileMultiple(multiInput,[],50),/interval/);
+
 console.log('Solar shade engine passed: timezone-aware NOAA solar position, directional obstruction screening, day profile and input validation.');
