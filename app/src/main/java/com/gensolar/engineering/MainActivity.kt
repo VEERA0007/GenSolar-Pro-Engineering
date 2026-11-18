@@ -1381,7 +1381,6 @@ private fun NativeLocationScreen(
     }
 }
 
-@Composable
 private data class NativeShadeObstructionInput(val height: String = "", val distance: String = "", val bearing: String = "", val width: String = "")
 
 @Composable
