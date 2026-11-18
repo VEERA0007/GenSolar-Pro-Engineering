@@ -1,0 +1,1572 @@
+name: Build GenSolar Pro Engineering APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build offline-first Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: false
+          packages: platform-tools
+      - name: Accept Android SDK licences
+        shell: bash
+        run: yes | sdkmanager --licenses || true
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Validate HTML and embedded JavaScript
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          import re
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          class Check(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.ids = []
+              def handle_starttag(self, tag, attrs):
+                  for key, value in attrs:
+                      if key == "id" and value:
+                          self.ids.append(value)
+          parser = Check()
+          parser.feed(source)
+          duplicates = sorted({x for x in parser.ids if parser.ids.count(x) > 1})
+          if duplicates:
+              raise SystemExit("Duplicate HTML IDs: " + ", ".join(duplicates))
+          scripts = re.findall(r"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", source, re.S | re.I)
+          if not scripts:
+              raise SystemExit("No embedded application script found")
+          Path("/tmp/gensolar-inline.js").write_text("\n".join(scripts), encoding="utf-8")
+          print(f"HTML parsed; {len(parser.ids)} unique IDs; {len(scripts)} embedded script(s)")
+          PY
+          node --check /tmp/gensolar-inline.js
+      - name: Validate Kotlin Compose Android shell with Python
+        run: python3 tools/validate_android_modernization.py
+      - name: Test multi-obstruction solar shade engine
+        run: node tools/test_shade_engine.js
+      - name: Test native CAD 3D projection geometry
+        run: gradle testDebugUnitTest --stacktrace
+      - name: Test roof zone pitch-corrected surface area
+        run: node tools/test_roof_zone_surface_area.js
+      - name: Test PV layout allocation across roof zones
+        run: node tools/test_multi_roof_layout.js
+      - name: Test multi-roof CAD bounds and 3D rendering
+        run: node tools/test_multi_roof_rendering.js
+      - name: Test integrated project export snapshot
+        run: node tools/test_integrated_project_export.js
+      - name: Test CAD JSON roof-zone and PV-layout exchange
+        run: node tools/test_cad_json_exchange.js
+      - name: Test shared EPC and CAD project-state bridge
+        run: node tools/test_shared_project_state_bridge.js
+      - name: Test CAD DXF units and roof-zone export
+        run: node tools/test_cad_dxf_export.js
+      - name: Test DXF TEXT and MTEXT annotation preview
+        run: node tools/test_dxf_text_annotations.js
+      - name: Test dynamic CAD layer visibility and safe labels
+        run: node tools/test_cad_layer_visibility.js
+      - name: Test STAAD portal frame model and STAAD.Pro export
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function staadBuildModel(")
+          end = source.index("function staadRenderModel(", start)
+          Path("/tmp/gensolar-staad.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-staad.js <<'JS'
+          const assert = require("node:assert/strict");
+          const input = {
+            staadSpan:20, staadLength:30, staadFrameSpacing:5,
+            staadEaveHeight:6, staadRoofRise:2,
+            staadRoofDead:0.25, staadRoofLive:0.75,
+            staadWindUplift:0.9, staadWindSide:0.6, staadFy:250,
+            support:"PINNED", windFace:"left",
+            columnSection:"ISMB300", rafterSection:"ISMB300",
+            purlinSection:"ISMC150", braceSection:"ISA50X50X6"
+          };
+          const model = staadBuildModel(input);
+          assert.equal(model.frameCount,7);
+          assert.equal(model.frameSpacing,5);
+          assert.equal(model.nodes.length,35);
+          assert.equal(model.members.length,94);
+          assert.equal(model.purlinCount,18);
+          assert.equal(model.braceCount,48);
+          assert.equal(model.loads.length,4);
+          assert.equal(model.loads[0].selfWeight,true);
+          assert.equal(model.loads[0].memberLoads[0].value,-0.625);
+          assert.equal(model.loads[0].memberLoads[4].value,-1.25);
+          assert.deepEqual(model.combinations.map(x=>x.id),[5,6,7,8]);
+          const std=staadBuildStd(model);
+          for(const required of ["STAAD SPACE","UNIT METER KN","JOINT COORDINATES",
+            "MEMBER INCIDENCES","DEFINE MATERIAL START","SUPPORTS","MEMBER PROPERTY INDIAN",
+            "LOAD 1 LOADTYPE Dead","SELFWEIGHT Y -1","LOAD 3 LOADTYPE Wind",
+            "LOAD COMB 6 1 0.9 3 1.5","PERFORM ANALYSIS PRINT STATICS CHECK",
+            "CODE IS800 LSD","CHECK CODE ALL","FINISH"]) assert.ok(std.includes(required),"Missing STAAD command: "+required);
+          assert.throws(()=>staadBuildModel({...input,staadLength:301}),/supported engineering range/);
+          assert.throws(()=>staadBuildModel({...input,staadFrameSpacing:1,staadLength:100}),/2–61 portal frames/);
+          assert.throws(()=>staadBuildStd({...model,properties:{...model.properties,column:"ISMB300; DELETE"}}),/valid STAAD section-table name/);
+          console.log("STAAD model/export tests passed: portal geometry, tributary loads, supports, member groups, load cases/combinations, IS 800 directives and invalid-input guards");
+          JS
+          node /tmp/gensolar-staad.js
+      - name: Test STAAD steel take-off and procurement mass schedule
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function staadBuildModel(")
+          end = source.index("function staadBuildStd(", start)
+          model_source = source[start:end]
+          start = source.index("function staadBuildSteelTakeoff(")
+          end = source.index("function staadCalculateTakeoff(", start)
+          takeoff_source = source[start:end]
+          Path("/tmp/gensolar-steel-takeoff.js").write_text(model_source + "\n" + takeoff_source, encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-steel-takeoff.js <<'JS'
+          const assert = require("node:assert/strict");
+          const p={staadSpan:20,staadLength:30,staadFrameSpacing:5,staadEaveHeight:6,staadRoofRise:2,
+            staadRoofDead:.25,staadRoofLive:.75,staadWindUplift:.9,staadWindSide:.6,staadFy:250,
+            support:"PINNED",windFace:"left",columnSection:"ISMB300",rafterSection:"ISMB300",
+            purlinSection:"ISMC150",braceSection:"ISA50X50X6"};
+          const model=staadBuildModel(p);
+          const takeoff=staadBuildSteelTakeoff(model,{staadColumnKgM:42.2,staadRafterKgM:42.2,
+            staadPurlinKgM:16.8,staadBraceKgM:4.5,staadSteelWaste:5});
+          assert.equal(takeoff.totalMembers,model.members.length);
+          assert.equal(takeoff.details.length,model.members.length);
+          assert.equal(takeoff.rows.find(x=>x.type==="column").count,14);
+          assert.equal(takeoff.rows.find(x=>x.type==="rafter").count,14);
+          assert.equal(takeoff.rows.find(x=>x.type==="purlin").count,18);
+          assert.equal(takeoff.rows.find(x=>x.type==="brace").count,48);
+          assert.equal(takeoff.details[0].id,model.members[0].id);
+          assert.equal(takeoff.details[0].frame,model.members[0].frame+1);
+          assert.ok(takeoff.details.every(x=>x.length>0&&x.startNode>0&&x.endNode>0));
+          for(const row of takeoff.rows){assert.ok(row.length>0);assert.ok(Math.abs(row.procurementKg-row.netKg*1.05)<1e-8)}
+          assert.ok(Math.abs(takeoff.procurementKg-takeoff.netKg*1.05)<1e-7);
+          assert.throws(()=>staadBuildSteelTakeoff(model,{staadColumnKgM:0,staadRafterKgM:42,
+            staadPurlinKgM:16,staadBraceKgM:4,staadSteelWaste:5}),/verified positive kg\/m/);
+          assert.throws(()=>staadBuildSteelTakeoff(model,{staadColumnKgM:42,staadRafterKgM:42,
+            staadPurlinKgM:16,staadBraceKgM:4,staadSteelWaste:21}),/between 0 and 20/);
+          console.log("STAAD steel take-off passed: individual cut lengths, frame/node references, group totals, verified kg/m inputs, wastage and invalid-input guards");
+          JS
+          node /tmp/gensolar-steel-takeoff.js
+      - name: Test STAAD steel take-off DPR schedule
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function staadDprSection()")
+          end = source.index("\nfunction ", start)
+          Path("/tmp/gensolar-staad-dpr.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-staad-dpr.js <<'JS'
+          const assert = require("node:assert/strict");
+          global.escapeHtml = value => String(value).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
+          const model={frameCount:2,nodes:[{id:1}],members:[{id:1}],purlinCount:2,braceCount:4,
+            span:12,length:20,eave:5,rise:1,frameSpacing:4.0,
+            loads:[{id:1,name:"Dead"},{id:2,name:"Wind"}],combinations:[{id:5,name:"1.5G+1.5W"}],
+            properties:{column:"ISMB300",rafter:"ISMB300",purlin:"ISMC150",brace:"ISA50X50X6"}};
+          global.state={staadModel:model,staadTakeoff:null};
+          let html=staadDprSection();
+          assert.match(html,/Not calculated/);
+          const takeoff={basis:"Centreline length × verified section mass",totalMembers:2,totalLength:15,
+            netKg:300,allowanceKg:15,procurementKg:315,waste:5,
+            rows:[{type:"column",section:"ISMB300",count:2,length:10,kgm:30,netKg:300,procurementKg:315}],
+            details:[{id:1,type:"column",frame:1,startNode:1,endNode:2,length:5,kgm:30,netKg:150,procurementKg:157.5},
+              {id:2,type:"column",frame:2,startNode:3,endNode:4,length:5,kgm:30,netKg:150,procurementKg:157.5}]};
+          state.staadTakeoff=takeoff;
+          html=staadDprSection();
+          for(const value of ["STAAD steel take-off","15.000 m","300.00 kg","5.0%","315.00 kg",
+            "Group","ISMB300","Individual member cut / length register","Member ID","Start node",
+            "157.50","Procurement estimate only","not a certified bill of materials"])
+            assert.ok(html.includes(value),"Missing DPR content: "+value);
+          state.staadTakeoff={...takeoff,rows:[{...takeoff.rows[0],section:"<script>bad</script>"}]};
+          html=staadDprSection();
+          assert.ok(html.includes("&lt;script&gt;bad&lt;/script&gt;"),"DPR must HTML-escape section labels");
+          assert.ok(!html.includes("<script>bad</script>"),"untrusted section labels must not become markup");
+          console.log("STAAD DPR schedule passed: absent-takeoff state, group totals, individual member records, procurement allowance, limitations and HTML escaping");
+          JS
+          node /tmp/gensolar-staad-dpr.js
+      - name: Test STAAD 3D DXF drawing export
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function staadExportDxf()")
+          end = source.index("function staadExportSchedules()", start)
+          Path("/tmp/gensolar-staad-dxf.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-staad-dxf.js <<'JS'
+          const assert = require("node:assert/strict");
+          const model = {nodes:[{id:1,x:0,y:0,z:0},{id:2,x:0,y:6,z:0}],
+            members:[{id:1,a:1,b:2,type:"column"}]};
+          global.state={staadModel:model};
+          let saved=null;
+          global.download=(name,data,type)=>{saved={name,data,type};};
+          global.$=()=>({textContent:""});
+          staadExportDxf();
+          assert.equal(saved.name,"GenSolar-STAAD-3D-Frame.dxf");
+          assert.equal(saved.type,"application/dxf");
+          for(const layer of ["STAAD_COLUMNS","STAAD_RAFTERS","STAAD_PURLINS","STAAD_BRACING","STAAD_NODES"])
+            assert.ok(saved.data.includes(layer),"Missing DXF layer: "+layer);
+          assert.ok(saved.data.includes("$INSUNITS"));
+          assert.ok(saved.data.includes("6000"),"Metre coordinates must export as millimetres");
+          assert.ok(saved.data.endsWith("EOF\n"));
+          console.log("STAAD 3D DXF export passed: millimetre units, structural layers, node geometry and valid file terminator");
+          JS
+          node /tmp/gensolar-staad-dxf.js
+      - name: Test complete-backup ZIP integrity and path validation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function zipCrc32(")
+          end = source.index("async function exportCompleteProjectBackup", start)
+          Path("/tmp/gensolar-zip-test.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-zip-test.js <<'JS'
+          const assert = require("node:assert/strict");
+          const entries = [
+            { name: "project.json", data: new TextEncoder().encode('{"project":{"id":"qa"}}') },
+            { name: "attachments/sample.bin", data: new Uint8Array([0, 1, 2, 127, 128, 255]) },
+            { name: "attachments/測試.txt", data: new TextEncoder().encode("GenSolar backup ✓") }
+          ];
+          const archive = zipBuild(entries);
+          const restored = zipRead(archive.buffer);
+          assert.equal(restored.size, entries.length);
+          for (const entry of entries) {
+            const actual = restored.get(entry.name);
+            assert.ok(actual, "Missing ZIP entry: " + entry.name);
+            assert.deepEqual(Array.from(actual), Array.from(entry.data));
+          }
+          const corrupted = archive.slice();
+          corrupted[42] ^= 1;
+          assert.throws(() => zipRead(corrupted.buffer), /Integrity check failed/);
+          const unsafe = zipBuild([{ name: "../outside.txt", data: new Uint8Array([1]) }]);
+          assert.throws(() => zipRead(unsafe.buffer), /Unsafe or duplicate ZIP path/);
+          console.log("ZIP round-trip, binary/UTF-8 payloads, CRC corruption detection and path traversal rejection passed");
+          JS
+          node /tmp/gensolar-zip-test.js
+      - name: Test PV string-to-MPPT allocation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function buildStringMpptPlan(")
+          end = source.index("\nfunction calculateCompatibility()", start)
+          Path("/tmp/gensolar-string-plan.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-string-plan.js <<'JS'
+          const assert = require("node:assert/strict");
+          const plan = buildStringMpptPlan(10, 20, 4);
+          assert.deepEqual(plan.allocation, [3, 3, 2, 2]);
+          assert.equal(plan.records.length, 10);
+          assert.deepEqual(plan.records[0], { string: 1, mppt: 1, modules: 20, firstModule: 1, lastModule: 20 });
+          assert.deepEqual(plan.records[3], { string: 4, mppt: 2, modules: 20, firstModule: 61, lastModule: 80 });
+          assert.deepEqual(plan.records[9], { string: 10, mppt: 4, modules: 20, firstModule: 181, lastModule: 200 });
+          const one = buildStringMpptPlan(1, 12, 4);
+          assert.deepEqual(one.allocation, [1, 0, 0, 0]);
+          assert.deepEqual(one.records[0], { string: 1, mppt: 1, modules: 12, firstModule: 1, lastModule: 12 });
+          assert.throws(() => buildStringMpptPlan(0, 20, 4), /positive integers/);
+          assert.throws(() => buildStringMpptPlan(4, 0, 4), /positive integers/);
+          assert.throws(() => buildStringMpptPlan(4, 20, 0), /positive integers/);
+          assert.throws(() => buildStringMpptPlan(2.5, 20, 4), /positive integers/);
+          assert.throws(() => buildStringMpptPlan(4, 20.5, 4), /positive integers/);
+          assert.throws(() => buildStringMpptPlan(4, 20, 1.5), /positive integers/);
+          console.log("MPPT string allocation: balanced channels, sequential module references, single-string edge case and integer-input guards passed");
+          JS
+      - name: Test strict PV module and MPPT integer inputs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function isPositiveIntegerInput(")
+          end = source.index("function buildStringMpptPlan(", start)
+          Path("/tmp/gensolar-integer-inputs.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-integer-inputs.js <<'JS'
+          const assert = require("node:assert/strict");
+          for (const value of [1, 2, 200, "12", "4"]) assert.equal(isPositiveIntegerInput(value), true);
+          for (const value of [0, -1, 1.5, "2.5", "", "abc", null, NaN, Infinity]) assert.equal(isPositiveIntegerInput(value), false);
+          console.log("PV module and MPPT input validation: positive whole numbers accepted; fractions, zero, negatives and invalid values rejected");
+          JS
+          node /tmp/gensolar-integer-inputs.js
+      - name: Test temperature-adjusted PV string voltages
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvTemperatureAdjustedVoltage(")
+          end = source.index("\nfunction electrical(", start)
+          Path("/tmp/gensolar-temperature-voltage.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-temperature-voltage.js <<'JS'
+          const assert = require("node:assert/strict");
+          const coldVoc = pvTemperatureAdjustedVoltage(49.5, -0.28, -10);
+          const coldVmp = pvTemperatureAdjustedVoltage(41.5, -0.30, -10);
+          const hotVmp = pvTemperatureAdjustedVoltage(41.5, -0.30, 70);
+          assert.ok(Math.abs(coldVoc - 54.351) < 1e-9, "cold Voc correction must increase voltage below reference temperature");
+          assert.ok(Math.abs(coldVmp - 45.8575) < 1e-9, "cold Vmp correction must increase voltage below reference temperature");
+          assert.ok(Math.abs(hotVmp - 35.8975) < 1e-9, "hot Vmp correction must reduce voltage above reference temperature");
+          assert.equal(pvTemperatureAdjustedVoltage(40, -0.3, 25), 40, "voltage at reference temperature must remain unchanged");
+          assert.throws(() => pvTemperatureAdjustedVoltage(0, -0.3, -10), /positive/);
+          assert.throws(() => pvTemperatureAdjustedVoltage(40, "invalid", -10), /finite/);
+          assert.throws(() => pvTemperatureAdjustedVoltage(40, -10, 100), /positive and finite/);
+          console.log("PV temperature-voltage tests passed: cold Voc, cold Vmp, hot Vmp, reference temperature and invalid-input guards");
+          JS
+          node /tmp/gensolar-temperature-voltage.js
+      - name: Test PV polygon geometry and setbacks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function cross(")
+          end = source.index("function pvCircleInsidePolygon(", start)
+          Path("/tmp/gensolar-pv-geometry.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-pv-geometry.js <<'JS'
+          const assert = require("node:assert/strict");
+          const square = [{x:0,y:0},{x:10,y:0},{x:10,y:10},{x:0,y:10}];
+          assert.equal(pvRectFits(2, 2, 2, 2, square, 0.5), true, "interior rectangle with setback should fit");
+          assert.equal(pvRectFits(9, 2, 2, 2, square, 0), false, "rectangle crossing roof boundary must fail");
+          assert.equal(pvRectFits(0.2, 2, 1, 1, square, 0.5), false, "rectangle violating edge setback must fail");
+          assert.equal(pvRectFits(1, 1, 2, 2, square, 0.5), true, "rectangle meeting setback must fit");
+          const concave = [{x:0,y:0},{x:8,y:0},{x:8,y:3},{x:3,y:3},{x:3,y:8},{x:0,y:8}];
+          assert.equal(pvRectFits(1, 4, 1, 1, concave, 0), true, "rectangle in concave polygon arm should fit");
+          assert.equal(pvRectFits(4, 4, 1, 1, concave, 0), false, "rectangle in concave cut-out must fail");
+          assert.equal(segmentsIntersect({x:0,y:0},{x:4,y:4},{x:0,y:4},{x:4,y:0}), true, "crossing segments should intersect");
+          assert.equal(segmentsIntersect({x:0,y:0},{x:4,y:0},{x:2,y:1},{x:2,y:3}), false, "separated segments must not intersect");
+          console.log("PV polygon geometry: interior fit, boundary rejection, setback, concave-zone and segment-intersection tests passed");
+          JS
+          node /tmp/gensolar-pv-geometry.js
+      - name: Test PV layout module overlap and boundary validation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function validatePvLayout(")
+          end = source.index("\nfunction layoutCalc(", start)
+          Path("/tmp/gensolar-layout-validation.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-layout-validation.js <<'JS'
+          const assert = require("node:assert/strict");
+          function pvRectInAccessCorridor(){ return false; }
+          function pvRectOverlapsAny(){ return false; }
+          function pvRectObstacleClearAll(){ return true; }
+          const base = (modules) => validatePvLayout(modules, true, [], 20, 20, 1, [], [], 0, [], "none", 0);
+          const valid = base([{x:2,y:2,w:2,h:1},{x:5,y:2,w:2,h:1}]);
+          assert.equal(valid.valid, true, "separated modules inside roof boundary should pass");
+          const overlap = base([{x:2,y:2,w:2,h:1},{x:3,y:2.5,w:2,h:1}]);
+          assert.equal(overlap.valid, false, "overlapping modules must fail");
+          assert.match(overlap.errors.join(" "), /overlap/i, "overlap failure should be explicit");
+          const outside = base([{x:19,y:2,w:2,h:1}]);
+          assert.equal(outside.valid, false, "module crossing roof boundary must fail");
+          assert.match(outside.errors.join(" "), /roof boundary or setback/i);
+          const setback = validatePvLayout([{x:0.5,y:2,w:2,h:1}], true, [], 20, 20, 1, [], [], 0, [], "none", 0);
+          assert.equal(setback.valid, false, "legacy roof setback must be enforced");
+          console.log("PV layout validation: valid layout, module overlap, roof boundary and legacy setback tests passed");
+          JS
+          node /tmp/gensolar-layout-validation.js
+      - name: Test PV obstacle clearance and access corridors
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function parseObstacleCircles(")
+          end = source.index("function pvPointInPoly(", start)
+          Path("/tmp/gensolar-obstacle-corridor.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-obstacle-corridor.js <<'JS'
+          const assert = require("node:assert/strict");
+          const circles = parseObstacleCircles("5,5,1");
+          const rects = parseObstacleRectangles("8,2,2,3");
+          const corridors = parseCorridorRectangles("0,0,1,10;9,0,1,10");
+          assert.equal(circles.length, 1);
+          assert.equal(rects.length, 1);
+          assert.equal(corridors.length, 2);
+          assert.equal(pvRectObstacleClearAll(1,1,2,2, circles, [], 0), true, "module clear of circular obstacle should pass");
+          assert.equal(pvRectObstacleClearAll(4.5,4.5,2,2, circles, [], 0), false, "module intersecting circular obstacle should fail");
+          assert.equal(pvRectObstacleClearAll(7.5,3,1,1, [], rects, 0), false, "module intersecting rectangular obstacle should fail");
+          assert.equal(pvRectObstacleClearAll(7.5,3,1,1, [], rects, 0.5), false, "rectangular obstacle clearance must be enforced");
+          assert.equal(pvRectObstacleClearAll(2,2,1,1, [], rects, 0.5), true, "module outside rectangular obstacle clearance should pass");
+          const bounds = {minX:0,minY:0,maxX:10,maxY:10};
+          assert.equal(pvRectInAccessCorridor(0.2,4,1,1,bounds,"left",1), true, "left access corridor must be detected");
+          assert.equal(pvRectInAccessCorridor(8.8,4,1,1,bounds,"right",1), true, "right access corridor must be detected");
+          assert.equal(pvRectInAccessCorridor(4,0.2,1,1,bounds,"top",1), true, "top access corridor must be detected");
+          assert.equal(pvRectInAccessCorridor(4,8.8,1,1,bounds,"bottom",1), true, "bottom access corridor must be detected");
+          assert.equal(pvRectInAccessCorridor(3,3,1,1,bounds,"left",1), false, "module outside corridor must pass");
+          assert.equal(pvRectOverlapsAny(0.5,0.5,1,1,corridors), true, "custom corridor rectangle overlap must be detected");
+          assert.throws(() => parseObstacleCircles("1,2,0"), /positive radius/);
+          assert.throws(() => parseObstacleRectangles("1,2,-3,4"), /positive dimensions/);
+          assert.throws(() => parseCorridorRectangles("1,2,0,4"), /positive dimensions/);
+          console.log("PV obstacle and access-corridor tests passed: circle clearance, rectangle clearance, all four edge corridors, custom corridor overlap and invalid geometry guards");
+          JS
+          node /tmp/gensolar-obstacle-corridor.js
+      - name: Test bifacial-adjusted PV input currents
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvAdjustedModuleCurrent(")
+          end = source.index("\nfunction electrical(", start)
+          Path("/tmp/gensolar-bifacial-current.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-bifacial-current.js <<'JS'
+          const assert = require("node:assert/strict");
+          assert.equal(pvAdjustedModuleCurrent(13.2, 0), 13.2);
+          assert.ok(Math.abs(pvAdjustedModuleCurrent(13.2, 10) - 14.52) < 1e-9);
+          assert.ok(Math.abs(pvAdjustedModuleCurrent(14, 5) - 14.7) < 1e-9);
+          assert.throws(() => pvAdjustedModuleCurrent(0, 0), /positive/);
+          assert.throws(() => pvAdjustedModuleCurrent(-1, 0), /positive/);
+          assert.throws(() => pvAdjustedModuleCurrent(13, -1), /between 0% and 50%/);
+          assert.throws(() => pvAdjustedModuleCurrent(13, 50.1), /between 0% and 50%/);
+          assert.throws(() => pvAdjustedModuleCurrent("bad", 0), /positive/);
+          console.log("Bifacial current uplift: operating current and Isc multipliers validated, including invalid-input guards");
+          JS
+          node /tmp/gensolar-bifacial-current.js
+      - name: Test MPPT channel capacity and balanced allocation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function buildStringMpptPlan(")
+          end = source.index("\nfunction calculateCompatibility()", start)
+          Path("/tmp/gensolar-mppt-capacity.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-mppt-capacity.js <<'JS'
+          const assert = require("node:assert/strict");
+          const normal = buildStringMpptPlan(10, 20, 4, 3);
+          assert.deepEqual(normal.allocation, [3, 3, 2, 2]);
+          assert.equal(normal.allocatedStrings, 10);
+          assert.equal(normal.unallocatedStrings, 0);
+          const limited = buildStringMpptPlan(10, 20, 4, 2);
+          assert.deepEqual(limited.allocation, [2, 2, 2, 2]);
+          assert.equal(limited.allocatedStrings, 8);
+          assert.equal(limited.unallocatedStrings, 2);
+          const noCapacity = buildStringMpptPlan(3, 20, 2, 0);
+          assert.deepEqual(noCapacity.allocation, [0, 0]);
+          assert.equal(noCapacity.unallocatedStrings, 3);
+          const single = buildStringMpptPlan(1, 12, 4, 1);
+          assert.deepEqual(single.allocation, [1, 0, 0, 0]);
+          assert.throws(() => buildStringMpptPlan(4, 20, 2, -1), /non-negative integer/);
+          assert.throws(() => buildStringMpptPlan(4, 20, 2, 1.5), /non-negative integer/);
+          assert.throws(() => buildStringMpptPlan(4, 20, 0, 2), /positive integers/);
+          console.log("MPPT allocation capacity: balanced distribution, per-channel cap, unallocated strings and invalid capacity tests passed");
+          JS
+          node /tmp/gensolar-mppt-capacity.js
+      - name: Test datasheet-derived MPPT string capacity
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvAdjustedModuleCurrent(")
+          first_end = source.index("\nfunction electrical(", start)
+          second_start = source.index("function pvMaxStringsPerMppt(", first_end)
+          end = source.index("\nfunction buildStringMpptPlan(", second_start)
+          Path("/tmp/gensolar-mppt-current-capacity.js").write_text(source[start:first_end] + "\n" + source[second_start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-mppt-current-capacity.js <<'JS'
+          const assert = require("node:assert/strict");
+          const normal = pvMaxStringsPerMppt(30, 40, 13.2, 14, 0, 0);
+          assert.equal(normal.operating, 1);
+          assert.equal(normal.shortCircuit, 2);
+          assert.equal(normal.maximum, 1);
+          const bifacial = pvMaxStringsPerMppt(40, 40, 13.2, 14, 10, 0);
+          assert.equal(bifacial.operating, 2);
+          assert.equal(bifacial.shortCircuit, 2);
+          assert.equal(bifacial.maximum, 2);
+          const manual = pvMaxStringsPerMppt(60, 100, 13.2, 14, 0, 2);
+          assert.equal(manual.maximum, 2);
+          assert.throws(() => pvMaxStringsPerMppt(0, 40, 13.2, 14), /positive/);
+          assert.throws(() => pvMaxStringsPerMppt(30, 0, 13.2, 14), /positive/);
+          assert.throws(() => pvMaxStringsPerMppt(30, 40, 13.2, 14, 0, 1.5), /non-negative integer/);
+          console.log("MPPT capacity: 1.25× operating-current headroom, Isc limit, bifacial uplift and manual datasheet cap tests passed");
+          JS
+          node /tmp/gensolar-mppt-current-capacity.js
+      - name: Test MPPT DC input topology and tracker minimums
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvAdjustedModuleCurrent(")
+          first_end = source.index("\nfunction electrical(", start)
+          second_start = source.index("function pvMaxStringsPerMppt(", first_end)
+          end = source.index("\nfunction calculateCompatibility()", second_start)
+          Path("/tmp/gensolar-mppt-topology.js").write_text(source[start:first_end] + "\n" + source[second_start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-mppt-topology.js <<'JS'
+          const assert = require("node:assert/strict");
+          const cap = pvMaxStringsPerMppt(60, 80, 13, 14, 0, 0, 2, 1, 30, 40);
+          assert.equal(cap.operating, 3);
+          assert.equal(cap.shortCircuit, 5);
+          assert.equal(cap.inputOperating, 2);
+          assert.equal(cap.inputShortCircuit, 4);
+          assert.equal(cap.inputCapacity, 2);
+          assert.equal(cap.maximum, 2);
+          const noInputLimit = pvMaxStringsPerMppt(60, 80, 13, 14, 0, 0, 3, 2, 0, 0);
+          assert.equal(noInputLimit.maximum, 3);
+          const plan = buildStringMpptPlan(7, 20, 2, 4, 2, 2);
+          assert.deepEqual(plan.allocation, [4, 3]);
+          assert.deepEqual(plan.records.slice(0, 4).map(x => x.input), [1, 1, 2, 2]);
+          assert.equal(plan.records[4].mppt, 2);
+          assert.equal(plan.records[4].input, 1);
+          assert.equal(plan.unallocatedStrings, 0);
+          const capped = buildStringMpptPlan(9, 20, 2, 3, 2, 1);
+          assert.deepEqual(capped.allocation, [2, 2]);
+          assert.equal(capped.unallocatedStrings, 5);
+          assert.throws(() => pvMaxStringsPerMppt(60, 80, 13, 14, 0, 0, 0, 1), /positive integers/);
+          assert.throws(() => pvMaxStringsPerMppt(60, 80, 13, 14, 0, 0, 2, 1, -1, 0), /non-negative/);
+          console.log("MPPT topology: per-socket current limits, connector capacity, socket mapping and unallocated-string tests passed");
+          JS
+          node /tmp/gensolar-mppt-topology.js
+      - name: Test independent MPPT tracker limits
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvAdjustedModuleCurrent(")
+          end = source.index("\nfunction calculateCompatibility()", start)
+          Path("/tmp/gensolar-mppt-trackers.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-mppt-trackers.js <<'JS'
+          const assert = require("node:assert/strict");
+          const trackers = pvResolveMpptTrackerLimits(2, 160, 1000, 30, 40, "180,200", "850,1000", "26,30", "35,40");
+          assert.deepEqual(trackers.map(x => [x.minVoltage,x.maxVoltage,x.maxOperatingCurrent,x.maxShortCircuitCurrent]), [[180,850,26,35],[200,1000,30,40]]);
+          const fallback = pvResolveMpptTrackerLimits(2, 160, 1000, 30, 40, "0,0", "", "", "");
+          assert.equal(fallback[1].minVoltage, 160);
+          assert.equal(fallback[0].maxOperatingCurrent, 30);
+          assert.throws(() => pvResolveMpptTrackerLimits(2,160,1000,30,40,"180"), /exactly 2/);
+          assert.throws(() => pvResolveMpptTrackerLimits(2,160,1000,30,40,"180,1100"), /maximum voltage/);
+          const cap1 = pvMaxStringsPerMppt(32.5,28,13,14,0,0,2,2,0,0);
+          const cap2 = pvMaxStringsPerMppt(48.75,42,13,14,0,0,2,2,0,0);
+          const plan = buildStringMpptPlan(5,20,2,[cap1.maximum,cap2.maximum],2,2);
+          assert.deepEqual(plan.allocation,[2,3]);
+          assert.equal(plan.unallocatedStrings,0);
+          console.log("Independent MPPT tracker voltage/current overrides, fallback, invalid override and per-tracker capacity tests passed");
+          JS
+          node /tmp/gensolar-mppt-trackers.js
+      - name: Test mixed string lengths and per-tracker voltage planning
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvResolveMpptStringLengths(")
+          end = source.index("\nfunction calculateCompatibility()", start)
+          Path("/tmp/gensolar-variable-mppt.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-variable-mppt.js <<'JS'
+          const assert = require("node:assert/strict");
+          assert.deepEqual(pvResolveMpptStringLengths(3,20,"18,19,20"),[18,19,20]);
+          assert.deepEqual(pvResolveMpptStringLengths(2,20,""),[20,20]);
+          assert.throws(()=>pvResolveMpptStringLengths(2,20,"18"),/exactly 2/);
+          assert.throws(()=>pvResolveMpptStringLengths(2,20,"18,0"),/positive whole number/);
+          const exact = pvBuildVariableMpptPlan(96,[20,18],[3,3],1,3);
+          assert.deepEqual(exact.allocation,[3,2]);
+          assert.equal(exact.allocatedModules,96);
+          assert.equal(exact.unallocatedModules,0);
+          assert.deepEqual(exact.records.filter(x=>x.mppt===1).map(x=>x.modulesPerString),[20,20,20]);
+          assert.deepEqual(exact.records.filter(x=>x.mppt===2).map(x=>x.modulesPerString),[18,18]);
+          const limited = pvBuildVariableMpptPlan(100,[20,18],[5,5],2,1);
+          assert.deepEqual(limited.allocation,[2,2]);
+          assert.equal(limited.allocatedModules,76);
+          assert.equal(limited.unallocatedModules,24);
+          assert.throws(()=>pvBuildVariableMpptPlan(100,[20,0],[2,2]),/positive module\/string/);
+          console.log("Mixed MPPT string lengths: exact panel allocation, independent string voltage grouping, connector capacity and invalid inputs passed");
+          JS
+          node /tmp/gensolar-variable-mppt.js
+      - name: Test DC and AC cable sizing with derating
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvCableDesign(")
+          end = source.index("\nfunction cable()", start)
+          Path("/tmp/gensolar-cable-design.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-cable-design.js <<'JS'
+          const assert = require("node:assert/strict");
+          const dc = pvCableDesign({mode:"dc",material:"cu",voltage:600,current:25,length:30,area:6,temp:70,limit:2,pf:.9,reactance:.08,baseAmpacity:40,ambientFactor:.9,groupFactor:.8,installationFactor:1});
+          assert.ok(Math.abs(dc.drop - (2*30*25*(.017241*(1+.00393*50)/6))) < 1e-9);
+          assert.ok(Math.abs(dc.derating-.72)<1e-12);
+          assert.ok(Math.abs(dc.deratedAmpacity-28.8)<1e-9);
+          assert.equal(dc.ampacityPass,true);
+          const single = pvCableDesign({mode:"1ph",material:"cu",voltage:230,current:20,length:25,area:4,temp:70,limit:3,pf:.9,reactance:.08,baseAmpacity:32,ambientFactor:1,groupFactor:1,installationFactor:1});
+          assert.ok(single.drop>0 && single.reactanceDrop>0);
+          const three = pvCableDesign({mode:"3ph",material:"al",voltage:415,current:100,length:50,area:35,temp:90,limit:2,pf:.95,reactance:.1,baseAmpacity:140,ambientFactor:.9,groupFactor:.8,installationFactor:.95});
+          assert.ok(three.drop>0 && three.requiredArea>0);
+          assert.equal(three.ampacityPass, false);
+          assert.throws(()=>pvCableDesign({mode:"bad",material:"cu",voltage:230,current:10,length:10,area:2.5,temp:70,limit:3}),/valid positive values/);
+          assert.throws(()=>pvCableDesign({mode:"dc",material:"cu",voltage:0,current:10,length:10,area:2.5,temp:70,limit:3}),/valid positive values/);
+          assert.throws(()=>pvCableDesign({mode:"3ph",material:"cu",voltage:415,current:10,length:10,area:2.5,temp:70,limit:3,pf:1.2}),/valid positive values/);
+          assert.throws(()=>pvCableDesign({mode:"dc",material:"cu",voltage:600,current:10,length:10,area:2.5,temp:70,limit:3,ambientFactor:0}),/valid positive values/);
+          console.log("Cable engineering: DC loop drop, single/three-phase AC R-X drop, temperature correction, combined derating and invalid-input guards passed");
+          JS
+          node /tmp/gensolar-cable-design.js
+      - name: Test electrical protection and fault-level checks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvProtectionCoordination(")
+          end = source.index("\nfunction protection()", start)
+          Path("/tmp/gensolar-protection.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-protection.js <<'JS'
+          const assert = require("node:assert/strict");
+          const base = {isc:14,maxSeriesFuse:25,parallel:2,dcVoltage:1100,dcIsolatorCurrent:63,dcIsolatorVoltage:1200,acKw:80,acVoltage:415,pf:.95,eff:.98,acBreakerCurrent:160,prospectiveFaultKa:12,breakerIcuKa:25,earthFaultCurrent:1000,earthFaultTime:.2,k:143,earthArea:16};
+          const pass = pvProtectionCoordination(base);
+          assert.ok(Math.abs(pass.fuseMinimum-17.5)<1e-9);
+          assert.ok(pass.fuseWithinModuleLimit && pass.dcIsolatorCurrentPass && pass.dcIsolatorVoltagePass);
+          assert.ok(pass.acBreakerCurrentPass && pass.breakerIcuPass && pass.earthPass);
+          const dcVoltageFail = pvProtectionCoordination({...base,dcIsolatorVoltage:1000});
+          assert.equal(dcVoltageFail.dcIsolatorVoltagePass,false);
+          const dcCurrentFail = pvProtectionCoordination({...base,dcIsolatorCurrent:20});
+          assert.equal(dcCurrentFail.dcIsolatorCurrentPass,false);
+          const breakerFail = pvProtectionCoordination({...base,breakerIcuKa:6});
+          assert.equal(breakerFail.breakerIcuPass,false);
+          const fuseFail = pvProtectionCoordination({...base,maxSeriesFuse:15});
+          assert.equal(fuseFail.fuseWithinModuleLimit,false);
+          const earthFail = pvProtectionCoordination({...base,earthArea:2});
+          assert.equal(earthFail.earthPass,false);
+          assert.throws(()=>pvProtectionCoordination({...base,parallel:1.5}),/valid positive equipment ratings/);
+          assert.throws(()=>pvProtectionCoordination({...base,pf:0}),/valid positive equipment ratings/);
+          console.log("Electrical protection: string-fuse ceiling, DC isolator current/voltage, AC breaker current, Icu vs prospective fault level and earth adiabatic checks passed");
+          JS
+          node /tmp/gensolar-protection.js
+      - name: Test electrical DPR reporting
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function electricalProtectionReport(")
+          end = source.index("\nfunction reportHtml()", start)
+          Path("/tmp/gensolar-electrical-report.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-electrical-report.js <<'JS'
+          const assert = require("node:assert/strict");
+          global.state = {protection:{fuseMinimum:17.5,fuseWithinModuleLimit:true,dcCurrentMinimum:35,dcVoltage:1100,dcSwitch:63,dcIsolatorCurrentPass:true,dcIsolatorVoltagePass:true,acBreakerMinimum:140,acBreaker:160,acBreakerCurrentPass:true,prospectiveFaultKa:12,breakerIcuPass:true,earthRequired:8,earthPass:true},project:{maxSeriesFuse:25,protBreakerIcu:25,earthArea:16,cableMode:"3ph",cableMaterial:"cu",cableLimit:2,cableAmpacity:200},cableDesign:{percent:1.2,drop:4.98,requiredArea:25,recommended:25,derating:.72,ampacitySpecified:true,deratedAmpacity:144,voltageDropPass:true,ampacityPass:true}};
+          const html = electricalProtectionReport();
+          for (const expected of ["Electrical protection screening","PV string fuse","DC isolator","AC breaker Icu","Protective earth","Cable sizing and voltage-drop screening","PASS","within entered limit"]) assert.ok(html.includes(expected), "Missing DPR report content: "+expected);
+          global.state.protection = null; global.state.cableDesign = null;
+          const empty = electricalProtectionReport();
+          assert.ok(empty.includes("Not calculated."));
+          console.log("Electrical DPR report: protection ratings, fault level, earthing, cable voltage drop and missing-data fallbacks passed");
+          JS
+          node /tmp/gensolar-electrical-report.js
+      - name: Test commissioning register and DPR handover
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function commissioningRecordIsComplete(")
+          end = source.index("\nfunction reportHtml()", start)
+          Path("/tmp/gensolar-commissioning.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-commissioning.js <<'JS'
+          const assert = require("node:assert/strict");
+          const valid = {category:"DC array",test:"String open-circuit voltage",measured:"720.5",unit:"V",criterion:"Compare with temperature-corrected design Voc",result:"Pass",method:"Isolated string measurement",tester:"Commissioning engineer",date:"2026-11-06"};
+          assert.equal(commissioningRecordIsComplete(valid), true);
+          assert.equal(commissioningRecordIsComplete({...valid,test:""}), false);
+          assert.equal(commissioningRecordIsComplete({...valid,criterion:""}), false);
+          assert.equal(commissioningRecordIsComplete({...valid,measured:"not-a-number"}), false);
+          assert.equal(commissioningRecordIsComplete({...valid,result:"Approved"}), false);
+          assert.equal(commissioningRecordIsComplete({...valid,measured:"",result:"Not tested"}), true);
+          global.escapeHtml = value => String(value == null ? "" : value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+          global.state = {commissioning:[{...valid,remarks:"Verified at site",action:"Retest after connector replacement",actionOwner:"Site electrician",dueDate:"2026-11-08",actionStatus:"Open",evidenceName:"string-test-photo.jpg"}]};
+          const report = commissioningDprSection();
+          for (const expected of ["Commissioning and electrical test register","String open-circuit voltage","720.5 V","Pass","Verified at site","Corrective action register","Retest after connector replacement","Site electrician","2026-11-08","Open","string-test-photo.jpg","not independent verification"]) assert.ok(report.includes(expected), "Missing commissioning DPR content: "+expected);
+          global.state.commissioning = [];
+          assert.ok(commissioningDprSection().includes("No commissioning test records"));
+          console.log("Commissioning records: required fields, numeric validation, result control and DPR evidence passed");
+          JS
+          node /tmp/gensolar-commissioning.js
+      - name: Test customer handover and warranty register
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("const handoverChecklistItems=")
+          end = source.index("\nfunction reportHtml()", start)
+          Path("/tmp/gensolar-handover.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-handover.js <<'JS'
+          const assert = require("node:assert/strict");
+          const fields = {};
+          for (const [id,value] of Object.entries({hoCustomer:"Factory Ltd",hoSite:"Plant A",hoDate:"2026-11-06",hoInstaller:"EPC Lead",hoCustomerRep:"Plant Manager",hoStatus:"Accepted",hoObservations:"",hoPackage:"DPR-001",warEquipment:"PV module",warMaker:"Module Manufacturer",warSerial:"SN-123",warType:"Product warranty",warStart:"2026-11-06",warEnd:"2046-11-05",warTerms:"Certificate W-1",warEvidence:""})) fields[id]={value};
+          global.$ = id => fields[id] || (fields[id]={value:""});
+          global.state = {handover:{checklist:{}} , warranties:[],attachments:[]};
+          global.makeId = () => "test-id";
+          global.save = () => true;
+          global.alert = msg => { throw new Error(msg); };
+          global.escapeHtml = value => String(value == null ? "" : value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+          global.metric = (a,b) => a+":"+b;
+          assert.throws(() => saveHandover(), /customer representative and mark every handover checklist item complete/);
+          state.handover.checklist = Object.fromEntries(handoverChecklistItems.map((_,i)=>[i,true]));
+          saveHandover();
+          assert.equal(state.handover.status,"Accepted");
+          assert.equal(Object.keys(state.handover.checklist).length,handoverChecklistItems.length);
+          addWarranty();
+          assert.equal(state.warranties.length,1);
+          assert.equal(state.warranties[0].end,"2046-11-05");
+          assert.ok(handoverDprSection().includes("Customer handover and acceptance"));
+          assert.ok(handoverDprSection().includes("Module Manufacturer"));
+          assert.ok(handoverDprSection().includes("2046-11-05"));
+          console.log("Customer handover acceptance gate, checklist, warranty dates and DPR schedule passed");
+          JS
+          node /tmp/gensolar-handover.js
+      - name: Test O&M maintenance schedule and DPR
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function refreshMaintenanceEvidenceOptions(")
+          end = source.index("\nfunction reportHtml()", start)
+          Path("/tmp/gensolar-maintenance.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-maintenance.js <<'JS'
+          const assert = require("node:assert/strict");
+          const fields = {};
+          for (const [id,value] of Object.entries({omEquipment:"PV array",omTask:"Visual inspection",omFrequency:"Quarterly maintenance plan",omOwner:"Site technician",omLastDate:"2026-01-01",omDueDate:"2025-12-01",omStatus:"Planned",omReference:"Approved O&M manual §4",omNotes:"Check module glass and cable routing",omEvidence:""})) fields[id]={value};
+          global.$ = id => fields[id] || (fields[id]={value:"",innerHTML:""});
+          global.state = {maintenance:[],attachments:[]};
+          global.makeId = () => "maintenance-test";
+          global.save = () => true;
+          global.alert = msg => { throw new Error(msg); };
+          global.escapeHtml = value => String(value == null ? "" : value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+          global.metric = (a,b) => a+":"+b;
+          assert.throws(() => addMaintenanceRecord(), /Next due date cannot be earlier/);
+          fields.omDueDate.value = "2026-12-01";
+          addMaintenanceRecord();
+          assert.equal(state.maintenance.length,1);
+          assert.equal(state.maintenance[0].dueDate,"2026-12-01");
+          assert.equal(state.maintenance[0].reference,"Approved O&M manual §4","O&M procedure reference must persist in the saved maintenance record");
+          const dpr = maintenanceDprSection();
+          assert.ok(dpr.includes("Operations and preventive maintenance schedule"));
+          assert.ok(dpr.includes("Quarterly maintenance plan"));
+          assert.ok(dpr.includes("Procedure reference:"));
+          assert.ok(dpr.includes("Approved O&amp;M manual §4"),"DPR must HTML-escape ampersands while preserving the saved O&M procedure reference");
+          assert.ok(dpr.includes("2026-12-01"));
+          console.log("O&M schedule: required fields, date order, persistence and DPR output passed");
+          JS
+          node /tmp/gensolar-maintenance.js
+      - name: Test IS 875 wind and mounting-member screens
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function calculateWind()")
+          end = source.index("\nfunction copyStructureActionToCombination", start)
+          Path("/tmp/gensolar-wind-structure.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-wind-structure.js <<'JS'
+          const assert = require("node:assert/strict");
+          const inputs = {
+            windVb:40, windK1:1, windK2:1, windK3:1, windK4:1,
+            windKd:0.9, windKa:0.9, windKc:0.9, windCpe:-0.8,
+            windCpi:0.2, windArea:10, windTribWidth:2,
+            strSpan:4, strTribWidth:1, strDeadLoad:0.5,
+            strE:200, strI:1000, strZ:100, strDeflRatio:250
+          };
+          const elements = {};
+          let state = {project:{buildingHeight:10}};
+          function val(key){ return Number(inputs[key] ?? 0); }
+          function save(){}
+          function alert(message){ throw new Error(message); }
+          function metric(label,value){ return label+":"+value+";"; }
+          function $(id){ return elements[id] ||= {innerHTML:"",textContent:""}; }
+          calculateWind();
+          assert.ok(Math.abs(state.wind.vz-40)<1e-9, "design wind speed");
+          assert.ok(Math.abs(state.wind.pz-960)<1e-9, "basic wind pressure");
+          assert.ok(Math.abs(state.wind.pd-699.84)<1e-9, "design wind pressure");
+          assert.ok(Math.abs(state.wind.net+699.84)<1e-9, "negative net pressure must be uplift");
+          assert.ok(Math.abs(state.wind.force+6.9984)<1e-9, "uplift force");
+          assert.ok(Math.abs(state.wind.line+1.39968)<1e-9, "member line load");
+          assert.match(state.wind.direction,/UPLIFT/);
+          assert.match(elements.windWarning.textContent,/PRELIMINARY|Preliminary/);
+          calculateStructure();
+          assert.ok(state.structure.downLine>0, "downward dead-load case");
+          assert.ok(state.structure.upliftLine>=0, "uplift must be net of stabilising dead load");
+          assert.ok(Number.isFinite(state.structure.down.defl), "downward deflection must be finite");
+          assert.ok(Number.isFinite(state.structure.up.stress), "uplift stress demand must be finite");
+          assert.ok(state.structure.limit>0, "deflection limit");
+          assert.match(elements.structureWarning.textContent,/PRELIMINARY BEAM SCREEN ONLY/);
+          inputs.windVb=0;
+          assert.throws(() => calculateWind(),/positive basic wind speed/);
+          console.log("IS 875 wind worksheet and member screen passed: pressure, suction sign, area force, tributary line load, uplift after dead-load stabilisation, beam demand, deflection and invalid-input guard");
+          JS
+          node /tmp/gensolar-wind-structure.js
+      - name: Test mounting connections and foundation stability screens
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          blocks = []
+          for start_name in [
+              "function calculateConnections()",
+              "function calculateFoundation()"
+          ]:
+              start = source.index(start_name)
+              end = source.find("function ", start + len(start_name))
+              if end < 0:
+                  end = len(source)
+              blocks.append(source[start:end])
+          Path("/tmp/gensolar-connections-foundation.js").write_text("\n".join(blocks), encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-connections-foundation.js <<'JS'
+          const assert = require("node:assert/strict");
+          const inputs = {
+            connModuleL:2.2, connModuleW:2, connModuleMass:25,
+            connClampCount:4, connClampCap:0.8, connBoltCount:4,
+            connTensionBolts:2, connAnchorSpacing:100, connEcc:100,
+            connHorizontal:1.2, connAnchorTCap:2.5, connAnchorVCap:0.5,
+            fdnB:2, fdnL:3, fdnDead:2, fdnSoil:150,
+            fdnH:1.5, fdnHeight:2, fdnMu:0.5
+          };
+          const elements = {};
+          let state = {
+            structure:{windKpa:-0.7,up:{V:2},down:{V:5}}
+          };
+          function val(key){ return Number(inputs[key] ?? 0); }
+          function save(){}
+          function alert(message){ throw new Error(message); }
+          function metric(label,value){ return label+":"+value+";"; }
+          function $(id){ return elements[id] ||= {innerHTML:"",textContent:""}; }
+          calculateConnections();
+          const c=state.connections;
+          assert.ok(Math.abs(c.area-4.4)<1e-9, "module area");
+          assert.ok(Math.abs(c.moduleWind-3.08)<1e-9, "module wind uplift");
+          assert.ok(Math.abs(c.moduleDead-25*9.80665/1000)<1e-9, "module self-weight");
+          assert.ok(Math.abs(c.moduleNet-(3.08-25*9.80665/1000))<1e-9, "net module uplift");
+          assert.ok(Math.abs(c.clampDemand-c.moduleNet/4)<1e-9, "clamp load sharing");
+          assert.ok(Math.abs(c.boltTension-2)<1e-9, "direct plus eccentric anchor tension");
+          assert.ok(Math.abs(c.boltShear-0.3)<1e-9, "anchor shear sharing");
+          assert.equal(c.clampUtil<=1,true);
+          assert.equal(c.anchorTUtil<=1,true);
+          assert.equal(c.anchorVUtil<=1,true);
+          inputs.connAnchorTCap=0;
+          calculateConnections();
+          assert.equal(state.connections.anchorTUtil,null,"missing anchor resistance must not be treated as a pass");
+          assert.match(elements.connectionWarning.textContent,/PRELIMINARY LOAD-TRANSFER DEMAND SCREEN ONLY/);
+          state.structure.up.V=1;
+          calculateFoundation();
+          const f=state.foundation;
+          assert.ok(Math.abs(f.Ndown-7)<1e-9);
+          assert.ok(Math.abs(f.Nup-1)<1e-9);
+          assert.ok(Math.abs(f.netN-6)<1e-9);
+          assert.ok(Math.abs(f.M-3)<1e-9);
+          assert.ok(Math.abs(f.qMax-2.5)<1e-9);
+          assert.ok(Math.abs(f.qMin+0.5)<1e-9);
+          assert.equal(f.bearingOK,false,"predicted soil contact loss must fail bearing/contact screen");
+          assert.ok(Math.abs(f.slidingFS-2)<1e-9);
+          assert.ok(Math.abs(f.overturningFS-2)<1e-9);
+          assert.match(elements.foundationWarning.textContent,/PRELIMINARY RIGID-FOOTING SCREEN ONLY/);
+          inputs.fdnSoil=0;
+          assert.throws(() => calculateFoundation(),/positive footing dimensions and soil pressure/);
+          console.log("Mounting connection and foundation tests passed: module uplift, clamp distribution, eccentric anchor tension, shear sharing, missing-capacity handling, footing reactions, soil pressure/contact, sliding, overturning and invalid-input guards");
+          JS
+          node /tmp/gensolar-connections-foundation.js
+      - name: Test RCC footing flexure and shear unit conversions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function calculateRccFooting()")
+          end = source.index("function generateRccDetail()", start)
+          Path("/tmp/gensolar-rcc-footing.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-rcc-footing.js <<'JS'
+          const assert = require("node:assert/strict");
+          const inputs = {
+            rccPedB:400,rccPedL:400,rccDepth:500,rccFck:30,rccFy:500,
+            rccCover:50,rccBarDia:16,rccPu:600,rccMx:0,rccMy:0
+          };
+          const elements = {};
+          let state = {foundation:{B:2,L:3}};
+          function val(key){ return Number(inputs[key] ?? 0); }
+          function save(){}
+          function alert(message){ throw new Error(message); }
+          function metric(label,value){ return label+":"+value+";"; }
+          function $(id){ return elements[id] ||= {innerHTML:"",textContent:""}; }
+          calculateRccFooting();
+          const r=state.rccFooting;
+          assert.ok(Math.abs(r.d-442)<1e-9,"effective depth in mm");
+          assert.ok(Math.abs(r.qmax-100)<1e-9,"uniform soil pressure");
+          assert.ok(Math.abs(r.tauB-(100*(0.8-0.442)/0.442/1000))<1e-9,"B-direction one-way shear must convert kN/m2 to MPa");
+          assert.ok(Math.abs(r.tauL-(100*(1.3-0.442)/0.442/1000))<1e-9,"L-direction one-way shear must convert kN/m2 to MPa");
+          assert.ok(r.tauB<1 && r.tauL<1,"shear stress must be reported in MPa, not kN/m2");
+          assert.ok(r.AsB>0 && r.AsL>0,"flexural reinforcement demand");
+          assert.ok(r.AsMin>0 && r.spacingB>0 && r.spacingB<=300 && r.spacingL>0 && r.spacingL<=300,"minimum steel and spacing screen");
+          assert.ok(Number.isFinite(r.tauPunch) && r.tauPunch>=0,"punching shear calculation");
+          assert.match(elements.rccFootingWarning.textContent,/PRELIMINARY RCC FOOTING SCREEN ONLY/);
+          inputs.rccMx=500;
+          calculateRccFooting();
+          assert.ok(state.rccFooting.qmin<0,"moment-induced loss of soil contact must be visible");
+          assert.ok(elements.rccFootingSchedule.innerHTML.includes("Tension / contact loss"));
+          inputs.rccCover=600;
+          assert.throws(()=>calculateRccFooting(),/Effective depth must be positive/);
+          console.log("RCC footing: effective depth, flexure steel, minimum steel, bar spacing, one-way shear kN/m2-to-MPa conversion, punching stress, contact-loss warning and invalid effective-depth guard passed");
+          JS
+          node /tmp/gensolar-rcc-footing.js
+      - name: Test RCC reinforcement detailing and bar schedule
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function generateRccDetail()")
+          end = source.index("function calculateFoundation()", start)
+          end = source.rfind("\n", start, end)
+          Path("/tmp/gensolar-rcc-detail.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-rcc-detail.js <<'JS'
+          const assert = require("node:assert/strict");
+          const fields = {rccLd:{value:900},rccExtra:{value:50},rccDrawingScale:{value:"1:50"}};
+          const elements = {};
+          global.$ = id => fields[id] || (elements[id] ||= {innerHTML:"",textContent:""});
+          global.val = id => Number(fields[id]?.value || 0);
+          global.metric = (label,value) => label+":"+value+";";
+          global.save = () => true;
+          global.alert = message => { throw new Error(message); };
+          global.state = {rccFooting:{
+            B:2,L:3,cover:50,dia:16,spacingB:150,spacingL:200,
+            dpB:0.4,dpL:0.4,h:500
+          }};
+          generateRccDetail();
+          const d=state.rccDetail;
+          assert.equal(d.rows[0].count,21,"B-direction bar count");
+          assert.equal(d.rows[1].count,11,"L-direction bar count");
+          assert.equal(d.rows[0].length,1950,"B bar cut length includes allowance");
+          assert.equal(d.rows[1].length,2950,"L bar cut length includes allowance");
+          assert.ok(Math.abs(d.wt-16*16/162)<1e-12,"unit mass must use d²/162 kg/m");
+          assert.ok(Math.abs(d.total-(73.4*256/162))<1e-9,"total steel weight");
+          assert.equal(d.availB,750,"B-direction geometric projection");
+          assert.equal(d.availL,1250,"L-direction geometric projection");
+          const html=$("rccDetailSchedule").innerHTML;
+          for(const expected of ["B1","L1","21","11","1950.0 mm","2950.0 mm","64.7 kg","Check anchorage / footing geometry","Geometry exceeds entered Ld target","d²/162","not for construction"]) assert.ok(html.includes(expected) || $("rccDetailDrawing").innerHTML.includes(expected),"Missing reinforcement schedule/drawing content: "+expected);
+          assert.ok($("rccDetailDrawing").innerHTML.includes("<svg"));
+          assert.ok($("rccDetailDrawing").innerHTML.includes("PEDESTAL"));
+          assert.ok($("rccDetailWarning").textContent.includes("geometric flag only"));
+          fields.rccLd.value=-1;
+          assert.throws(()=>generateRccDetail(),/valid anchorage review length/);
+          fields.rccLd.value=900;
+          state.rccFooting.cover=1200;
+          assert.throws(()=>generateRccDetail(),/Clear bar lengths are not positive/);
+          state.rccFooting=null;
+          assert.throws(()=>generateRccDetail(),/Calculate the RCC footing screen first/);
+          console.log("RCC reinforcement detailing: bar quantities, cut lengths, d²/162 mass, total steel, geometric Ld flags, SVG drawing and invalid-state guards passed");
+          JS
+          node /tmp/gensolar-rcc-detail.js
+      - name: Test conceptual 3D roof model
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function build3d()")
+          end = source.index("function electricalProtectionReport()", start)
+          Path("/tmp/gensolar-cad-preview.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-cad-preview.js <<'JS'
+          const assert = require("node:assert/strict");
+          const elements = {};
+          const fields = {width:{value:20},length:{value:30},buildingHeight:{value:8}};
+          global.$ = id => elements[id] ||= {innerHTML:"",textContent:""};
+          global.val = id => Number(fields[id]?.value || 0);
+          global.state = {project:{width:20,length:30,buildingHeight:8},layout:{count:12,rows:3}};
+          build3d();
+          let svg=$("model3d").innerHTML;
+          assert.ok(svg.includes("<svg"),"concept model must render SVG");
+          assert.ok(svg.includes("20 m × 30 m"),"building plan dimensions must be visible");
+          assert.ok(svg.includes("building height 8 m"),"building height must be visible");
+          assert.equal((svg.match(/<polygon/g)||[]).length,15,"3 building faces plus 12 PV modules");
+          state.layout.count=45;
+          build3d();
+          svg=$("model3d").innerHTML;
+          assert.equal((svg.match(/<polygon/g)||[]).length,33,"3 building faces plus 30 PV modules");
+          assert.ok(svg.includes("Concept only"),"conceptual preview must carry limitation label");
+          console.log("Conceptual 3D roof preview: dimension labels, module rendering, 30-module preview cap and concept disclaimer passed");
+          JS
+          node /tmp/gensolar-cad-preview.js
+      - name: Test PV layout DXF export geometry and layers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function dxf()")
+          end = source.index("function pvTemperatureAdjustedVoltage(", start)
+          Path("/tmp/gensolar-dxf.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-dxf.js <<'JS'
+          const assert = require("node:assert/strict");
+          let saved=null;
+          global.alert = message => { throw new Error(message); };
+          global.download = (name,data,type) => { saved={name,data,type}; };
+          global.state = {roofZones:[{vertices:[{x:0,y:0},{x:10,y:0},{x:10,y:8}]}],
+            layout:{modules:[{x:1,y:2,w:2,h:1},{x:4,y:2,w:2,h:1}],
+              obstacles:[{x:3,y:4,r:0.5}],
+              rectObstacles:[{x:6,y:1,w:1,h:2}],
+              corridorRects:[{x:0,y:7,w:10,h:1}]}};
+          dxf();
+          assert.equal(saved.name,"GenSolar-PV-Layout.dxf");
+          assert.equal(saved.type,"application/dxf");
+          for(const layer of ["ROOF_ZONES","ROOF_OBSTACLES","ACCESS_CORRIDORS","PV_MODULES"])
+            assert.ok(saved.data.includes(layer),"DXF layer missing: "+layer);
+          assert.ok(saved.data.includes("CIRCLE"),"circular roof obstacle missing");
+          assert.ok(saved.data.includes("LWPOLYLINE"),"polyline geometry missing");
+          assert.ok(saved.data.includes("DIMENSIONS"),"dimension annotation layer missing");
+          assert.ok(saved.data.split("TEXT").length-1>=2,"horizontal and vertical dimension labels missing");
+          assert.ok(saved.data.includes("5.00 m"),"PV field width dimension should be 5.00 m");
+          assert.ok(saved.data.includes("1.00 m"),"PV field height dimension should be 1.00 m");
+          assert.ok(saved.data.includes("10000"),"coordinates must be exported in millimetres");
+          assert.ok(saved.data.endsWith("EOF") && saved.data.lastIndexOf("ENDSEC") < saved.data.lastIndexOf("EOF"),"DXF must close ENTITIES section and file");
+          state.layout=null;
+          assert.throws(()=>dxf(),/Generate the PV layout first/);
+          console.log("PV layout DXF export: roof boundary, module rectangles, circular/rectangular obstacles, access corridors, mm coordinates, layers and missing-layout guard passed");
+          JS
+          node /tmp/gensolar-dxf.js
+      - name: Test preliminary mounting rail fabrication schedule
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function buildFabricationSchedule()")
+          end = source.index("function addVendor()", start)
+          Path("/tmp/gensolar-fabrication.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-fabrication.js <<'JS'
+          const assert = require("node:assert/strict");
+          global.state = {layout:{modules:[
+            {x:0,y:0,w:2,h:1},{x:2,y:0,w:2,h:1},{x:0,y:2,w:2,h:1}
+          ]}};
+          const nodes={fabricationTable:{},fabricationTotals:{}};
+          global.$ = id => nodes[id] || (nodes[id]={});
+          global.metric = (label,value) => label+":"+value;
+          global.save = () => {};
+          global.alert = message => { throw new Error(message); };
+          let downloaded=null;
+          global.download = (name,data,type) => { downloaded={name,data,type}; };
+          global.csv = rows => rows.map(row => row.map(value => '"' + String(value ?? "").replace(/"/g, '""') + '"').join(",")).join("\\r\\n");
+          buildFabricationSchedule();
+          assert.equal(state.fabricationSchedule.rows.length,2);
+          assert.equal(state.fabricationSchedule.rows[0].modules,2);
+          assert.equal(state.fabricationSchedule.rows[0].lengthM,4);
+          assert.equal(state.fabricationSchedule.rows[0].railQty,2);
+          assert.equal(state.fabricationSchedule.totalRailM,12);
+          assert.equal(state.fabricationSchedule.railPieces,4);
+          assert.ok(nodes.fabricationTable.innerHTML.includes("Cut length"));
+          exportFabricationSchedule();
+          assert.equal(downloaded.name,"GenSolar-Mounting-Rail-Cut-Schedule.csv");
+          assert.equal(downloaded.type,"text/csv");
+          assert.ok(downloaded.data.includes("4.000"));
+          state.layout={modules:[]};
+          assert.throws(()=>buildFabricationSchedule(),/Generate PV layout first/);
+          state.fabricationSchedule=null;
+          assert.throws(()=>exportFabricationSchedule(),/Generate the rail schedule first/);
+          console.log("Mounting rail schedule: row grouping, cut lengths, two-rail quantities, total length, CSV export and invalid-state guards passed");
+          JS
+          node /tmp/gensolar-fabrication.js
+      - name: Test DXF import entities, layers, units and extents
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function parseDxf(")
+          end = source.index("\nfunction importCad(", start)
+          Path("/tmp/gensolar-dxf-import.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-dxf-import.js <<'JS'
+          const assert = require("node:assert/strict");
+          const pair=(c,v)=>String(c)+"\n"+String(v);
+          const dxf=[
+            pair(0,"SECTION"),pair(2,"HEADER"),pair(9,"$INSUNITS"),pair(70,4),pair(0,"ENDSEC"),
+            pair(0,"SECTION"),pair(2,"ENTITIES"),
+            pair(0,"LINE"),pair(8,"ROOF"),pair(10,0),pair(20,0),pair(11,1000),pair(21,500),
+            pair(0,"CIRCLE"),pair(8,"OBSTACLES"),pair(10,500),pair(20,250),pair(40,50),
+            pair(0,"LWPOLYLINE"),pair(8,"BOUNDARY"),pair(70,1),pair(10,0),pair(20,0),
+              pair(10,1000),pair(20,0),pair(10,1000),pair(20,500),
+            pair(0,"POINT"),pair(8,"SURVEY"),pair(10,250),pair(20,125),
+            pair(0,"POLYLINE"),pair(8,"LEGACY_BOUNDARY"),pair(66,1),pair(70,1),
+            pair(0,"VERTEX"),pair(8,"LEGACY_BOUNDARY"),pair(10,100),pair(20,100),
+            pair(0,"VERTEX"),pair(8,"LEGACY_BOUNDARY"),pair(10,900),pair(20,100),
+            pair(0,"VERTEX"),pair(8,"LEGACY_BOUNDARY"),pair(10,900),pair(20,400),
+            pair(0,"SEQEND"),
+            pair(0,"POLYLINE"),pair(8,"UNSUPPORTED_3D"),pair(66,1),pair(70,9),
+            pair(0,"VERTEX"),pair(8,"UNSUPPORTED_3D"),pair(10,10),pair(20,10),pair(30,50),
+            pair(0,"VERTEX"),pair(8,"UNSUPPORTED_3D"),pair(10,20),pair(20,20),pair(30,60),
+            pair(0,"SEQEND"),
+            pair(0,"LINE"),pair(8,"BROKEN"),pair(10,"bad"),pair(20,0),pair(11,10),pair(21,10),
+            pair(0,"ENDSEC"),pair(0,"EOF")
+          ].join("\n")+"\n";
+          const parsed=parseDxf(dxf);
+          assert.equal(parsed.entities.length,5,"malformed entities must be skipped and legacy POLYLINE must import");
+          assert.equal(parsed.units,4);
+          assert.equal(parsed.unitName,"Millimetres");
+          assert.deepEqual(parsed.layers,["BOUNDARY","LEGACY_BOUNDARY","OBSTACLES","ROOF","SURVEY"]);
+          assert.equal(parsed.counts.LINE,1);
+          assert.equal(parsed.counts.CIRCLE,1);
+          assert.equal(parsed.counts.LWPOLYLINE,1);
+          assert.equal(parsed.counts.POINT,1);
+          assert.equal(parsed.counts.POLYLINE,1);
+          const legacy=parsed.entities.find(x=>x.type==="POLYLINE");
+          assert.equal(legacy.closed,true);
+          assert.equal(legacy.vertices.length,3);
+          const poly=parsed.entities.find(x=>x.type==="LWPOLYLINE");
+          assert.equal(poly.closed,true);
+          assert.equal(poly.vertices.length,3);
+          assert.deepEqual(parsed.bounds,{minX:0,minY:0,maxX:1000,maxY:500});
+          const summary=cadDxfSummary(parsed);
+          assert.match(summary,/5 entities/);
+          assert.match(summary,/5 layers/);
+          assert.match(summary,/Millimetres/);
+          assert.equal(parseDxf("not a valid drawing").entities.length,0,"invalid input must produce no supported geometry");
+          console.log("DXF import tests passed: LINE/CIRCLE/LWPOLYLINE/2D POLYLINE, 3D POLYLINE and mesh rejection, VERTEX/POINT, layer metadata, INSUNITS, closed polygons, extents and malformed-entity filtering");
+          JS
+          node /tmp/gensolar-dxf-import.js
+      - name: Test imported DXF SVG preview and untrusted layer labels
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function renderImportedDxf(")
+          end = source.index("function importCad(", start)
+          Path("/tmp/gensolar-dxf-preview.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-dxf-preview.js <<'JS'
+          const assert = require("node:assert/strict");
+          const data = {
+            bounds:{minX:0,minY:0,maxX:1000,maxY:500},
+            layers:["ROOF","<img src=x onerror=alert(1)>"],
+            entities:[
+              {type:"LINE",layer:"ROOF",x1:0,y1:0,x2:1000,y2:500},
+              {type:"CIRCLE",layer:"ROOF",x:500,y:250,radius:50},
+              {type:"ARC",layer:"ROOF",x:500,y:250,radius:100,startAngle:0,endAngle:90},
+              {type:"LWPOLYLINE",layer:"ROOF",vertices:[{x:0,y:0},{x:1000,y:0},{x:1000,y:500}],closed:true},
+              {type:"POLYLINE",layer:"ROOF",vertices:[{x:0,y:0},{x:800,y:0},{x:800,y:400}],closed:true},
+              {type:"POINT",layer:"ROOF",x:250,y:125}
+            ]
+          };
+          const html=renderImportedDxf(data);
+          for(const tag of ["<svg","<line","<circle","<path","<polyline","Imported DXF drawing preview"])
+            assert.ok(html.includes(tag),"Missing preview output: "+tag);
+          assert.ok(html.includes("<polygon")||html.includes("<polyline"),"Legacy and lightweight polylines must render");
+          assert.ok(html.includes("&lt;img src=x onerror=alert(1)&gt;"),"Layer labels must be HTML-escaped");
+          assert.ok(!html.includes("<img src=x onerror=alert(1)>"),"Untrusted layer text must not become markup");
+          assert.ok(html.includes('viewBox="0 0 900 540"'),"Preview must use the fixed viewBox");
+          assert.match(renderImportedDxf({bounds:null,layers:[],entities:[]}),/No supported DXF geometry/);
+          console.log("DXF SVG preview passed: LINE/CIRCLE/ARC/LWPOLYLINE/POLYLINE/POINT rendering, fit-to-view, empty drawing and escaped layer labels");
+          JS
+          node /tmp/gensolar-dxf-preview.js
+      - name: Test persistent CAD layer visibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function renderLayerVisibility(){")
+          end = source.index("function save(){", start)
+          Path("/tmp/gensolar-layer-visibility.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-layer-visibility.js <<'JS'
+          // TEST HARNESS
+          const assert = require("node:assert/strict");
+          const vm = require("node:vm");
+          const model = {hiddenLayers:[],entities:[]};
+          const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+          let redraws=0, renders=0, saves=0;
+          const box = {
+            inputs:[],
+            set innerHTML(html) {
+              this.html=html;
+              this.inputs=[...html.matchAll(/data-layer-visible="([^"]+)"([^>]*)/g)].map(m=>({
+                dataset:{layerVisible:m[1]},checked:/\bchecked\b/.test(m[2]),listeners:{},
+                addEventListener(name,fn){this.listeners[name]=fn;}
+              }));
+            },
+            querySelectorAll(){return this.inputs;}
+          };
+          const context={model,esc,$:id=>id==="cadLayerVisibility"?box:null,
+            draw:()=>redraws++,render3d:()=>renders++,save:()=>saves++};
+          vm.createContext(context);
+          const script=require("node:fs").readFileSync(__filename,"utf8").split("// TEST HARNESS")[0];
+          vm.runInContext(script,context);
+          vm.runInContext("renderLayerVisibility()",context);
+          for(const layer of ["UNDERLAY","ROOF","WALLS","OBSTACLES","DIMENSIONS","PV_MODULES","ROOF_ZONES","ROOF_ZONE_LABELS","ACCESS_CORRIDORS","GENERAL"])
+            assert.ok(box.inputs.some(input=>input.dataset.layerVisible===layer),"Missing standard CAD layer: "+layer);
+          const roof=box.inputs.find(x=>x.dataset.layerVisible==="ROOF");
+          roof.checked=false;roof.listeners.change();
+          assert.ok(model.hiddenLayers.includes("ROOF"),"Hiding a layer must persist its hidden state");
+          assert.equal(redraws,1);assert.equal(renders,1);assert.equal(saves,1);
+          roof.checked=true;roof.listeners.change();
+          assert.ok(!model.hiddenLayers.includes("ROOF"),"Showing a layer must remove its hidden state");
+          assert.equal(redraws,2);assert.equal(renders,2);assert.equal(saves,2);
+          console.log("CAD layer visibility passed: seven layers, hide/show state, redraw, 3D refresh and save");
+          JS
+          node /tmp/gensolar-layer-visibility.js
+      - name: Test DXF import handoff to editable CAD
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("window.gensolarImportDxf=function(data){")
+          end = source.index("function renderLayerVisibility(){", start)
+          Path("/tmp/gensolar-dxf-handoff.js").write_text("const importedSource = " + json.dumps(source[start:end]) + ";\n", encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-dxf-handoff.js <<'JS'
+          // TEST HARNESS
+          const assert=require("node:assert/strict"),vm=require("node:vm"),fs=require("node:fs");
+          const model={entities:[],undo:[]};let draws=0,models=0,saves=0,layerRefreshes=0;
+          const context={model,saveUndo:()=>model.undo.push("snapshot"),
+            addEntity:e=>{e.id="test-"+model.entities.length;model.entities.push(e)},
+            renderLayerVisibility:()=>layerRefreshes++,draw:()=>draws++,render3d:()=>models++,save:()=>saves++};
+          vm.createContext(context);
+          vm.runInContext("window=globalThis",context);
+          vm.runInContext(importedSource,context);
+          const result=context.gensolarImportDxf({units:4,entities:[
+            {type:"LINE",layer:"ROOF",x1:0,y1:0,x2:1000,y2:500},
+            {type:"LWPOLYLINE",layer:"ROOF",vertices:[{x:0,y:0},{x:1000,y:0},{x:1000,y:500}],closed:true},
+            {type:"CIRCLE",layer:"OBSTACLES",x:500,y:250,radius:100},
+            {type:"ARC",layer:"GENERAL",x:500,y:250,radius:200,startAngle:0,endAngle:90},
+            {type:"POLYLINE",layer:"LEGACY",vertices:[{x:0,y:0},{x:1000,y:0},{x:1000,y:500}],closed:true},
+            {type:"TEXT",layer:"ROOF_ZONE_LABELS",x:100,y:200,height:180,rotation:15,text:"Main roof EL 6.25 m"},
+            {type:"MTEXT",layer:"NOTES",x:300,y:400,height:120,rotation:0,text:"PV layout\\PRevision 3"}
+          ]});
+          assert.equal(result.count,7);
+          assert.equal(model.entities[0].b.x,1,"DXF millimetres must convert to metres");
+          assert.equal(model.entities[0].b.y,.5);
+          assert.equal(model.entities[1].type,"poly");assert.equal(model.entities[1].closed,true);
+          assert.equal(model.entities[2].r,.1);
+          assert.ok(model.entities[3].points.length>=8,"ARC should be approximated by a CAD polyline");
+          assert.equal(model.entities[4].type,"poly","Legacy POLYLINE must convert to editable CAD polygon");
+          assert.equal(model.entities[4].closed,true);
+          assert.equal(model.entities[5].type,"text","DXF TEXT must become editable CAD text");
+          assert.equal(model.entities[5].x,.1,"DXF text insertion point must convert from mm to metres");
+          assert.equal(model.entities[5].height,.18,"DXF text height must convert from mm to metres");
+          assert.equal(model.entities[5].rotation,15,"DXF text rotation must be retained");
+          assert.equal(model.entities[6].type,"text","DXF MTEXT must become editable CAD text");
+          assert.equal(model.entities[6].text,"PV layout\\PRevision 3","MTEXT paragraph codes must be retained for CAD preview");
+          assert.equal(layerRefreshes,1,"Imported CAD layers must immediately refresh the visibility controls");
+          assert.equal(draws,1);assert.equal(models,1);assert.equal(saves,1);
+          const before=model.entities.length;
+          const unsupported=context.gensolarImportDxf({units:0,entities:[{type:"LINE",layer:"0",x1:0,y1:0,x2:10,y2:10}]});
+          assert.equal(unsupported.count,0);assert.equal(model.entities.length,before,"Unitless geometry must not be silently scaled");
+          console.log("DXF-to-CAD handoff passed: mm-to-m conversion, line/polyline/circle/arc/legacy POLYLINE/TEXT/MTEXT import, text scaling/rotation, redraw/save and unitless rejection");
+          JS
+          node /tmp/gensolar-dxf-handoff.js
+      - name: Test 3D CAD layer visibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function render3d(){", source.index("const model="))
+          end = source.index("$('cadRefresh3d').onclick=render3d;", start)
+          Path("/tmp/gensolar-3d-layer-visibility.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-3d-layer-visibility.js <<'JS'
+          // TEST HARNESS
+          const assert=require("node:assert/strict"),vm=require("node:vm"),fs=require("node:fs");
+          const box={innerHTML:""};
+          const model={building:{height:6},layout:[{x:1,y:1,w:2,h:1}],hiddenLayers:[],entities:[{type:"rect",layer:"OBSTACLES",x:3,y:3,w:1,h:1}]};
+          const context={model,state:{roofZones:[]},$:id=>id==="cad3d"?box:null,n:()=>6,
+            roofPoly:()=>[{x:0,y:0},{x:10,y:0},{x:10,y:8},{x:0,y:8}],esc:String};
+          vm.createContext(context);
+          const script=fs.readFileSync(__filename,"utf8").split("// TEST HARNESS")[0];
+          vm.runInContext(script,context);
+          vm.runInContext("render3d()",context);
+          assert.ok(box.innerHTML.includes('fill="#a7d4bf"'),"Visible roof face must render");
+          assert.ok(box.innerHTML.includes('fill="#5da8dc"'),"Visible PV modules must render");
+          assert.ok(box.innerHTML.includes('fill="#d9e5df"'),"Visible wall faces must render");
+          assert.ok(box.innerHTML.includes('fill="#d98a63"'),"Visible roof obstacles must render");
+          model.hiddenLayers=["ROOF","PV_MODULES","WALLS","OBSTACLES"];
+          vm.runInContext("render3d()",context);
+          assert.ok(!box.innerHTML.includes('fill="#a7d4bf"'),"Hidden roof face must not render");
+          assert.ok(!box.innerHTML.includes('fill="#5da8dc"'),"Hidden PV modules must not render");
+          assert.ok(!box.innerHTML.includes('fill="#d9e5df"'),"Hidden wall layer must hide wall faces");
+          assert.ok(!box.innerHTML.includes('fill="#d98a63"'),"Hidden obstacle layer must hide roof obstacles");
+          assert.ok(box.innerHTML.includes('fill="#cbd7d2"'),"Building base mass must remain visible");
+          console.log("3D CAD layer visibility passed: roof and PV visibility follow layer state while walls remain visible");
+          JS
+          node /tmp/gensolar-3d-layer-visibility.js
+      - name: Test CAD entity selection and geometry hit targets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function segmentDistance(p,a,b){")
+          end = source.index("function finishPoly(){", start)
+          Path("/tmp/gensolar-cad-hit-test.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-cad-hit-test.js <<'JS'
+          // TEST HARNESS
+          const assert=require("node:assert/strict"),vm=require("node:vm"),fs=require("node:fs");
+          const model={hiddenLayers:[],entities:[
+            {id:"rect",type:"rect",layer:"ROOF",x:0,y:0,w:10,h:8},
+            {id:"circle",type:"circle",layer:"OBSTACLES",x:20,y:20,r:5},
+            {id:"line",type:"line",layer:"GENERAL",a:{x:30,y:0},b:{x:40,y:0}},
+            {id:"poly",type:"poly",layer:"ROOF",closed:true,points:[{x:50,y:0},{x:60,y:0},{x:60,y:10},{x:50,y:10}]},
+            {id:"open",type:"poly",layer:"GENERAL",closed:false,points:[{x:70,y:0},{x:80,y:0},{x:80,y:10}]}
+          ]};
+          const context={model,inside:(p,poly)=>{let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if(((a.y>p.y)!==(b.y>p.y))&&(p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x))c=!c}return c}};
+          vm.createContext(context);
+          const script=fs.readFileSync(__filename,"utf8").split("// TEST HARNESS")[0];
+          vm.runInContext(script,context);
+          assert.equal(vm.runInContext('hit({x:5,y:4}).id',context),"rect","Rectangle interior must select");
+          assert.equal(vm.runInContext('hit({x:25,y:20}).id',context),"circle","Circle circumference must select");
+          assert.equal(vm.runInContext('hit({x:35,y:.1}).id',context),"line","Line interior must select");
+          assert.equal(vm.runInContext('hit({x:55,y:5}).id',context),"poly","Closed polygon interior must select");
+          assert.equal(vm.runInContext('hit({x:80,y:5}).id',context),"open","Open polyline segment must select");
+          model.hiddenLayers=["ROOF"];
+          assert.notEqual(vm.runInContext('hit({x:5,y:4})',context)?.id,"rect","Hidden layer entities must not intercept selection");
+          assert.equal(vm.runInContext('hit({x:35,y:.1}).id',context),"line","Visible geometry remains selectable");
+          console.log("CAD hit testing passed: rectangle, circle, line, closed polygon, open polyline and hidden-layer filtering");
+          JS
+          node /tmp/gensolar-cad-hit-test.js
+      - name: Test CAD duplicate and rotate tools
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function entityPivot(e){")
+          end = source.index("function finishPoly(){", start)
+          Path("/tmp/gensolar-cad-transform.js").write_text("const cadTransformSource = " + json.dumps(source[start:end]) + ";\n", encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-cad-transform.js <<'JS'
+          const assert=require("node:assert/strict"),vm=require("node:vm"),fs=require("node:fs");
+          let next=0;const context={uid:()=>"copy-"+(++next)};vm.createContext(context);
+          vm.runInContext(cadTransformSource,context);
+          const rect={id:"r",type:"rect",x:0,y:0,w:10,h:8};
+          assert.equal(vm.runInContext("rotateCadEntity",context)(rect),true);
+          assert.ok(Math.abs(rect.x-1)<1e-9&&Math.abs(rect.y+1)<1e-9);
+          assert.ok(Math.abs(rect.w-8)<1e-9&&Math.abs(rect.h-10)<1e-9,"90-degree rectangle rotation must swap extents");
+          const line={id:"l",type:"line",a:{x:0,y:0},b:{x:2,y:0}};
+          vm.runInContext("rotateCadEntity",context)(line);
+          assert.ok(Math.abs(line.a.x-1)<1e-9&&Math.abs(line.a.y+1)<1e-9);
+          assert.ok(Math.abs(line.b.x-1)<1e-9&&Math.abs(line.b.y-1)<1e-9);
+          const circle={type:"circle",x:2,y:3,r:1};
+          assert.equal(vm.runInContext("rotateCadEntity",context)(circle),false,"Circle rotation is a no-op");
+          const original={id:"p",type:"poly",layer:"ROOF",closed:true,points:[{x:0,y:0},{x:2,y:0},{x:2,y:1}]};
+          const copy=vm.runInContext("duplicateCadEntity",context)(original);
+          assert.equal(copy.id,"copy-1");assert.equal(copy.points[0].x,1);assert.equal(original.points[0].x,0);
+          assert.equal(copy.layer,"ROOF");assert.equal(copy.closed,true);
+          console.log("CAD transforms passed: rectangle and line rotation, symmetric-circle handling, independent layer-preserving duplicate");
+          JS
+          node /tmp/gensolar-cad-transform.js
+      - name: Test CAD object snapping
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function snapObject(p){")
+          end = source.index("function point(evt)", start)
+          Path("/tmp/gensolar-object-snap.js").write_text("const snapSource = " + json.dumps(source[start:end]) + ";\n", encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-object-snap.js <<'JS'
+          const assert=require("node:assert/strict"),vm=require("node:vm");
+          const model={hiddenLayers:[],entities:[
+            {type:"rect",layer:"ROOF",x:10,y:10,w:4,h:3},
+            {type:"line",layer:"GENERAL",a:{x:20,y:20},b:{x:25,y:20}},
+            {type:"poly",layer:"OBSTACLES",points:[{x:30,y:30},{x:35,y:30}]}
+          ]};
+          let enabled=true;const context={model,$:()=>({checked:enabled})};vm.createContext(context);
+          vm.runInContext(snapSource,context);
+          const call=(x,y)=>vm.runInContext("snapObject({x:"+x+",y:"+y+"})",context);
+          assert.deepEqual(JSON.parse(JSON.stringify(call(10.1,10.1))),{x:10,y:10},"Nearby roof corner should snap");
+          assert.deepEqual(JSON.parse(JSON.stringify(call(20.1,20.05))),{x:20,y:20},"Line endpoint should snap");
+          enabled=false;
+          assert.deepEqual(JSON.parse(JSON.stringify(call(10.1,10.1))),{x:10.1,y:10.1},"Disabled object snap should preserve point");
+          enabled=true;model.hiddenLayers=["ROOF"];
+          assert.deepEqual(JSON.parse(JSON.stringify(call(10.1,10.1))),{x:10.1,y:10.1},"Hidden geometry must not attract snap");
+          console.log("CAD object snap passed: rectangle vertices, line endpoints, disabled mode and hidden-layer filtering");
+          JS
+          node /tmp/gensolar-object-snap.js
+      - name: Test CAD orthogonal drawing mode
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function orthoPoint(p,origin){")
+          end = source.index("function segmentDistance", start)
+          Path("/tmp/gensolar-ortho.js").write_text("const orthoSource = " + json.dumps(source[start:end]) + ";\n", encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-ortho.js <<'JS'
+          const assert=require("node:assert/strict"),vm=require("node:vm");
+          const context={};vm.createContext(context);vm.runInContext(orthoSource,context);
+          const check=(p,o)=>vm.runInContext("orthoPoint("+JSON.stringify(p)+","+JSON.stringify(o)+")",context);
+          assert.deepEqual(JSON.parse(JSON.stringify(check({x:8,y:3},{x:1,y:1}))),{x:8,y:1},"Dominant horizontal movement must lock Y");
+          assert.deepEqual(JSON.parse(JSON.stringify(check({x:3,y:9},{x:1,y:1}))),{x:1,y:9},"Dominant vertical movement must lock X");
+          assert.deepEqual(JSON.parse(JSON.stringify(check({x:4,y:4},{x:1,y:1}))),{x:4,y:1},"Equal movement uses horizontal lock consistently");
+          console.log("CAD orthogonal mode passed: horizontal, vertical and deterministic diagonal tie constraints");
+          JS
+          node /tmp/gensolar-ortho.js
+      - name: Test CAD survey underlay scale geometry
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function underlayHeight(")
+          end = source.index("function syncUnderlayControls()", start)
+          Path("/tmp/gensolar-underlay.js").write_text("const underlaySource = " + json.dumps(source[start:end]) + ";\n", encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-underlay.js <<'JS'
+          const assert=require("node:assert/strict"),vm=require("node:vm");
+          const context={};vm.createContext(context);vm.runInContext(underlaySource,context);
+          const height=(w,pw,ph)=>vm.runInContext("underlayHeight("+w+","+pw+","+ph+")",context);
+          assert.equal(height(30,3000,1500),15,"Calibrated image height must preserve the pixel aspect ratio");
+          assert.equal(height(24,1600,900),13.5,"Wide site plans must retain their source aspect ratio");
+          assert.throws(()=>height(0,3000,1500),/positive finite numbers/,"Zero calibrated width must be rejected");
+          assert.throws(()=>height(30,0,1500),/positive finite numbers/,"Zero source width must be rejected");
+          assert.throws(()=>height(30,3000,-1),/positive finite numbers/,"Invalid source height must be rejected");
+          console.log("CAD survey underlay scale passed: aspect ratio, calibration and invalid dimension guards");
+          JS
+          node /tmp/gensolar-underlay.js
+      - name: Test CAD survey underlay import validation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function validateImportedUnderlay(")
+          end = source.index("function syncUnderlayControls()", start)
+          Path("/tmp/gensolar-underlay-import.js").write_text("const validationSource = " + json.dumps(source[start:end]) + ";\n", encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-underlay-import.js <<'JS'
+          const assert=require("node:assert/strict"),vm=require("node:vm");
+          const context={};vm.createContext(context);vm.runInContext(validationSource,context);
+          const valid={dataUrl:"data:image/png;base64,iVBORw0KGgo=",name:"roof.png",pixelWidth:3000,pixelHeight:1500,x:2,y:3,w:30,opacity:.45,visible:true};
+          const normalized=vm.runInContext("validateImportedUnderlay("+JSON.stringify(valid)+")",context);
+          assert.equal(normalized.h,15,"Imported image aspect ratio must be recalculated");
+          assert.equal(normalized.x,2);assert.equal(normalized.y,3);assert.equal(normalized.visible,true);
+          assert.equal(vm.runInContext("validateImportedUnderlay(null)",context),null);
+          function rejected(invalid){
+            let error=null;
+            try{vm.runInContext("validateImportedUnderlay("+JSON.stringify(invalid)+")",context)}catch(e){error=e}
+            assert.ok(error,"Invalid survey underlay must be rejected");
+            assert.match(String(error.message),/Survey underlay|positive finite numbers/,"Rejection must explain the invalid input");
+          }
+          for(const patch of [{dataUrl:"data:image/svg+xml;base64,PHN2Zz4="},{opacity:2},{pixelWidth:0},{w:-2},{dataUrl:"https://example.com/image.png"}])rejected({...valid,...patch});
+          console.log("CAD survey underlay import passed: safe image types, calibration, aspect ratio and invalid-input rejection");
+          JS
+          node /tmp/gensolar-underlay-import.js
+      - name: Test PV layout DXF export units and round-trip import
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function parseDxf(text){")
+          end = source.index("function cadDxfSummary(", start)
+          parser = source[start:end]
+          start = source.index("function dxf(){")
+          end = source.index("function pvTemperatureAdjustedVoltage(", start)
+          exporter = source[start:end]
+          Path("/tmp/gensolar-pv-dxf-roundtrip.js").write_text(parser + "\\n" + exporter, encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-pv-dxf-roundtrip.js <<'JS'
+          const assert = require("node:assert/strict");
+          global.state = {
+            roofZones: [{vertices:[{x:0,y:0},{x:12,y:0},{x:12,y:8},{x:0,y:8}]}],
+            layout: {
+              modules:[{x:1,y:2,w:2.1,h:1.1},{x:3.2,y:2,w:2.1,h:1.1}],
+              obstacles:[{x:8,y:4,r:0.5}],
+              rectObstacles:[{x:9,y:1,w:1,h:1}],
+              corridorRects:[{x:0,y:0,w:0.8,h:8}]
+            }
+          };
+          global.alert = message => { throw new Error(message); };
+          let saved = null;
+          global.download = (name,data,type) => { saved={name,data,type}; };
+          dxf();
+          assert.equal(saved.name,"GenSolar-PV-Layout.dxf");
+          assert.equal(saved.type,"application/dxf");
+          assert.ok(saved.data.includes("$INSUNITS\\n70\\n4\\n"),"DXF must declare millimetre units");
+          const imported = parseDxf(saved.data);
+          assert.equal(imported.units,4);
+          assert.equal(imported.unitName,"Millimetres");
+          assert.ok(imported.layers.includes("ROOF_ZONES"));
+          assert.ok(imported.layers.includes("PV_MODULES"));
+          assert.ok(imported.layers.includes("ROOF_OBSTACLES"));
+          assert.ok(imported.layers.includes("ACCESS_CORRIDORS"));
+          const modules=imported.entities.filter(e=>e.layer==="PV_MODULES");
+          assert.equal(modules.length,2);
+          assert.deepEqual(modules[0].vertices,[{x:1000,y:2000},{x:3100,y:2000},{x:3100,y:3100},{x:1000,y:3100}]);
+          const circle=imported.entities.find(e=>e.type==="CIRCLE");
+          assert.ok(circle);
+          assert.equal(circle.radius,500);
+          console.log("PV DXF round-trip passed: explicit millimetre units, roof zones, modules, obstacles, access corridors and geometry scale");
+          JS
+      - name: Test battery bank sizing and current limits
+        run: node tools/test_battery_engine.js
+      - name: Test BOM generation and rate preservation
+        run: node tools/test_bom_generation.js
+      - name: Test procurement register validation and safe rendering
+        run: node tools/test_procurement_register.js
+      - name: Test goods receipt register and CSV export
+        run: node tools/test_goods_receipts.js
+      - name: Test purchase order lifecycle and status history
+        run: node tools/test_po_lifecycle.js
+      - name: Test PO ordered quantity and receipt reconciliation
+        run: node tools/test_po_receipt_reconciliation.js
+
+      - name: Test commissioning QA failure and corrective action controls
+        run: node tools/test_commissioning_register.js
+      - name: Test construction activity validation and safe rendering
+        run: node tools/test_construction_activity.js
+      - name: Test native construction project bridge
+        run: node tools/test_native_construction_bridge.js
+      - name: Test native procurement project bridge
+        run: node tools/test_native_procurement_bridge.js
+      - name: Test native supplier quotation bridge
+        run: node tools/test_native_procurement_bridge.js
+      - name: Test native DPR document control bridge
+        run: node tools/test_native_dpr_bridge.js
+      - name: Test native commissioning QA bridge
+        run: node tools/test_native_commissioning_bridge.js
+      - name: Test native customer handover bridge
+        run: node tools/test_native_handover_bridge.js
+      - name: Test native CAD editor bridge
+        run: node tools/test_native_cad_editor_bridge.js
+      - name: Build debug APK
+        run: gradle assembleDebug --stacktrace
+      - name: Verify APK
+        shell: bash
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+          APKSIGNER="$SDK_ROOT/build-tools/35.0.0/apksigner"
+          AAPT="$SDK_ROOT/build-tools/35.0.0/aapt"
+          test -s "$APK"
+          test -x "$APKSIGNER"
+          test -x "$AAPT"
+          # apksigner verify --verbose --print-certs
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='com.gensolar.engineering'"
+          echo "APK signature and package identity verified."
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GenSolar-Pro-Engineering-debug-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
