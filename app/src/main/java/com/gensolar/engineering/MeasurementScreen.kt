@@ -37,6 +37,8 @@ fun MeasurementScreen(
     var mode by remember { mutableStateOf("Distance") }
     var arStatus by remember { mutableStateOf("Checking ARCore…") }
     var saveStatus by remember { mutableStateOf("") }
+    var pendingDelete by remember { mutableStateOf<MeasurementRecord?>(null) }
+    var confirmClearHistory by remember { mutableStateOf(false) }
     val context=LocalContext.current
     val historyStore=remember(context) { MeasurementHistoryStore(context) }
     var history by remember(historyStore) { mutableStateOf(historyStore.load()) }
@@ -80,7 +82,59 @@ fun MeasurementScreen(
             "Room" -> RoomTool(saveMeasurement)
             "Solar roof" -> RoofTool(saveMeasurement)
             "GPS" -> GpsTool(onRequestGps,saveMeasurement)
-            "History" -> MeasurementHistoryTool(history) { fileName,content,mimeType -> onExportFile(fileName,content,mimeType) }
+            "History" -> MeasurementHistoryTool(
+                records = history,
+                onExportFile = { fileName,content,mimeType -> onExportFile(fileName,content,mimeType) },
+                onDeleteRecord = { record ->
+                    if (historyStore.remove(record.id)) {
+                        history = historyStore.load()
+                        saveStatus = "Measurement deleted."
+                    } else {
+                        saveStatus = "Could not delete this measurement. Existing history was left unchanged."
+                    }
+                },
+                onRequestDelete = { pendingDelete = it },
+                onRequestClear = { confirmClearHistory = true }
+            )
+        }
+        if (pendingDelete != null) {
+            AlertDialog(
+                onDismissRequest = { pendingDelete = null },
+                title = { Text("Delete measurement?") },
+                text = { Text("This removes only the selected record from this device.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val record = pendingDelete
+                        pendingDelete = null
+                        if (record != null && historyStore.remove(record.id)) {
+                            history = historyStore.load()
+                            saveStatus = "Measurement deleted."
+                        } else {
+                            saveStatus = "Could not delete this measurement. Existing history was left unchanged."
+                        }
+                    }) { Text("Delete") }
+                },
+                dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } }
+            )
+        }
+        if (confirmClearHistory) {
+            AlertDialog(
+                onDismissRequest = { confirmClearHistory = false },
+                title = { Text("Clear all measurement history?") },
+                text = { Text("All saved measurement records on this device will be removed. Export a CSV first if you need a copy.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmClearHistory = false
+                        if (historyStore.clearAll()) {
+                            history = historyStore.load()
+                            saveStatus = "Measurement history cleared."
+                        } else {
+                            saveStatus = "Could not clear history. Existing records were left unchanged."
+                        }
+                    }) { Text("Clear all") }
+                },
+                dismissButton = { TextButton(onClick = { confirmClearHistory = false }) { Text("Cancel") } }
+            )
         }
         Text("Estimates only. Verify critical dimensions with a calibrated instrument before engineering, procurement or construction.",color=MeasureMuted,fontSize=10.sp,lineHeight=15.sp)
     }
@@ -180,10 +234,17 @@ fun MeasurementScreen(
     }
 }
 
-@Composable private fun MeasurementHistoryTool(records:List<MeasurementRecord>,onExportFile:(String,String,String)->Unit) {
+@Composable private fun MeasurementHistoryTool(
+    records: List<MeasurementRecord>,
+    onExportFile: (String,String,String) -> Unit,
+    onDeleteRecord: (MeasurementRecord) -> Unit,
+    onRequestDelete: (MeasurementRecord) -> Unit,
+    onRequestClear: () -> Unit
+) {
     ToolCard("Saved measurement history","Records are stored locally on this device. Export a CSV copy before changing or replacing the device.") {
         Text(records.size.toString()+" saved record(s) · newest first",color=MeasureMuted,fontSize=11.sp)
         Button(onClick={onExportFile("GenSolar-measurement-history.csv",MeasurementHistoryCodec.toCsv(records),"text/csv")},enabled=records.isNotEmpty(),modifier=Modifier.fillMaxWidth()) { Text("Export measurement history CSV") }
+        OutlinedButton(onClick=onRequestClear,enabled=records.isNotEmpty(),modifier=Modifier.fillMaxWidth()) { Text("Clear all history") }
         if(records.isEmpty()) {
             Text("No saved measurements yet. Calculate a distance, room, object or roof estimate and choose Save measurement.",color=MeasureMuted,fontSize=12.sp)
         } else {
@@ -195,6 +256,7 @@ fun MeasurementScreen(
                         Text(record.result,color=MeasureGreen,fontSize=14.sp,fontWeight=FontWeight.ExtraBold)
                         Text(record.details,color=MeasureMuted,fontSize=10.sp,lineHeight=14.sp)
                         Text(SimpleDateFormat("yyyy-MM-dd HH:mm",Locale.getDefault()).format(Date(record.createdAtEpochMs)),color=MeasureMuted,fontSize=9.sp)
+                        TextButton(onClick={onRequestDelete(record)},modifier=Modifier.align(Alignment.End)) { Text("Delete record") }
                     }
                 }
             }
