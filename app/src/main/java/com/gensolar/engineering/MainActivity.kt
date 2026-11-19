@@ -1433,7 +1433,10 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
         val az = bearing.toDoubleOrNull()
         val w = width.toDoubleOrNull()
         val dateTime = try {
-            java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).apply { isLenient = false }.parse("$date $time")
+            val dateTimeText = "$date $time"
+            val parser = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).apply { isLenient = false }
+            val position = java.text.ParsePosition(0)
+            parser.parse(dateTimeText, position)?.takeIf { position.index == dateTimeText.length }
         } catch (_: Exception) { null }
         if (lat == null || lon == null || h == null || d == null || az == null || w == null || dateTime == null ||
             lat !in -90.0..90.0 || lon !in -180.0..180.0 || h < 0 || d < 0 || az !in 0.0..360.0 || w !in 0.0..360.0 ||
