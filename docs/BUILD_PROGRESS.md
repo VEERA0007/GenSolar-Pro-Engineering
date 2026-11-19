@@ -1,5 +1,13 @@
 # GenSolar Pro Engineering — Build Progress
 
+## Latest implementation (2026-11-19 — measurement history search and filtering)
+
+- Added a case-insensitive search across measurement category, title, result and notes, plus category chips for Distance, Object, Room, Solar roof and GPS.
+- Search/filter operations are pure Kotlin and preserve record ordering. CSV export intentionally continues to export the complete retained history, not just the filtered screen.
+- Added regression coverage for category filtering, case-insensitive search, empty results and original ordering.
+- Commits: [filter logic](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/160533726bab3d3c31a5eee89a4810bfb78007b6), [Compose search/filter UI](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/a8dd7f5a532f7726c128b3e870e965d61b061d14), and [filter regression test](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/1d18219109d6350f2a572ed04f5f65a5bab8d435).
+- The final commit has no reported combined status yet. Treat this feature as committed but not CI-verified until Android Actions completes and the APK artifact is inspected.
+
 ## Latest implementation (2026-11-19 — measurement history management)
 
 - Added individual measurement deletion and a confirmed clear-all action to the native Measurement & 3D Survey history screen. The UI refreshes from app-private storage only after the synchronous persistence operation succeeds; failed writes leave the existing records in place.
