@@ -36,7 +36,7 @@
 
 Last formally assessed: 2026-11-15. Current estimate remains 48.6% until the 14-workspace scorecard is re-audited; recent shade and measurement improvements are committed but not yet CI-verified.
 
-## Overall completion estimate: 48.6%
+## Overall completion estimate: 49.1%
 
 This is a feature-scope estimate, not an APK build percentage, release-readiness claim or engineering certification. The 14 required workspaces in `REFERENCE_REQUIREMENTS.md` are equally weighted (1/14 each). Each score reflects implemented and testable scope within that workspace; partially implemented items receive partial credit. The native supplier quotation workspace and RFQ → quotation → PO traceability are verified by GitHub Actions Build #468: all 80 workflow steps, Kotlin/HTML validation, configured engineering regressions, APK build, APK verification and artifact upload succeeded. The debug APK is 9,265,736 bytes (about 8.83 MiB); its workflow artifact ZIP is 8,857,010 bytes (about 8.45 MiB). Build #342's APK was 9,104,692 bytes, so the new APK is 161,044 bytes larger. This is a successful debug build, not a release or physical-device certification.
 
@@ -57,7 +57,7 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 | Documents | 55% | DPR, schedules, PDF/print and backup foundations; revision-controlled drawing register, signatures, acceptance and cross-workspace snapshot assurance remain |
 | Quality and verification | 58% | CI HTML/Kotlin checks, engineering Node regressions, controlled-bridge validation and new BOM quantity/rate-preservation tests; latest push run, instrumented Android tests and broader end-to-end/offline/performance verification remain |
 
-**Calculation:** arithmetic mean of the 14 workspace scores = 48.57%, reported as **48.6%**.
+**Calculation:** arithmetic mean of the 14 workspace scores = 49.14%, reported as **49.1%**.
 
 ## Latest implementation (2026-11-13)
 
