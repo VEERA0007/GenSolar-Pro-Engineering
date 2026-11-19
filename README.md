@@ -41,7 +41,9 @@ Latest verified build: [Build #586](https://github.com/VEERA0007/GenSolar-Pro-En
 │   ├── assets/
 │   │   ├── index.html
 │   │   └── structural_solver.js
-│   ├── java/com/gensolar/engineering/MainActivity.kt
+│   ├── java/com/gensolar/engineering/
+│   │   ├── MainActivity.kt
+│   │   └── PvLayoutMath.kt
 │   └── AndroidManifest.xml
 ├── docs/
 │   ├── ARCHITECTURE.md
