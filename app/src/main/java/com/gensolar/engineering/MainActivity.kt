@@ -55,6 +55,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -512,7 +513,7 @@ private fun GenSolarApp(
             } else if (selected == "location" && !advancedLocation) {
                 NativeLocationScreen(browser, Modifier.fillMaxSize().padding(padding), onRequestGps) { advancedLocation = true }
             } else if (selected == "shade" && !advancedShade) {
-                NativeShadeScreen(browser, Modifier.fillMaxSize().padding(padding), onExportCsv = { name, csv -> exportTextFile(name, csv, "text/csv") }) { advancedShade = true }
+                NativeShadeScreen(browser, Modifier.fillMaxSize().padding(padding), onExportCsv = { name, csv -> onExportFile(name, csv, "text/csv") }) { advancedShade = true }
             } else if (selected == "cadstudio" && !advancedCad) {
                 NativeCadScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedCad = true }
             } else if (selected == "battery") {
