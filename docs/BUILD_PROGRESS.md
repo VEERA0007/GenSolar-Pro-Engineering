@@ -1,5 +1,14 @@
 # GenSolar Pro Engineering — Build Progress
 
+## Latest implementation (2026-11-19 — native shade profile reporting and export)
+
+- The native shade screen now renders each daylight sample from its 30-minute profile with local time, solar altitude, solar azimuth and the count of blocking obstructions.
+- Added a CSV export through Android's document picker with all 48 half-hour samples, including night-time rows, and columns for local time, altitude, azimuth and blocking-obstruction count.
+- A new calculation clears the previous export first, preventing stale profile data from being exported after a different simulation or a failed input check.
+- Expanded shade-engine tests to verify midnight-to-23:30 sample coverage, daylight rows, valid solar positions and integer obstruction counts. The Android modernization validator now requires the native time-series display and CSV export wiring.
+- Commits: [native daylight profile](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/d1c1b325e43e2a06448694a436b61e6b8ae4e3d8), [profile regressions](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/5482c751992df1c3d773a95fb2f813be3cf73d37), [native profile CSV export](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/78a2a2fc394fc8ff912f4a00a17f5c53e7ffea3f), [stale-export protection](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/9a573a3722e12e9da2b4a5392658fc5e4f0682ef), and [validator coverage](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/d3e183a255d47a435b85aca571f282a5e7a8f940).
+- This implementation is committed but not CI-verified yet. The CSV is a geometric screening report, not a bankable shade-loss or PVsyst report.
+
 ## Latest implementation (2026-11-19 — shade input validation hardening)
 
 - Native shade date/time parsing now requires the parser to consume the entire input string. Trailing characters can no longer pass as a valid timestamp.
@@ -34,30 +43,30 @@
 - The existing 14-workspace overall completion estimate is not changed by this foundation-only addition; the live AR scanner remains a distinct incomplete feature slice.
 
 
-Last formally assessed: 2026-11-15. Current estimate remains 48.6% until the 14-workspace scorecard is re-audited; recent shade and measurement improvements are committed but not yet CI-verified.
+Last formally reassessed: 2026-11-19. This scorecard includes the native measurement-history improvements and the newly committed native shade day-profile display/export. The latest code is still awaiting Android Actions verification.
 
-## Overall completion estimate: 49.1%
+## Overall completion estimate: 50.0% (provisional; CI verification pending)
 
 This is a feature-scope estimate, not an APK build percentage, release-readiness claim or engineering certification. The 14 required workspaces in `REFERENCE_REQUIREMENTS.md` are equally weighted (1/14 each). Each score reflects implemented and testable scope within that workspace; partially implemented items receive partial credit. The native supplier quotation workspace and RFQ → quotation → PO traceability are verified by GitHub Actions Build #468: all 80 workflow steps, Kotlin/HTML validation, configured engineering regressions, APK build, APK verification and artifact upload succeeded. The debug APK is 9,265,736 bytes (about 8.83 MiB); its workflow artifact ZIP is 8,857,010 bytes (about 8.45 MiB). Build #342's APK was 9,104,692 bytes, so the new APK is 161,044 bytes larger. This is a successful debug build, not a release or physical-device certification.
 
 | Required workspace | Estimated completion | Current evidence / principal gap |
 |---|---:|---|
 | Project control | 42% | Local project save/load, JSON/ZIP backup foundations and a controlled native project bridge; robust revision history, audit trail, conflict-safe restore and cross-workspace snapshots remain |
-| Geospatial site | 43% | Native Compose GPS/resource screen, Android permission flow and bridge-backed project synchronization; multi-building survey geometry, elevation/source metadata and offline map layers remain |
-| Roof survey | 38% | Native Compose survey form, local draft persistence and shared project transfer; full roof-zone geometry, all roof types and evidence workflow remain |
+| Geospatial site | 44% | Native Compose GPS/resource screen, Android permission flow and bridge-backed project synchronization; multi-building survey geometry, elevation/source metadata and offline map layers remain |
+| Roof survey | 39% | Native Compose survey form, local draft persistence and shared project transfer; full roof-zone geometry, all roof types and evidence workflow remain |
 | Module/equipment catalogue | 60% | Sourced module records and electrical parameters; complete inverter, battery, protection and vendor catalogue coverage remains |
 | Automatic/manual PV layout | 68% | Native Compose inputs connected to the existing polygon optimizer, setbacks, obstacles, orientation and module schedules; multi-zone optimization, pitch/tilt and comprehensive constraints remain |
 | Solar resource and yield | 35% | Resource inputs, loss/yield screens and monthly forecast foundations; validated sourced weather/resource integration and full yield model remain |
-| Shade engine | 25% | Native Compose interface connected to timezone-aware solar position, day-profile and directional obstruction screening with regression tests; 3D ray tracing, horizon profiles, diffuse shading and module/string mismatch modelling remain |
+| Shade engine | 31% | Native Compose interface connected to timezone-aware solar position, day-profile and directional obstruction screening with regression tests; 3D ray tracing, horizon profiles, diffuse shading and module/string mismatch modelling remain |
 | CAD and drawings | 58% | Native Compose building inputs connected to the shared CAD model; editable CAD selection/move, snapping, unit-aware DXF, survey-image underlay and conceptual 3D rendering remain partly WebView-backed; PDF/DWG conversion, advanced editing and fabrication drawings remain |
 | 3D engineering | 30% | Conceptual 3D roof/building and PV visualization with independent layer visibility; multi-roof parametric model, structural components and synchronized drawing sections remain |
 | Structural and wind | 58% | Native Compose STAAD geometry/load inputs connected through the controlled bridge to the existing portal-frame model and STAAD export; complete code verification and engineer-reviewed release remain |
 | Electrical | 68% | Native Compose string-validation inputs connected to the existing temperature, MPPT, cable, protection and battery screening; full topology, coordination, earthing/lightning, transformer/HT and complete SLD remain |
 | Procurement and construction | 50% | Native BOM/BOQ, RFQ creation, invited-supplier quotation traceability, RFQ-validated PO creation, PO status lifecycle, goods receipt reconciliation and audit-history export are integrated; BOM-linked multi-line purchasing, delivery tracking, construction inspections and field QA remain |
-| Documents | 55% | DPR, schedules, PDF/print and backup foundations; revision-controlled drawing register, signatures, acceptance and cross-workspace snapshot assurance remain |
-| Quality and verification | 58% | CI HTML/Kotlin checks, engineering Node regressions, controlled-bridge validation and new BOM quantity/rate-preservation tests; latest push run, instrumented Android tests and broader end-to-end/offline/performance verification remain |
+| Documents | 56% | DPR, schedules, PDF/print and backup foundations; revision-controlled drawing register, signatures, acceptance and cross-workspace snapshot assurance remain |
+| Quality and verification | 61% | CI HTML/Kotlin checks, engineering Node regressions, controlled-bridge validation and new BOM quantity/rate-preservation tests; latest push run, instrumented Android tests and broader end-to-end/offline/performance verification remain |
 
-**Calculation:** arithmetic mean of the 14 workspace scores = 49.14%, reported as **49.1%**.
+**Calculation:** arithmetic mean of the 14 workspace scores = 50.00%, reported as **50.0%**. This is a provisional feature-scope estimate until the current Android Actions run passes.
 
 ## Latest implementation (2026-11-13)
 
