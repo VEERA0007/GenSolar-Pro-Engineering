@@ -1053,7 +1053,7 @@ private fun NativePvDesignScreen(
                 layoutMetrics?.let { metrics ->
                     Text("${metrics.moduleCount} modules · ${String.format(Locale.US, "%.2f", metrics.dcCapacityKwp)} kWp · ${String.format(Locale.US, "%.2f", metrics.moduleAreaM2)} m² module footprint", color = Color(0xFF60756E), fontSize = 11.sp)
                 }
-                NativeCadPreview(cadSnapshot, Modifier.fillMaxWidth()) { }
+                NativeCadPreview(cadSnapshot, Modifier.fillMaxWidth()) { _, _ -> }
                 androidx.compose.material3.OutlinedButton(onClick = { refreshProjectLayout() }, modifier = Modifier.fillMaxWidth()) {
                     Text("Refresh project preview")
                 }
