@@ -133,7 +133,7 @@ require(measurement_screen.exists() and measurement_store.exists(), "Native meas
 measurement_ui = measurement_screen.read_text(encoding="utf-8")
 measurement_data = measurement_store.read_text(encoding="utf-8")
 require("MeasurementHistoryStore(context)" in measurement_ui and "historyStore.append(record)" in measurement_ui, "Measurement UI must persist saved results to app-private offline storage")
-require('listOf("Distance","Object","Room","Solar roof","GPS","History")' in measurement_ui and "MeasurementHistoryTool(history)" in measurement_ui, "Native measurement workspace must expose its saved history")
+require('listOf("Distance","Object","Room","Solar roof","GPS","History")' in measurement_ui and "records = history" in measurement_ui and "MeasurementHistoryTool(" in measurement_ui, "Native measurement workspace must expose its saved history")
 require("MeasurementHistoryCodec.toCsv(records)" in measurement_ui and "GenSolar-measurement-history.csv" in measurement_ui and "onExportFile" in measurement_ui, "Measurement history must export through the Android document picker")
 require("getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)" in measurement_data and ".commit()" in measurement_data and "MAX_RECORDS = 200" in measurement_data, "Measurement history must use bounded app-private persistence with confirmed writes")
 require("validationError(record)" in measurement_data and "return null" in measurement_data, "Corrupt or invalid measurement history must not be overwritten by an append")
