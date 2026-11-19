@@ -158,3 +158,37 @@ require("bridge.calculateBattery(" in battery_ui and "getBatterySnapshot" in bat
 require("seriesModules" in battery_source and "parallelStrings" in battery_source and "designDischargeCurrentA" in battery_source and "availableChargeCurrentA" in battery_source, "Battery solver must calculate bank topology and charge/discharge current capacity")
 require("node tools/test_battery_engine.js" in workflow, "Battery solver regression suite must run in GitHub Actions")
 subprocess.run(["node", str(battery_test)], cwd=ROOT, check=True)
+
+# The product must ship as one discoverable application, not a set of disconnected screens.
+dashboard_start = kotlin.find("private fun NativeDashboard(")
+require(dashboard_start >= 0, "Unified native dashboard is missing")
+dashboard_source = kotlin[dashboard_start:]
+required_workspaces = {
+    "site": "Site survey & GPS",
+    "measurement": "Measurement & 3D survey",
+    "layout": "PV design & layout",
+    "cadstudio": "CAD / 2D / 3D studio",
+    "shade": "Solar shade analysis",
+    "electrical": "Electrical engineering",
+    "staad": "STAAD structural",
+    "location": "GPS & solar resource",
+    "bom": "BOM / BOQ",
+    "procurement": "Procurement",
+    "construction": "Construction & QA",
+    "dpr": "DPR & handover",
+    "commissioning": "Commissioning & QA",
+    "handover": "Customer handover",
+}
+for destination, label in required_workspaces.items():
+    require(f'Triple("{label}"' in dashboard_source and f'"{destination}")' in dashboard_source,
+            "Unified dashboard card missing or disconnected: " + destination)
+    require(f'selected == "{destination}"' in kotlin or f'"{destination}"' in kotlin,
+            "Native router does not recognize workspace: " + destination)
+require('NativeDestination("dashboard", "Home"' in kotlin and
+        'NativeDestination("site", "Survey"' in kotlin and
+        'NativeDestination("layout", "PV Design"' in kotlin and
+        'NativeDestination("cadstudio", "CAD / 3D"' in kotlin,
+        "Primary app navigation must retain Home, Survey, PV Design and CAD / 3D")
+require('selected = destination' in kotlin and 'onNavigate(destination)' in kotlin,
+        "Dashboard and More-menu navigation must update the native route and shared EPC workspace")
+print("Unified app integration checks passed: all 14 required EPC workspaces are discoverable and routed through the single native application shell.")
