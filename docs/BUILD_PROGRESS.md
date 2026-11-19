@@ -1,5 +1,16 @@
 # GenSolar Pro Engineering — Build Progress
 
+## Latest implementation (2026-11-19 — native PV project layout preview)
+
+- The native PV Design screen now reads the active project's roof zones, placed modules, obstacles and CAD entities through the controlled GenSolarEpcBridge.getCadSnapshot() API.
+- Added a native Compose canvas preview beside the existing optimizer output. It renders the current project geometry and module placement; a refresh action re-reads the shared project snapshot. The existing tested roof-fit optimizer, multi-roof allocation and DXF/CSV workflows remain the calculation/export source.
+- Added pure Kotlin PvLayoutMath metrics from the actual placed module geometry: module count, DC capacity using the entered module rating, and summed module footprint. Invalid module ratings, non-finite dimensions and invalid geometry are rejected.
+- Added Kotlin regression tests for populated layouts, empty layouts, module-count/capacity/area totals and invalid values. Extended the modernization validator so the project snapshot, native preview and test suite remain required.
+- Commits: [native project preview](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/cdf30f476c97ee84ebafe7eddff2672ede36ae01), [PV layout metrics](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/cbb80c4fec74ab81f713533d27a028b14cfa057b), [Kotlin tests](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/058b49ca1493b252e798b3ebf7c7a93bdd9f7d01), [validator coverage](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/21f3827a24c7bd89ba42d69948f706ddda7ad960), [Compose formatter import](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/d8058bb57ad0566073ab5db863531625f8abd6da), and [preview callback fix](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/9c858bf0754601da6d769c93ec7ac3bd738b88f9).
+- Build #586: [successful full Android APK workflow](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/44588437802), source commit 9c858bf0754601da6d769c93ec7ac3bd738b88f9. All 84 job steps passed, including HTML/JavaScript validation, Kotlin modernization validation, Kotlin unit tests, configured solar/CAD/PV/STAAD/electrical/procurement/construction/document regressions, APK build, signature/package verification and artifact upload.
+- Verified debug APK: **10,324,400 bytes (9.85 MiB)**; SHA-256 6f1214335df068698e0e51d67659b86029a90554d88d0ee871a801b6a7346d3e. Artifact ZIP: 9,351,180 bytes; artifact SHA-256 08d43c89eed5421160e2e3b89471a12e0d422047594eace1888a2ad7a5aecc21; [download Build #586 artifact](https://github.com/VEERA0007/GenSolar-Pro-Engineering/actions/runs/44588437802/artifacts/14563400799).
+- This is a verified debug build, not a Play Store release. Physical Android tests for offline launch/relaunch, GPS permission, camera/AR, print, file import/export, rotation and field workflows remain outstanding. PV layout is still a preliminary arrangement; structural, fire-access, electrical and engineering approval checks remain required.
+
 ## Latest implementation (2026-11-19 — native shade profile reporting and export)
 
 - The native shade screen now renders each daylight sample from its 30-minute profile with local time, solar altitude, solar azimuth and the count of blocking obstructions.
@@ -43,9 +54,9 @@
 - The existing 14-workspace overall completion estimate is not changed by this foundation-only addition; the live AR scanner remains a distinct incomplete feature slice.
 
 
-Last formally reassessed: 2026-11-19. This scorecard includes the native measurement-history improvements and the newly committed native shade day-profile display/export. The latest code is still awaiting Android Actions verification.
+Last formally reassessed: 2026-11-19. This scorecard includes native measurement-history management, shade day-profile reporting/export and the native PV project preview/metrics. Build #586 verifies the current main-branch source and debug APK; physical Android device verification remains pending.
 
-## Overall completion estimate: 50.0% (provisional; CI verification pending)
+## Overall completion estimate: 50.1% (provisional feature-scope estimate; current main-branch CI verified)
 
 This is a feature-scope estimate, not an APK build percentage, release-readiness claim or engineering certification. The 14 required workspaces in `REFERENCE_REQUIREMENTS.md` are equally weighted (1/14 each). Each score reflects implemented and testable scope within that workspace; partially implemented items receive partial credit. The native supplier quotation workspace and RFQ → quotation → PO traceability are verified by GitHub Actions Build #468: all 80 workflow steps, Kotlin/HTML validation, configured engineering regressions, APK build, APK verification and artifact upload succeeded. The debug APK is 9,265,736 bytes (about 8.83 MiB); its workflow artifact ZIP is 8,857,010 bytes (about 8.45 MiB). Build #342's APK was 9,104,692 bytes, so the new APK is 161,044 bytes larger. This is a successful debug build, not a release or physical-device certification.
 
@@ -55,7 +66,7 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 | Geospatial site | 44% | Native Compose GPS/resource screen, Android permission flow and bridge-backed project synchronization; multi-building survey geometry, elevation/source metadata and offline map layers remain |
 | Roof survey | 39% | Native Compose survey form, local draft persistence and shared project transfer; full roof-zone geometry, all roof types and evidence workflow remain |
 | Module/equipment catalogue | 60% | Sourced module records and electrical parameters; complete inverter, battery, protection and vendor catalogue coverage remains |
-| Automatic/manual PV layout | 68% | Native Compose inputs connected to the existing polygon optimizer, setbacks, obstacles, orientation and module schedules; multi-zone optimization, pitch/tilt and comprehensive constraints remain |
+| Automatic/manual PV layout | 69% | Native Compose inputs, active-project roof/module/obstacle preview and geometry-derived capacity/footprint metrics connected to the existing polygon and multi-roof optimizer; manual polygon editing, richer multi-zone constraints, pitch/tilt and comprehensive validation remain |
 | Solar resource and yield | 35% | Resource inputs, loss/yield screens and monthly forecast foundations; validated sourced weather/resource integration and full yield model remain |
 | Shade engine | 31% | Native Compose interface connected to timezone-aware solar position, day-profile and directional obstruction screening with regression tests; 3D ray tracing, horizon profiles, diffuse shading and module/string mismatch modelling remain |
 | CAD and drawings | 58% | Native Compose building inputs connected to the shared CAD model; editable CAD selection/move, snapping, unit-aware DXF, survey-image underlay and conceptual 3D rendering remain partly WebView-backed; PDF/DWG conversion, advanced editing and fabrication drawings remain |
@@ -64,9 +75,9 @@ This is a feature-scope estimate, not an APK build percentage, release-readiness
 | Electrical | 68% | Native Compose string-validation inputs connected to the existing temperature, MPPT, cable, protection and battery screening; full topology, coordination, earthing/lightning, transformer/HT and complete SLD remain |
 | Procurement and construction | 50% | Native BOM/BOQ, RFQ creation, invited-supplier quotation traceability, RFQ-validated PO creation, PO status lifecycle, goods receipt reconciliation and audit-history export are integrated; BOM-linked multi-line purchasing, delivery tracking, construction inspections and field QA remain |
 | Documents | 56% | DPR, schedules, PDF/print and backup foundations; revision-controlled drawing register, signatures, acceptance and cross-workspace snapshot assurance remain |
-| Quality and verification | 61% | CI HTML/Kotlin checks, engineering Node regressions, controlled-bridge validation and new BOM quantity/rate-preservation tests; latest push run, instrumented Android tests and broader end-to-end/offline/performance verification remain |
+| Quality and verification | 62% | Build #586 passes all 84 workflow steps, Kotlin unit tests, HTML/Kotlin validators, engineering Node regressions, APK signature/package verification and artifact upload; instrumented Android tests and broader end-to-end/offline/performance verification remain |
 
-**Calculation:** arithmetic mean of the 14 workspace scores = 50.00%, reported as **50.0%**. This is a provisional feature-scope estimate until the current Android Actions run passes.
+**Calculation:** arithmetic mean of the 14 workspace scores = 50.14%, reported as **50.1%**. This is a provisional feature-scope estimate, not a completion claim for the full product. The latest main-branch Android Actions run passes; physical-device and field release gates remain.
 
 ## Latest implementation (2026-11-13)
 
