@@ -1606,8 +1606,8 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
         Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(status, color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
-                Text(output, color = Color(0xFF173B32), fontSize = 14.sp, lineHeight = 21.dp)
-                if (profile.isNotBlank()) Text(profile, color = Color(0xFF667A75), fontSize = 11.sp, lineHeight = 17.dp)
+                Text(output, color = Color(0xFF173B32), fontSize = 14.sp, lineHeight = 21.sp)
+                if (profile.isNotBlank()) Text(profile, color = Color(0xFF667A75), fontSize = 11.sp, lineHeight = 17.sp)
                 if (profileCsv.isNotBlank()) OutlinedButton(onClick = { onExportCsv("GenSolar-Shade-Day-Profile.csv", profileCsv) }, modifier = Modifier.fillMaxWidth()) { Text("Export 30-minute profile CSV") }
             }
         }
