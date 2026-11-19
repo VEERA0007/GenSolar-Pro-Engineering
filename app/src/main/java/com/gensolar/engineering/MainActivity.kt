@@ -1480,7 +1480,19 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
                     output = result.optString("error")
                 } else if (dayProfile) {
                     status = "DAY PROFILE COMPLETE"
-                    profile = "30-minute profile · ${result.optInt("samples")} samples · ${result.optInt("daylightSamples")} daylight samples · ${result.optInt("shadeSamples")} shaded samples · ${result.optInt("blockingObstructionIntervals")} obstruction/sample hits"
+                    val samples = result.optJSONArray("profile") ?: org.json.JSONArray()
+                    val daylightRows = (0 until samples.length()).mapNotNull { index ->
+                        val sample = samples.optJSONObject(index) ?: return@mapNotNull null
+                        if (sample.optDouble("altitude", -90.0) <= 0.0) return@mapNotNull null
+                        val sampleTime = sample.optString("time", "--:--")
+                        val altitude = sample.optDouble("altitude", Double.NaN)
+                        val azimuth = sample.optDouble("azimuth", Double.NaN)
+                        val hits = sample.optInt("blockingCount")
+                        if (!altitude.isFinite() || !azimuth.isFinite()) return@mapNotNull null
+                        "$sampleTime  ·  Alt ${"%.1f".format(java.util.Locale.US, altitude)}°  ·  Az ${"%.1f".format(java.util.Locale.US, azimuth)}°  ·  ${hits} blocking"
+                    }
+                    profile = "30-MINUTE DAYLIGHT PROFILE\n${result.optInt("samples")} samples · ${result.optInt("daylightSamples")} daylight · ${result.optInt("shadeSamples")} shaded · ${result.optInt("blockingObstructionIntervals")} obstruction/sample hits\n\nTIME · ALTITUDE · AZIMUTH · BLOCKING\n" +
+                        (daylightRows.joinToString("\n").ifBlank { "No daylight samples for this date and location." })
                     output = "Maximum solar altitude: ${"%.1f".format(java.util.Locale.US, result.optDouble("maxAltitude"))}°"
                 } else {
                     val altitude = result.optDouble("altitude")
