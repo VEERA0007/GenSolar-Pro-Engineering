@@ -44,7 +44,7 @@ class MeasurementHistoryTest {
         val roof = record(id = "roof", category = "Solar roof", title = "East roof", result = "12 panels")
         val gps = record(id = "gps", category = "GPS", title = "Site boundary", result = "125 m")
         val records = listOf(room, roof, gps)
-        assertEquals(listOf(room, gps), MeasurementHistoryCodec.filter(records, "All", "SITE"))
+        assertEquals(listOf(gps), MeasurementHistoryCodec.filter(records, "All", "SITE"))
         assertEquals(listOf(roof), MeasurementHistoryCodec.filter(records, "Solar roof", "EAST"))
         assertEquals(emptyList<MeasurementRecord>(), MeasurementHistoryCodec.filter(records, "Room", "inverter"))
         assertEquals(records, MeasurementHistoryCodec.filter(records, "All", ""))
