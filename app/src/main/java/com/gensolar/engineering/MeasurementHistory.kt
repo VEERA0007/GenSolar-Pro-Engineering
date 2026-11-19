@@ -27,6 +27,17 @@ object MeasurementHistoryCodec {
     fun withoutId(records: List<MeasurementRecord>, id: String): List<MeasurementRecord> =
         records.filterNot { it.id == id }
 
+    fun filter(records: List<MeasurementRecord>, category: String, query: String): List<MeasurementRecord> {
+        val normalizedQuery = query.trim().lowercase(java.util.Locale.ROOT)
+        return records.filter { record ->
+            val categoryMatches = category == "All" || record.category.equals(category, ignoreCase = true)
+            val textMatches = normalizedQuery.isEmpty() ||
+                listOf(record.category, record.title, record.result, record.details)
+                    .any { it.lowercase(java.util.Locale.ROOT).contains(normalizedQuery) }
+            categoryMatches && textMatches
+        }
+    }
+
     fun toCsv(records: List<MeasurementRecord>): String {
         val rows = records.map { record ->
             listOf(
