@@ -1427,6 +1427,7 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
         persist()
     }
     fun runSimulation(dayProfile: Boolean) {
+        profileCsv = ""
         val lat = latitude.toDoubleOrNull()
         val lon = longitude.toDoubleOrNull()
         val h = height.toDoubleOrNull()
