@@ -232,14 +232,37 @@ fun MeasurementScreen(
     onRequestDelete: (MeasurementRecord) -> Unit,
     onRequestClear: () -> Unit
 ) {
-    ToolCard("Saved measurement history","Records are stored locally on this device. Export a CSV copy before changing or replacing the device.") {
-        Text(records.size.toString()+" saved record(s) · newest first",color=MeasureMuted,fontSize=11.sp)
-        Button(onClick={onExportFile("GenSolar-measurement-history.csv",MeasurementHistoryCodec.toCsv(records),"text/csv")},enabled=records.isNotEmpty(),modifier=Modifier.fillMaxWidth()) { Text("Export measurement history CSV") }
+    var selectedCategory by remember { mutableStateOf("All") }
+    var searchText by remember { mutableStateOf("") }
+    val categories = listOf("All","Distance","Object","Room","Solar roof","GPS")
+    val visibleRecords = remember(records, selectedCategory, searchText) {
+        MeasurementHistoryCodec.filter(records, selectedCategory, searchText)
+    }
+    ToolCard("Saved measurement history","Records are stored locally on this device. Search or filter records before exporting the full history.") {
+        Text(records.size.toString()+" saved record(s) · "+visibleRecords.size+" shown · newest first",color=MeasureMuted,fontSize=11.sp)
+        OutlinedTextField(
+            value=searchText,
+            onValueChange={searchText=it.take(80)},
+            modifier=Modifier.fillMaxWidth(),
+            label={Text("Search measurements")},
+            placeholder={Text("Title, result or notes")},
+            singleLine=true,
+            shape=RoundedCornerShape(11.dp)
+        )
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)) {
+            categories.forEach { category ->
+                FilterChip(selected=selectedCategory==category,onClick={selectedCategory=category},label={Text(category)})
+            }
+        }
+        Button(onClick={onExportFile("GenSolar-measurement-history.csv",MeasurementHistoryCodec.toCsv(records),"text/csv")},enabled=records.isNotEmpty(),modifier=Modifier.fillMaxWidth()) { Text("Export full history CSV") }
         OutlinedButton(onClick=onRequestClear,enabled=records.isNotEmpty(),modifier=Modifier.fillMaxWidth()) { Text("Clear all history") }
         if(records.isEmpty()) {
             Text("No saved measurements yet. Calculate a distance, room, object or roof estimate and choose Save measurement.",color=MeasureMuted,fontSize=12.sp)
         } else {
-            records.asReversed().take(50).forEach { record ->
+            if (visibleRecords.isEmpty()) {
+                Text("No measurements match this search or category.",color=MeasureMuted,fontSize=12.sp)
+            }
+            visibleRecords.asReversed().take(50).forEach { record ->
                 Card(shape=RoundedCornerShape(12.dp),colors=CardDefaults.cardColors(containerColor=Color(0xFFF3F6F5))) {
                     Column(Modifier.fillMaxWidth().padding(11.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                         Text(record.category.uppercase(Locale.getDefault()),color=MeasureGreen,fontSize=9.sp,fontWeight=FontWeight.Bold)
@@ -251,7 +274,7 @@ fun MeasurementScreen(
                     }
                 }
             }
-            if(records.size>50) Text("Showing the latest 50 records. CSV export includes all retained records.",color=MeasureMuted,fontSize=10.sp)
+            if(visibleRecords.size>50) Text("Showing the latest 50 matching records. CSV export includes all retained records.",color=MeasureMuted,fontSize=10.sp)
         }
         Text("Up to 200 records are retained in app-private storage. Clearing app data removes this history; export a copy to keep it.",color=MeasureMuted,fontSize=10.sp,lineHeight=14.sp)
     }
