@@ -55,7 +55,7 @@ assert.equal(multiProfile.length,24);
 assert.ok(multiProfile.every(x=>x.obstructionCount===2&&x.results.length===2));
 assert.ok(multiProfile.some(x=>x.blockingCount>0),'day profile should identify blocking samples for aligned obstruction');
 assert.equal(multiProfile[0].time,'00:00','profile starts at local midnight');
-assert.equal(multiProfile.at(-1).time,'23:30','30-minute profile ends at 23:30');
+assert.equal(multiProfile.at(-1).time,'23:00','hourly profile ends at 23:00');
 assert.ok(multiProfile.every(x=>Number.isFinite(x.altitude)&&Number.isFinite(x.azimuth)&&Number.isInteger(x.blockingCount)),'each profile row must expose valid solar position and obstruction count');
 assert.ok(multiProfile.some(x=>x.altitude>0),'profile must include daylight samples');
 assert.throws(()=>e.dayProfileMultiple(multiInput,[],50),/interval/);
