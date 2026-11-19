@@ -1,5 +1,13 @@
 # GenSolar Pro Engineering — Build Progress
 
+## Latest implementation (2026-11-19 — shade input validation hardening)
+
+- Native shade date/time parsing now requires the parser to consume the entire input string. Trailing characters can no longer pass as a valid timestamp.
+- Added a permanent Android modernization validator assertion for full-input date/time parsing.
+- Expanded shade-engine regressions for Gregorian century leap-year rules (1900/2000/2100), year zero, invalid 24:00 time and non-finite obstruction width.
+- Commits: [strict native date/time parsing](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/8edea3c01fe2713a4f68f6de93aef889a16a6879), [validator guard](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/cd4506e99c51846b86afd91238330a346bb3396a), [expanded shade regression tests](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/e66ec8d23a95c563bd8b204669db980ea8f465e6).
+- Latest commit is not yet CI-verified. Do not count the regression suite or APK as passed until Android Actions completes.
+
 ## Latest implementation (2026-11-19 — measurement history search and filtering)
 
 - Added a case-insensitive search across measurement category, title, result and notes, plus category chips for Distance, Object, Room, Solar roof and GPS.
@@ -26,9 +34,9 @@
 - The existing 14-workspace overall completion estimate is not changed by this foundation-only addition; the live AR scanner remains a distinct incomplete feature slice.
 
 
-Last assessed: 2026-11-15 (native Compose CAD editing and transactional project bridge implemented; full validation of the new CAD slice pending)
+Last formally assessed: 2026-11-15. Current estimate remains 48.6% until the 14-workspace scorecard is re-audited; recent shade and measurement improvements are committed but not yet CI-verified.
 
-## Overall completion estimate: 49.1%
+## Overall completion estimate: 48.6%
 
 This is a feature-scope estimate, not an APK build percentage, release-readiness claim or engineering certification. The 14 required workspaces in `REFERENCE_REQUIREMENTS.md` are equally weighted (1/14 each). Each score reflects implemented and testable scope within that workspace; partially implemented items receive partial credit. The native supplier quotation workspace and RFQ → quotation → PO traceability are verified by GitHub Actions Build #468: all 80 workflow steps, Kotlin/HTML validation, configured engineering regressions, APK build, APK verification and artifact upload succeeded. The debug APK is 9,265,736 bytes (about 8.83 MiB); its workflow artifact ZIP is 8,857,010 bytes (about 8.45 MiB). Build #342's APK was 9,104,692 bytes, so the new APK is 161,044 bytes larger. This is a successful debug build, not a release or physical-device certification.
 
