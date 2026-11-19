@@ -617,80 +617,119 @@ private fun NativeDashboard(modifier: Modifier = Modifier, onNavigate: (String) 
         }
         matchesSearch && (category == "All" || category == group)
     }
+
     Column(
         modifier = modifier
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .background(Color(0xFF071A21))
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(26.dp),
-            colors = CardDefaults.cardColors(containerColor = BrandGreen)
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF102D35))
         ) {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Surface(shape = CircleShape, color = Color(0xFFF3B51B), modifier = Modifier.size(34.dp)) {
+            Column(
+                Modifier.fillMaxWidth().padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFF2B544), modifier = Modifier.size(42.dp)) {
                         androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                            Text("GS", color = BrandGreen, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                            Text("GS", color = Color(0xFF102D35), fontWeight = FontWeight.Black, fontSize = 15.sp)
                         }
                     }
-                    Text("GENSOLAR PRO  /  EPC STUDIO", color = Color(0xFFE2F0E9), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("GENSOLAR / ENGINEERING", color = Color(0xFFF3F7F5), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.25.sp)
+                        Text("EPC CONTROL SYSTEM  •  OFFLINE FIRST", color = Color(0xFF8DB8B2), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+                    }
                     Spacer(Modifier.weight(1f))
-                    Surface(shape = RoundedCornerShape(30.dp), color = Color(0xFF24584D)) {
-                        Text("OFFLINE FIRST", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = Color(0xFFBDE8D3), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Surface(shape = RoundedCornerShape(30.dp), color = Color(0xFF1B4650)) {
+                        Text("STUDIO", modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp), color = Color(0xFFB8E9D9), fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
                 }
-                Text("Your solar EPC command centre", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 30.sp)
-                Text("Survey, design, engineer and deliver projects from one connected workspace.", color = Color(0xFFD7E8E1), fontSize = 13.sp, lineHeight = 19.sp)
-                Button(onClick = { onNavigate("site") }) { Text("＋  Create / open project") }
+                Text(
+                    "Design. Engineer.\nDeliver.",
+                    color = Color.White,
+                    fontSize = 32.sp,
+                    lineHeight = 36.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    "A connected workspace for solar project development — from roof survey to commissioning.",
+                    color = Color(0xFFB5CAC9),
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(
+                        onClick = { onNavigate("site") },
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.height(48.dp)
+                    ) { Text("＋  Start site survey", fontWeight = FontWeight.Bold) }
+                    Surface(shape = RoundedCornerShape(14.dp), color = Color(0xFF193D45)) {
+                        Text("14 WORKSPACES", modifier = Modifier.padding(horizontal = 12.dp, vertical = 15.dp), color = Color(0xFFB8D4D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Text("PROJECT OVERVIEW", color = Color(0xFF60756E), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("PROJECT PIPELINE", color = Color(0xFF8DA8A8), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.5.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 NativeMetric("01", "Survey", Modifier.weight(1f))
-                NativeMetric("02", "PV design", Modifier.weight(1f))
-                NativeMetric("03", "Engineering", Modifier.weight(1f))
-                NativeMetric("04", "DPR / BOQ", Modifier.weight(1f))
+                NativeMetric("02", "Design", Modifier.weight(1f))
+                NativeMetric("03", "Engineer", Modifier.weight(1f))
+                NativeMetric("04", "Deliver", Modifier.weight(1f))
             }
         }
 
-        NativeActionCard(
-            "Continue with site survey",
-            "Start with customer details, location, roof zones and survey evidence.",
-            "Open survey",
-            "site",
-            onNavigate
-        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF14343B))
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFF24554F), modifier = Modifier.size(44.dp)) {
+                    androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                        Text("⌖", color = Color(0xFFB9E8D8), fontSize = 24.sp)
+                    }
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Begin with verified site data", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("Capture location, roof zones and evidence before engineering.", color = Color(0xFFA9C1C0), fontSize = 11.sp, lineHeight = 15.sp)
+                }
+                TextButton(onClick = { onNavigate("site") }) { Text("OPEN  →", color = Color(0xFFF2B544), fontWeight = FontWeight.Bold, fontSize = 10.sp) }
+            }
+        }
 
-        Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Text("ENGINEERING WORKSPACES", color = Color(0xFF60756E), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+        Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+            Text("ENGINEERING WORKSPACES", color = Color(0xFF8DA8A8), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.5.sp)
             OutlinedTextField(
                 value = search,
                 onValueChange = { search = it },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(15.dp),
-                placeholder = { Text("Search tools, drawings or reports…", fontSize = 13.sp) },
-                leadingIcon = { Text("⌕", fontSize = 22.sp, color = AccentGreen) }
+                shape = RoundedCornerShape(16.dp),
+                placeholder = { Text("Find a tool, drawing or report…", fontSize = 13.sp) },
+                leadingIcon = { Text("⌕", fontSize = 22.sp, color = Color(0xFF83C9B5)) }
             )
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf("All", "Survey", "Design", "Engineering", "Delivery").forEach { item ->
-                    FilterChip(
-                        selected = category == item,
-                        onClick = { category = item },
-                        label = { Text(item, fontSize = 12.sp) }
-                    )
+                    FilterChip(selected = category == item, onClick = { category = item }, label = { Text(item, fontSize = 12.sp) })
                 }
             }
             if (filtered.isEmpty()) {
-                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
-                    Text("No workspace matches this search.", modifier = Modifier.padding(18.dp), color = Color(0xFF60756E), fontSize = 13.sp)
+                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF102D35)), shape = RoundedCornerShape(16.dp)) {
+                    Text("No workspace matches this search.", modifier = Modifier.padding(18.dp), color = Color(0xFFB5CAC9), fontSize = 13.sp)
                 }
             } else {
                 filtered.chunked(2).forEach { pair ->
@@ -707,14 +746,14 @@ private fun NativeDashboard(modifier: Modifier = Modifier, onNavigate: (String) 
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F1ED))
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF172F35))
         ) {
             Text(
-                "Engineering outputs remain preliminary until checked against approved datasheets, applicable standards, verified site conditions and qualified engineer sign-off.",
+                "ENGINEERING NOTICE  •  Outputs are preliminary until checked against approved datasheets, applicable standards, verified site conditions and qualified engineer sign-off.",
                 modifier = Modifier.padding(14.dp),
-                color = Color(0xFF38574D),
-                fontSize = 11.sp,
-                lineHeight = 16.sp
+                color = Color(0xFFA9C1C0),
+                fontSize = 10.sp,
+                lineHeight = 15.sp
             )
         }
         Spacer(Modifier.height(8.dp))
@@ -741,30 +780,40 @@ private fun NativeWorkspaceTile(
         "construction" -> "✓"
         else -> "▧"
     }
+    val accent = when (destination) {
+        "site", "location", "measurement" -> Color(0xFF70D4C0)
+        "layout", "cadstudio", "shade" -> Color(0xFFF2B544)
+        "electrical", "staad" -> Color(0xFF8FB8FF)
+        else -> Color(0xFFC3A8F4)
+    }
     Card(
-        modifier = modifier.height(166.dp),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        modifier = modifier.height(174.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF102A32)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(13.dp),
+            modifier = Modifier.fillMaxSize().padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFE8F3EE), modifier = Modifier.size(36.dp)) {
-                androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                    Text(symbol, color = AccentGreen, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFF1B4148), modifier = Modifier.size(38.dp)) {
+                    androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                        Text(symbol, color = accent, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
+                Spacer(Modifier.weight(1f))
+                Text("EPC", color = Color(0xFF66898B), fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
             }
-            Text(title, color = Color(0xFF142B28), fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 2)
-            Text(description, color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 14.sp, maxLines = 2)
+            Text(title, color = Color(0xFFF0F6F4), fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 17.sp, maxLines = 2)
+            Text(description, color = Color(0xFFA0B8B8), fontSize = 10.sp, lineHeight = 14.sp, maxLines = 2)
             Spacer(Modifier.weight(1f))
-            androidx.compose.material3.TextButton(
+            TextButton(
                 onClick = { onNavigate(destination) },
-                modifier = Modifier.height(38.dp),
+                modifier = Modifier.height(36.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp, vertical = 0.dp)
             ) {
-                Text("Open workspace  →", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text("ENTER WORKSPACE  ↗", color = accent, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.4.sp)
             }
         }
     }
@@ -773,57 +822,17 @@ private fun NativeWorkspaceTile(
 @Composable
 private fun NativeMetric(value: String, label: String, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.height(86.dp),
+        modifier = modifier.height(82.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF102A32)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(value, color = AccentGreen, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-            Text(label, color = Color(0xFF536A63), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(value, color = Color(0xFFF2B544), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+            Text(label, color = Color(0xFFB5CAC9), fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         }
     }
 }
-
-@Composable
-private fun NativeActionCard(
-    title: String,
-    description: String,
-    action: String,
-    destination: String,
-    onNavigate: (String) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Surface(
-                modifier = Modifier.size(42.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFE8F3EE)
-            ) {
-                androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                    Text("✦", color = AccentGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, color = Color(0xFF142B28), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text(description, color = Color(0xFF667A75), fontSize = 11.sp, lineHeight = 15.sp)
-            }
-            androidx.compose.material3.TextButton(onClick = { onNavigate(destination) }) {
-                Text(action, color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
 
 @Composable
 private fun NativePvDesignScreen(
