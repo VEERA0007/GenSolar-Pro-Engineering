@@ -81,6 +81,20 @@ require((ROOT / "tools/test_bom_generation.js").exists(), "BOM quantity and rate
 require("Design. Engineer." in kotlin and "PROJECT PIPELINE" in kotlin and "OutlinedTextField(" in kotlin and "FilterChip(" in kotlin and "NativeWorkspaceTile(" in kotlin, "Native Compose dashboard, search, filters or workspace tiles missing")
 require("FIELD SURVEY" in kotlin and "gensolar_native_survey" in kotlin and "saveSurvey" in kotlin and "JSONObject(values)" in kotlin, "Native offline-first survey persistence or project sync missing")
 require("PV ARRAY DESIGN" in kotlin and "gensolar_native_pv_design" in kotlin and "generateLayout" in kotlin and "NativePvDesignScreen(" in kotlin, "Native PV design screen or optimizer integration missing")
+
+pv_math = ROOT / "app/src/main/java/com/gensolar/engineering/PvLayoutMath.kt"
+pv_math_test = ROOT / "app/src/test/java/com/gensolar/engineering/PvLayoutMathTest.kt"
+pv_start = kotlin.find("private fun NativePvDesignScreen(")
+pv_end = kotlin.find("private fun NativeElectricalScreen(", pv_start)
+require(pv_start >= 0 and pv_end > pv_start, "Native PV design screen source range missing")
+pv_screen = kotlin[pv_start:pv_end]
+require("GenSolarEpcBridge.getCadSnapshot()" in pv_screen and "cad:bridge.getCadSnapshot()" in pv_screen, "Native PV screen must load the active project geometry and refresh it after optimization")
+require("NativeCadPreview(cadSnapshot" in pv_screen and "Refresh project preview" in pv_screen, "Native PV screen must render and refresh a native preview from saved roof zones, obstacles and placed modules")
+require("PvLayoutMath.summarize(" in pv_screen and "layoutMetrics.moduleCount" in pv_screen, "Native PV preview metrics must derive module count, DC capacity and footprint from actual placed geometry")
+require(pv_math.exists() and "modulePowerWp !in 1.0..2000.0" in pv_math.read_text(encoding="utf-8"), "Native PV layout metrics must reject invalid module ratings")
+require(pv_math_test.exists(), "Native PV layout metrics Kotlin regression tests missing")
+require("summarizesPlacedModuleCountCapacityAndActualFootprint" in pv_math_test.read_text(encoding="utf-8") and "rejectsInvalidModulePowerAndGeometry" in pv_math_test.read_text(encoding="utf-8"), "Native PV layout metrics tests must cover real geometry and invalid inputs")
+require("gradle testDebugUnitTest --stacktrace" in (ROOT / ".github/workflows/android-apk.yml").read_text(encoding="utf-8"), "Native PV layout metrics tests must run in GitHub Actions")
 require("java.text.ParsePosition(0)" in kotlin and "position.index == dateTimeText.length" in kotlin, "Native shade date/time parser must reject trailing unparsed input")
 require("30-MINUTE DAYLIGHT PROFILE" in kotlin and "TIME · ALTITUDE · AZIMUTH · BLOCKING" in kotlin and "daylightRows.joinToString" in kotlin, "Native shade day-profile results must show daylight time, solar angles and blocking counts")
 require("onExportCsv: (String, String) -> Unit" in kotlin and "GenSolar-Shade-Day-Profile.csv" in kotlin and "Local time,Altitude (deg),Azimuth (deg),Blocking obstructions" in kotlin and "profileCsv = \"\"" in kotlin, "Native shade day-profile CSV export must include time-series columns and clear stale exports")
