@@ -860,10 +860,33 @@ private fun NativePvDesignScreen(
     var corridorWidth by remember { mutableStateOf(prefs.getString("accessCorridorWidth", "0.6") ?: "0.6") }
     var result by remember { mutableStateOf("No PV layout generated in this session.") }
     var status by remember { mutableStateOf("Inputs are saved locally when you generate a layout.") }
+    var cadSnapshot by remember { mutableStateOf(NativeCadSnapshot()) }
     val targetModules = ((capacity.toDoubleOrNull() ?: 0.0) * 1000.0 / (moduleWp.toDoubleOrNull() ?: 1.0)).let {
         if (it.isFinite() && it > 0) kotlin.math.ceil(it).toInt() else 0
     }
     val moduleArea = ((moduleLength.toDoubleOrNull() ?: 0.0) / 1000.0) * ((moduleWidth.toDoubleOrNull() ?: 0.0) / 1000.0)
+    val layoutMetrics = remember(cadSnapshot.layout, moduleWp) {
+        PvLayoutMath.summarize(
+            cadSnapshot.layout.map { PvModuleFootprint(it.width, it.height) },
+            moduleWp.toDoubleOrNull() ?: Double.NaN
+        )
+    }
+
+    fun refreshProjectLayout() {
+        browser.evaluateJavascript("(function(){var b=window.GenSolarEpcBridge;if(!b)return JSON.stringify({error:'Project bridge unavailable.'});return JSON.stringify(b.getCadSnapshot());})()") { raw ->
+            try {
+                val response = org.json.JSONTokener(raw ?: "null").nextValue() as? String
+                    ?: throw IllegalStateException("Project CAD snapshot was not returned.")
+                val json = JSONObject(response)
+                if (json.has("error")) status = json.optString("error")
+                else cadSnapshot = parseNativeCadSnapshot(json)
+            } catch (error: Exception) {
+                status = "Project preview unavailable: " + (error.message ?: "unknown response")
+            }
+        }
+    }
+
+    LaunchedEffect(browser) { refreshProjectLayout() }
 
     Column(modifier = modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = BrandGreen)) {
@@ -989,7 +1012,8 @@ private fun NativePvDesignScreen(
                     count:project.layout.count, kwp:project.layout.kwp,
                     pitch:project.layout.pitch, orientation:project.layout.orientation,
                     area:(project.layout.zoneStats||[]).reduce(function(a,z){return a+z.area;},0),
-                    warnings:document.getElementById('layoutWarnings')?.textContent||''
+                    warnings:document.getElementById('layoutWarnings')?.textContent||'',
+                    cad:bridge.getCadSnapshot()
                   });
                 })()
             """.trimIndent()
@@ -1000,6 +1024,7 @@ private fun NativePvDesignScreen(
                     if (json.has("error")) {
                         status = json.optString("error")
                     } else {
+                        json.optJSONObject("cad")?.let { cadSnapshot = parseNativeCadSnapshot(it) }
                         val count = json.optInt("count")
                         val kwp = json.optDouble("kwp")
                         val pitch = json.optDouble("pitch")
@@ -1018,6 +1043,19 @@ private fun NativePvDesignScreen(
                 Text("OPTIMIZER OUTPUT", color = AccentGreen, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
                 Text(result, color = BrandGreen, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 Text(status, color = Color(0xFF60756E), fontSize = 11.sp, lineHeight = 16.sp)
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("LIVE PROJECT LAYOUT PREVIEW", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                Text("${cadSnapshot.roofZones.size} roof zones · ${cadSnapshot.layout.size} placed modules", color = BrandGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                layoutMetrics?.let { metrics ->
+                    Text("${metrics.moduleCount} modules · ${String.format(Locale.US, "%.2f", metrics.dcCapacityKwp)} kWp · ${String.format(Locale.US, "%.2f", metrics.moduleAreaM2)} m² module footprint", color = Color(0xFF60756E), fontSize = 11.sp)
+                }
+                NativeCadPreview(cadSnapshot, Modifier.fillMaxWidth()) { }
+                androidx.compose.material3.OutlinedButton(onClick = { refreshProjectLayout() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Refresh project preview")
+                }
             }
         }
         androidx.compose.material3.OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) {
