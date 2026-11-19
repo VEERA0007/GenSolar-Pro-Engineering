@@ -511,7 +511,7 @@ private fun GenSolarApp(
             } else if (selected == "location" && !advancedLocation) {
                 NativeLocationScreen(browser, Modifier.fillMaxSize().padding(padding), onRequestGps) { advancedLocation = true }
             } else if (selected == "shade" && !advancedShade) {
-                NativeShadeScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedShade = true }
+                NativeShadeScreen(browser, Modifier.fillMaxSize().padding(padding), onExportCsv = { name, csv -> exportTextFile(name, csv, "text/csv") }) { advancedShade = true }
             } else if (selected == "cadstudio" && !advancedCad) {
                 NativeCadScreen(browser, Modifier.fillMaxSize().padding(padding)) { advancedCad = true }
             } else if (selected == "battery") {
@@ -1384,7 +1384,7 @@ private fun NativeLocationScreen(
 private data class NativeShadeObstructionInput(val height: String = "", val distance: String = "", val bearing: String = "", val width: String = "")
 
 @Composable
-private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, onOpenAdvanced: () -> Unit) {
+private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, onExportCsv: (String, String) -> Unit, onOpenAdvanced: () -> Unit) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("gensolar_native_shade", android.content.Context.MODE_PRIVATE) }
     var date by remember { mutableStateOf(prefs.getString("date", java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())) ?: "") }
@@ -1412,6 +1412,7 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
     var output by remember { mutableStateOf("Enter the project coordinates and obstruction geometry to calculate solar position and shadow reach.") }
     var status by remember { mutableStateOf("NO SIMULATION RUN") }
     var profile by remember { mutableStateOf("") }
+    var profileCsv by remember { mutableStateOf("") }
     fun persist() {
         val rows = org.json.JSONArray()
         additionalObstructions.forEach { row ->
@@ -1493,6 +1494,16 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
                     }
                     profile = "30-MINUTE DAYLIGHT PROFILE\n${result.optInt("samples")} samples · ${result.optInt("daylightSamples")} daylight · ${result.optInt("shadeSamples")} shaded · ${result.optInt("blockingObstructionIntervals")} obstruction/sample hits\n\nTIME · ALTITUDE · AZIMUTH · BLOCKING\n" +
                         (daylightRows.joinToString("\n").ifBlank { "No daylight samples for this date and location." })
+                    profileCsv = buildString {
+                        append("Local time,Altitude (deg),Azimuth (deg),Blocking obstructions\n")
+                        for (index in 0 until samples.length()) {
+                            val sample = samples.optJSONObject(index) ?: continue
+                            append(sample.optString("time")).append(',')
+                            append("%.3f".format(java.util.Locale.US, sample.optDouble("altitude"))).append(',')
+                            append("%.3f".format(java.util.Locale.US, sample.optDouble("azimuth"))).append(',')
+                            append(sample.optInt("blockingCount")).append('\n')
+                        }
+                    }
                     output = "Maximum solar altitude: ${"%.1f".format(java.util.Locale.US, result.optDouble("maxAltitude"))}°"
                 } else {
                     val altitude = result.optDouble("altitude")
@@ -1585,6 +1596,7 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
                 Text(status, color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                 Text(output, color = Color(0xFF173B32), fontSize = 14.sp, lineHeight = 21.dp)
                 if (profile.isNotBlank()) Text(profile, color = Color(0xFF667A75), fontSize = 11.sp, lineHeight = 17.dp)
+                if (profileCsv.isNotBlank()) OutlinedButton(onClick = { onExportCsv("GenSolar-Shade-Day-Profile.csv", profileCsv) }, modifier = Modifier.fillMaxWidth()) { Text("Export 30-minute profile CSV") }
             }
         }
         Button(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) { Text("Open detailed shade workspace & visualization") }
