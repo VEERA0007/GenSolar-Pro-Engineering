@@ -24,3 +24,10 @@ assert.equal(legacy.surfaceArea,600);
 const highPitch=calculate({vertices:rectangle,pitch:80});
 assert.ok(highPitch.surfaceArea>pitched.surfaceArea);
 console.log("Roof zone plan and pitch-corrected surface area tests passed.");
+
+const parser=extract("function polygonArea(","function zoneGeometry(")+extract("function cross(","function zoneGeometry(")+extract("function onSegment(","function zoneGeometry(")+extract("function segmentsIntersect(","function parseZoneVertices(")+extract("function parseZoneVertices(","function zoneGeometry(");
+const parseVertices=new Function(parser+";return parseZoneVertices;")();
+assert.equal(parseVertices("0,0; 10,0; 10,10; 0,10").length,4);
+assert.throws(()=>parseVertices("0,0; 10001,0; 10001,10; 0,10"),/±10000 m/);
+const tooMany=Array.from({length:201},(_,i)=>[Math.cos(i*2*Math.PI/201)*100,Math.sin(i*2*Math.PI/201)*100].join(",")).join(";");
+assert.throws(()=>parseVertices(tooMany),/cannot exceed 200 vertices/);
