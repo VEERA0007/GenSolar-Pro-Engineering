@@ -223,7 +223,7 @@ fun MeasurementScreen(
     var l by remember { mutableStateOf("20") }; var w by remember { mutableStateOf("10") }; var slope by remember { mutableStateOf("0") }
     var usable by remember { mutableStateOf("75") }; var pl by remember { mutableStateOf("2.28") }; var pw by remember { mutableStateOf("1.13") }; var gap by remember { mutableStateOf("0.02") }; var watts by remember { mutableStateOf("550") }
     val a=l.toDoubleOrNull(); val b=w.toDoubleOrNull(); val s=slope.toDoubleOrNull(); val u=usable.toDoubleOrNull(); val x=pl.toDoubleOrNull(); val y=pw.toDoubleOrNull(); val g=gap.toDoubleOrNull(); val p=watts.toIntOrNull()
-    val ok=a!=null&&b!=null&&s!=null&&u!=null&&x!=null&&y!=null&&g!=null&&p!=null&&a.isFinite()&&b.isFinite()&&s.isFinite()&&u.isFinite()&&x.isFinite()&&y.isFinite()&&g.isFinite()&&a>0&&b>0&&s in 0.0..89.0&&u in 0.0..100.0&&x>0&&y>0&&g in 0.0..1.0&&p>0
+    val ok=a!=null&&b!=null&&s!=null&&u!=null&&x!=null&&y!=null&&g!=null&&p!=null&&a.isFinite()&&b.isFinite()&&s.isFinite()&&u.isFinite()&&x.isFinite()&&y.isFinite()&&g.isFinite()&&a in 0.01..10000.0&&b in 0.01..10000.0&&s in 0.0..89.0&&u in 0.0..100.0&&x in 0.01..100.0&&y in 0.01..100.0&&g in 0.0..1.0&&p in 1..2000
     val area=if(ok) MeasurementMath.roofArea(a!!*b!!,s!!) else null
     val usableArea=(area ?: 0.0)*(u ?: 0.0)/100.0
     val panelLayout=if(ok) runCatching { MeasurementMath.rectangularPanelLayout(a!!,b!!,x!!,y!!,u!!,g!!) }.getOrNull() else null
