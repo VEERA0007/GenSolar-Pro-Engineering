@@ -1658,6 +1658,8 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
     }
 }
 @Composable
+private val allowedCadLayers = listOf("GENERAL", "WALLS", "OBSTACLES", "DIMENSIONS")
+
 private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onOpenAdvanced: () -> Unit) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("gensolar_native_cad", android.content.Context.MODE_PRIVATE) }
@@ -1669,6 +1671,13 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
     var moveY by remember { mutableStateOf("0") }
     var snapshot by remember { mutableStateOf(NativeCadSnapshot()) }
     var previewMode by remember { mutableStateOf("2D") }
+    var drawType by remember { mutableStateOf("rect") }
+    var drawLayer by remember { mutableStateOf("GENERAL") }
+    var drawX by remember { mutableStateOf("0") }
+    var drawY by remember { mutableStateOf("0") }
+    var drawWidth by remember { mutableStateOf("2") }
+    var drawHeight by remember { mutableStateOf("1") }
+    var drawRadius by remember { mutableStateOf("0.5") }
     var status by remember { mutableStateOf("Loading the active project CAD model…") }
     val area = (roofLength.toDoubleOrNull() ?: 0.0) * (roofWidth.toDoubleOrNull() ?: 0.0)
     val selected = snapshot.entities.firstOrNull { it.id == snapshot.selectedId }
@@ -1767,6 +1776,57 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
                 status = "Building model could not be confirmed: " + (error.message ?: "unknown response")
             }
         }
+    }
+
+    fun createGeometry() {
+        val x = drawX.trim().toDoubleOrNull()
+        val y = drawY.trim().toDoubleOrNull()
+        val first = drawWidth.trim().toDoubleOrNull()
+        val second = drawHeight.trim().toDoubleOrNull()
+        val radius = drawRadius.trim().toDoubleOrNull()
+        if (x == null || y == null || !x.isFinite() || !y.isFinite() || x !in -10000.0..10000.0 || y !in -10000.0..10000.0) {
+            status = "Origin coordinates must be finite and within ±10,000 metres."
+            return
+        }
+        if (drawLayer !in allowedCadLayers) {
+            status = "Choose a supported editable layer."
+            return
+        }
+        val entity = JSONObject().put("type", drawType).put("layer", drawLayer)
+        when (drawType) {
+            "rect" -> {
+                if (first == null || second == null || !first.isFinite() || !second.isFinite() ||
+                    first !in 0.001..10000.0 || second !in 0.001..10000.0 ||
+                    kotlin.math.abs(x + first) > 10000.0 || kotlin.math.abs(y + second) > 10000.0) {
+                    status = "Rectangle width and height must be positive and remain inside the CAD coordinate range."
+                    return
+                }
+                entity.put("x", x).put("y", y).put("w", first).put("h", second)
+            }
+            "circle" -> {
+                if (radius == null || !radius.isFinite() || radius !in 0.001..5000.0) {
+                    status = "Circle radius must be between 0.001 and 5,000 metres."
+                    return
+                }
+                entity.put("x", x).put("y", y).put("r", radius)
+            }
+            "line", "dim" -> {
+                if (first == null || second == null || !first.isFinite() || !second.isFinite() ||
+                    kotlin.math.abs(first) > 10000.0 || kotlin.math.abs(second) > 10000.0 ||
+                    kotlin.math.hypot(first, second) < 0.001 ||
+                    kotlin.math.abs(x + first) > 10000.0 || kotlin.math.abs(y + second) > 10000.0) {
+                    status = "Line end offsets must be finite, non-zero and remain inside the CAD coordinate range."
+                    return
+                }
+                entity.put("a", JSONObject().put("x", x).put("y", y))
+                    .put("b", JSONObject().put("x", x + first).put("y", y + second))
+            }
+            else -> {
+                status = "Choose rectangle, line, circle or dimension."
+                return
+            }
+        }
+        runCadAction("b.createCadEntity(" + entity.toString() + ")", "New " + drawType + " created and saved to the active CAD project.")
     }
 
     LaunchedEffect(browser) { readSnapshot() }
@@ -1905,6 +1965,37 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
                         onClick = { runCadAction("b.deleteCadEntity(" + JSONObject.quote(selected.id) + ")", "Entity deleted and saved.") },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("Delete selected entity") }
+                }
+            }
+        }
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("05  NATIVE GEOMETRY TOOLS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Create editable primitives directly in the shared project drawing.", color = Color(0xFF60756E), fontSize = 11.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("rect" to "Rectangle", "line" to "Line", "circle" to "Circle", "dim" to "Dimension").forEach { (key, label) ->
+                        FilterChip(selected = drawType == key, onClick = { drawType = key }, label = { Text(label, fontSize = 10.sp) })
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SurveyInput("Origin X (m)", drawX, { drawX = it }, Modifier.weight(1f))
+                    SurveyInput("Origin Y (m)", drawY, { drawY = it }, Modifier.weight(1f))
+                }
+                if (drawType == "circle") {
+                    SurveyInput("Radius (m)", drawRadius, { drawRadius = it })
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SurveyInput(if (drawType == "rect") "Width (m)" else "End ΔX (m)", drawWidth, { drawWidth = it }, Modifier.weight(1f))
+                        SurveyInput(if (drawType == "rect") "Height (m)" else "End ΔY (m)", drawHeight, { drawHeight = it }, Modifier.weight(1f))
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    allowedCadLayers.forEach { layer ->
+                        FilterChip(selected = drawLayer == layer, onClick = { drawLayer = layer }, label = { Text(layer, fontSize = 9.sp) })
+                    }
+                }
+                Button(onClick = { createGeometry() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Create geometry in project")
                 }
             }
         }

@@ -141,6 +141,29 @@ function createHarness(saveResult = true) {
   assert.equal(h.bridge.deleteCadEntity("poly-1"),true);
   assert.ok(!h.model.entities.some(e=>e.id==="poly-1"));
   assert.equal(h.bridge.deleteCadEntity("unknown"),false);
+
+  const beforePrimitives=h.model.entities.length;
+  const rectId=h.bridge.createCadEntity({type:"rect",layer:"GENERAL",x:-2,y:3,w:4,h:2});
+  assert.ok(typeof rectId==="string"&&rectId.length>0,"Native rectangle creation must return the saved entity ID");
+  const rect=h.model.entities.find(e=>e.id===rectId);
+  assert.deepEqual({type:rect.type,layer:rect.layer,x:rect.x,y:rect.y,w:rect.w,h:rect.h},
+    {type:"rect",layer:"GENERAL",x:-2,y:3,w:4,h:2});
+  const lineId=h.bridge.createCadEntity({type:"line",layer:"DIMENSIONS",a:{x:0,y:0},b:{x:3,y:4}});
+  assert.ok(lineId&&h.model.entities.find(e=>e.id===lineId).type==="line");
+  const circleId=h.bridge.createCadEntity({type:"circle",layer:"OBSTACLES",x:5,y:6,r:0.75});
+  assert.ok(circleId&&h.model.entities.find(e=>e.id===circleId).r===0.75);
+  const dimensionId=h.bridge.createCadEntity({type:"dim",layer:"DIMENSIONS",a:{x:1,y:1},b:{x:4,y:5}});
+  assert.equal(h.model.entities.find(e=>e.id===dimensionId).label,"5.00 m","Dimensions must derive their displayed length from endpoints");
+  assert.equal(h.model.entities.length,beforePrimitives+4);
+  assert.equal(h.model.selected,dimensionId,"New geometry must become the selected CAD entity");
+  assert.equal(h.bridge.createCadEntity({type:"rect",layer:"GENERAL",x:0,y:0,w:0,h:1}),false);
+  assert.equal(h.bridge.createCadEntity({type:"circle",layer:"GENERAL",x:0,y:0,r:0}),false);
+  assert.equal(h.bridge.createCadEntity({type:"line",layer:"GENERAL",a:{x:0,y:0},b:{x:0,y:0}}),false);
+  assert.equal(h.bridge.createCadEntity({type:"unknown",layer:"GENERAL"}),false);
+  assert.equal(h.bridge.createCadEntity({type:"rect",layer:"bad\nlayer",x:0,y:0,w:1,h:1}),false,
+    "Control characters must be rejected from layer names");
+  assert.equal(h.bridge.createCadEntity({type:"rect",layer:"GENERAL",x:10000,y:0,w:1,h:1}),false,
+    "Geometry must remain within the supported coordinate range");
 }
 
 {
@@ -155,6 +178,11 @@ function createHarness(saveResult = true) {
   assert.equal(h.model.entities.length,4,"Failed duplicate persistence must restore entity count");
   assert.equal(h.bridge.deleteCadEntity("poly-1"),false);
   assert.ok(h.model.entities.some(e=>e.id==="poly-1"),"Failed delete persistence must restore the entity");
+  const beforeCreate=JSON.stringify(h.model.entities);
+  assert.equal(h.bridge.createCadEntity({type:"rect",layer:"GENERAL",x:1,y:1,w:2,h:2}),false,
+    "Failed persistence must reject new native geometry");
+  assert.equal(JSON.stringify(h.model.entities),beforeCreate,"Failed geometry persistence must restore the previous CAD model");
+  assert.equal(h.model.undo.length,0,"Failed geometry persistence must discard its undo entry");
 }
 
-console.log("Native CAD bridge tests passed: snapshot isolation, hit selection, measured move, duplicate, rotate, delete, layer visibility and persistence rollback.");
+console.log("Native CAD bridge tests passed: snapshot isolation, hit selection, create rectangle/line/circle/dimension, measured move, duplicate, rotate, delete, layer visibility and persistence rollback.");

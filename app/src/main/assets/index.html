@@ -1702,6 +1702,36 @@ window.GenSolarEpcBridge = Object.freeze({
       hiddenLayers:Array.isArray(model.hiddenLayers)?model.hiddenLayers:[]
     }));
   },
+  createCadEntity: function(input) {
+    const value=input&&typeof input==='object'&&!Array.isArray(input)?input:{};
+    const type=String(value.type||''),layer=String(value.layer||'GENERAL').trim();
+    if(!['rect','line','circle','dim'].includes(type)||!layer||layer.length>80||/[\u0000-\u001f\u007f]/.test(layer))return false;
+    if(!Array.isArray(model.entities)||model.entities.length>=100000)return false;
+    const coordinate=v=>{const n=Number(v);return Number.isFinite(n)&&Math.abs(n)<=10000?n:null};
+    const positive=(v,max)=>{const n=Number(v);return Number.isFinite(n)&&n>=0.001&&n<=max?n:null};
+    const entity={type,layer};
+    if(type==='rect'){
+      const x=coordinate(value.x),y=coordinate(value.y),w=positive(value.w,10000),h=positive(value.h,10000);
+      if(x===null||y===null||w===null||h===null||Math.abs(x+w)>10000||Math.abs(y+h)>10000)return false;
+      Object.assign(entity,{x,y,w,h});
+    }else if(type==='circle'){
+      const x=coordinate(value.x),y=coordinate(value.y),r=positive(value.r,5000);
+      if(x===null||y===null||r===null||Math.abs(x)+r>15000||Math.abs(y)+r>15000)return false;
+      Object.assign(entity,{x,y,r});
+    }else{
+      const a=value.a&&typeof value.a==='object'?value.a:{},b=value.b&&typeof value.b==='object'?value.b:{};
+      const ax=coordinate(a.x),ay=coordinate(a.y),bx=coordinate(b.x),by=coordinate(b.y);
+      if(ax===null||ay===null||bx===null||by===null||Math.hypot(bx-ax,by-ay)<0.001)return false;
+      entity.a={x:ax,y:ay};entity.b={x:bx,y:by};
+      if(type==='dim')entity.label=Math.hypot(bx-ax,by-ay).toFixed(2)+' m';
+    }
+    const before=cadCaptureState(),undoLength=model.undo.length;
+    saveUndo();
+    entity.id=uid();
+    model.entities.push(entity);
+    model.selected=entity.id;
+    return cadCommitMutation(before,undoLength)?entity.id:false;
+  },
   selectCadEntityAt: function(xValue, yValue) {
     const x=Number(xValue),y=Number(yValue);
     if(!Number.isFinite(x)||!Number.isFinite(y))return false;

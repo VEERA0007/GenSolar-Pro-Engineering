@@ -1,3 +1,11 @@
+## Latest implementation (2026-11-20 — native CAD geometry creation)
+
+- Added native Compose drawing tools for rectangles, lines, circles and dimension annotations. The user selects an editable layer and enters measured origin/extent values without opening the advanced WebView editor.
+- Added a controlled GenSolarEpcBridge.createCadEntity transaction. It validates geometry type, finite coordinates, positive dimensions/radius, segment length, layer labels and entity limits; successful changes are undo-recorded, saved to the existing offline CAD model, selected and rendered in native 2D/3D previews.
+- Failed persistence rolls the geometry and undo history back. Added bridge regressions for all four primitive types, dimension length calculation, invalid geometry/layer input and save-failure rollback. The existing CI validator now requires the native controls and bridge API.
+- This is a focused native drafting slice; advanced polyline, trim/extend, constraints, parametric editing and DXF import/export remain in the detailed CAD workspace. CAD primitives do not certify roof geometry or structural adequacy.
+- Source changes are pending the next GitHub Actions run. Do not count this slice as verified until Kotlin compilation, all JavaScript/Python regressions, APK signature/package checks and artifact upload pass.
+
 ## Latest implementation (2026-11-20 — obstacle-aware multi-roof PV optimizer)
 
 - Connected the automatic multi-roof optimizer to the active project's surveyed circular and rectangular roof obstacles. It now rejects module footprints that intersect either obstacle type and applies the configured clearance distance before allocation across roof zones.
