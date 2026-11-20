@@ -272,7 +272,7 @@ fun MeasurementScreen(
 ) {
     var selectedCategory by remember { mutableStateOf("All") }
     var searchText by remember { mutableStateOf("") }
-    val categories = listOf("All","Distance","Object","Room","Solar roof","GPS")
+    val categories = listOf("All","Distance","Area","Object","Room","Solar roof","GPS")
     val visibleRecords = remember(records, selectedCategory, searchText) {
         MeasurementHistoryCodec.filter(records, selectedCategory, searchText)
     }
