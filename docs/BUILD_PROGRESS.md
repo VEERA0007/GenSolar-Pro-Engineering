@@ -1,3 +1,11 @@
+## Latest implementation (2026-11-20 — rooftop module fit estimator)
+
+- Replaced the area-density panel estimate in the native rooftop calculator with a rectangular fit calculation. It checks both module orientations, applies a uniform usable-area allowance to the roof dimensions, and includes a configurable inter-module gap.
+- The UI now reports estimated module count, rows, columns, chosen orientation and DC capacity; saved measurement details include the selected layout inputs.
+- Added pure Kotlin regression tests for rotated layouts, module gaps, usable-area allowance and invalid inputs. CI modernization validation now requires the calculation, tests and UI outputs.
+- This remains a preliminary rectangular fit estimate: the usable-area percentage is distributed uniformly across both roof axes, and the estimator does not yet place around individually surveyed obstacles, fire lanes, roof edges or structural zones. Use the detailed CAD/PV layout and engineering review for project design.
+- Commits: [panel-fit engine](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/7e2bab2e69ec8e62281ea933182cb72f3eb8f401), [panel-fit regression tests](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/bccb867c5ce2144067c82609f46e950fffc9fd10), [rooftop estimator UI](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/37257536a0d3df616db13927208b02954be6d4bd), and [CI guard](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/f17203ad6b09f97650bb5012eb94b48a6645a286). Android Actions verification is pending for this feature slice.
+
 ## Latest implementation (2026-11-20 — geometric area calculator)
 
 - Added a native Measurement & 3D Survey area tool for rectangular, circular and triangular plan shapes, with square-metre and square-foot results and local measurement-history saving.
