@@ -1,3 +1,10 @@
+## Latest implementation (2026-11-20 — geometric area calculator)
+
+- Added a native Measurement & 3D Survey area tool for rectangular, circular and triangular plan shapes, with square-metre and square-foot results and local measurement-history saving.
+- Extracted the geometric calculations into pure Kotlin functions with finite/positive dimension guards. Added unit tests for expected results and invalid dimensions, plus history-filter coverage for Area records.
+- Updated the Android modernization validator to require the Area workspace tab. Android Actions is triggered by the Kotlin/source commits; this feature remains unverified until the newest main-branch run completes and its APK artifact is checked.
+- Code commits: [area math](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/00ed49ef327eeb2a9cc4a2757690696b9f075f67), [math tests](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/6d9b3a8c76dcfe370a22a20bcc15a5866539c26a), [Compose area tool](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/9b94d60a39ced4402ba44c74b8b9f62f71cf72eb), [history filter](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/9780d9058ced3d4ecc0ad572f54ff606f25ee18b), [history test](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/6848d9e596f116c281ae150e4ef385e100335089), and [CI validator](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/d816a97b7393ec7b860684506fc3e18b03ba84c0).
+
 # GenSolar Pro Engineering — Build Progress
 
 ## Latest implementation (2026-11-19 — native PV project layout preview)
