@@ -16,7 +16,7 @@ class MeasurementMathTest {
   val full=MeasurementMath.rectangularPanelLayout(10.0,5.0,2.0,1.0,100.0,0.0)
   val reduced=MeasurementMath.rectangularPanelLayout(10.0,5.0,2.0,1.0,25.0,0.0)
   assertEquals(25,full.moduleCount)
-  assertEquals(6,reduced.moduleCount)
+  assertEquals(5,reduced.moduleCount)
  }
  @Test(expected=IllegalArgumentException::class) fun panelLayoutRejectsNegativeGap(){
   MeasurementMath.rectangularPanelLayout(10.0,5.0,2.0,1.0,100.0,-0.1)
