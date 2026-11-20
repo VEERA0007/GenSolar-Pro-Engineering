@@ -1,6 +1,15 @@
 package com.gensolar.engineering
 import kotlin.math.*
 
+data class RectangularPanelLayout(
+    val moduleCount: Int,
+    val columns: Int,
+    val rows: Int,
+    val rotated: Boolean,
+    val effectiveLengthM: Double,
+    val effectiveWidthM: Double
+)
+
 object MeasurementMath {
     fun distance3d(x1: Double,y1: Double,z1: Double,x2: Double,y2: Double,z2: Double) =
         sqrt((x2-x1).pow(2)+(y2-y1).pow(2)+(z2-z1).pow(2))
@@ -18,6 +27,33 @@ object MeasurementMath {
     fun panelCount(usableArea: Double,panelLength: Double,panelWidth: Double): Int {
         require(usableArea>=0.0 && panelLength>0.0 && panelWidth>0.0)
         return floor(usableArea/(panelLength*panelWidth/0.78)).toInt().coerceAtLeast(0)
+    }
+    fun rectangularPanelLayout(
+        roofLength: Double,
+        roofWidth: Double,
+        panelLength: Double,
+        panelWidth: Double,
+        usablePercent: Double,
+        gapMeters: Double
+    ): RectangularPanelLayout {
+        require(listOf(roofLength, roofWidth, panelLength, panelWidth, usablePercent, gapMeters).all { it.isFinite() })
+        require(roofLength in 0.01..10000.0 && roofWidth in 0.01..10000.0)
+        require(panelLength in 0.01..100.0 && panelWidth in 0.01..100.0)
+        require(usablePercent in 0.0..100.0 && gapMeters in 0.0..1.0)
+        val scale = sqrt(usablePercent / 100.0)
+        val effectiveLength = roofLength * scale
+        val effectiveWidth = roofWidth * scale
+        fun fit(length: Double, width: Double): Triple<Int, Int, Int> {
+            if (length <= 0.0 || width <= 0.0) return Triple(0, 0, 0)
+            val columns = floor((length + gapMeters) / (width + gapMeters)).toInt().coerceAtLeast(0)
+            val rows = floor((effectiveWidth + gapMeters) / (length + gapMeters)).toInt().coerceAtLeast(0)
+            return Triple(columns * rows, columns, rows)
+        }
+        val normal = fit(panelLength, panelWidth)
+        val rotated = fit(panelWidth, panelLength)
+        val useRotated = rotated.first > normal.first
+        val best = if (useRotated) rotated else normal
+        return RectangularPanelLayout(best.first, best.second, best.third, useRotated, effectiveLength, effectiveWidth)
     }
     fun rectangleArea(length: Double, width: Double): Double {
         require(length.isFinite() && width.isFinite() && length > 0.0 && width > 0.0)
