@@ -73,11 +73,12 @@ fun MeasurementScreen(
             }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)) {
-            listOf("Distance","Object","Room","Solar roof","GPS","History").forEach { FilterChip(selected=mode==it,onClick={mode=it},label={Text(it)}) }
+            listOf("Distance","Area","Object","Room","Solar roof","GPS","History").forEach { FilterChip(selected=mode==it,onClick={mode=it},label={Text(it)}) }
         }
         if(saveStatus.isNotBlank()) Text(saveStatus,color=MeasureGreen,fontSize=11.sp,fontWeight=FontWeight.SemiBold)
         when(mode) {
             "Distance" -> DistanceTool(saveMeasurement)
+            "Area" -> AreaTool(saveMeasurement)
             "Object" -> ObjectTool(saveMeasurement)
             "Room" -> RoomTool(saveMeasurement)
             "Solar roof" -> RoofTool(saveMeasurement)
@@ -146,6 +147,43 @@ fun MeasurementScreen(
         Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { Field("X m",x2,{x2=it},Modifier.weight(1f)); Field("Y m",y2,{y2=it},Modifier.weight(1f)); Field("Z m",z2,{z2=it},Modifier.weight(1f)) }
         Result("DISTANCE",resultText)
         if(result!=null) SaveMeasurementButton("Distance","3D point-to-point distance",resultText,"Point A: ("+x1+", "+y1+", "+z1+") m; Point B: ("+x2+", "+y2+", "+z2+") m",onSave)
+    }
+}
+
+
+@Composable private fun AreaTool(onSave:(String,String,String,String)->Unit) {
+    var shape by remember { mutableStateOf("Rectangle") }
+    var first by remember { mutableStateOf("5") }
+    var second by remember { mutableStateOf("4") }
+    val a = first.toDoubleOrNull()
+    val b = second.toDoubleOrNull()
+    val validFirst = a != null && a.isFinite() && a > 0.0
+    val validSecond = shape == "Circle" || (b != null && b.isFinite() && b > 0.0)
+    val area = if (validFirst && validSecond) runCatching {
+        when (shape) {
+            "Rectangle" -> MeasurementMath.rectangleArea(a!!, b!!)
+            "Circle" -> MeasurementMath.circleArea(a!!)
+            else -> MeasurementMath.triangleArea(a!!, b!!)
+        }
+    }.getOrNull()?.takeIf { it.isFinite() } else null
+    val summary = area?.let { String.format(Locale.getDefault(), "%.3f m² · %.1f sq.ft", it, it * 10.7639) } ?: "Check dimensions"
+    ToolCard("Geometric area calculator","Calculate plan area for site zones, rooms, circular pads and triangular roof sections. Enter dimensions in metres.") {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(7.dp)) {
+            listOf("Rectangle","Circle","Triangle").forEach { item ->
+                FilterChip(selected=shape==item,onClick={shape=item},label={Text(item)})
+            }
+        }
+        Field(if (shape == "Circle") "Radius (m)" else if (shape == "Rectangle") "Length (m)" else "Base (m)",first,{first=it})
+        if (shape != "Circle") Field(if (shape == "Rectangle") "Width (m)" else "Height (m)",second,{second=it})
+        Result("AREA",summary)
+        if (area != null) {
+            val details = when (shape) {
+                "Rectangle" -> "Rectangle: length $first m; width $second m"
+                "Circle" -> "Circle: radius $first m"
+                else -> "Triangle: base $first m; height $second m"
+            }
+            SaveMeasurementButton("Area","$shape area calculation",summary,details,onSave)
+        }
     }
 }
 
