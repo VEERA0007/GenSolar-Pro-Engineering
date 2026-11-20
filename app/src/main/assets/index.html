@@ -1705,7 +1705,7 @@ window.GenSolarEpcBridge = Object.freeze({
   createCadEntity: function(input) {
     const value=input&&typeof input==='object'&&!Array.isArray(input)?input:{};
     const type=String(value.type||''),layer=String(value.layer||'GENERAL').trim();
-    if(!['rect','line','circle','dim'].includes(type)||!layer||layer.length>80||/[\u0000-\u001f\u007f]/.test(layer))return false;
+    if(!['rect','line','circle','dim','poly'].includes(type)||!layer||layer.length>80||/[\u0000-\u001f\u007f]/.test(layer))return false;
     if(!Array.isArray(model.entities)||model.entities.length>=100000)return false;
     const coordinate=v=>{const n=Number(v);return Number.isFinite(n)&&Math.abs(n)<=10000?n:null};
     const positive=(v,max)=>{const n=Number(v);return Number.isFinite(n)&&n>=0.001&&n<=max?n:null};
@@ -1718,6 +1718,17 @@ window.GenSolarEpcBridge = Object.freeze({
       const x=coordinate(value.x),y=coordinate(value.y),r=positive(value.r,5000);
       if(x===null||y===null||r===null||Math.abs(x)+r>15000||Math.abs(y)+r>15000)return false;
       Object.assign(entity,{x,y,r});
+    }else if(type==='poly'){
+      if(!Array.isArray(value.points)||value.points.length<2||value.points.length>200)return false;
+      const points=[];
+      for(const point of value.points){
+        const px=coordinate(point&&point.x),py=coordinate(point&&point.y);
+        if(px===null||py===null)return false;
+        points.push({x:px,y:py});
+      }
+      for(let i=1;i<points.length;i++)if(Math.hypot(points[i].x-points[i-1].x,points[i].y-points[i-1].y)<0.001)return false;
+      if(value.closed===true&&points.length<3)return false;
+      entity.points=points;entity.closed=value.closed===true;
     }else{
       const a=value.a&&typeof value.a==='object'?value.a:{},b=value.b&&typeof value.b==='object'?value.b:{};
       const ax=coordinate(a.x),ay=coordinate(a.y),bx=coordinate(b.x),by=coordinate(b.y);
