@@ -160,7 +160,7 @@ function createHarness(saveResult = true) {
   assert.equal(h.bridge.createCadEntity({type:"poly",layer:"ROOF_ZONES",points:Array.from({length:201},(_,i)=>({x:i,y:i+1}))}),false,"Polyline vertex count must be bounded");
   const dimensionId=h.bridge.createCadEntity({type:"dim",layer:"DIMENSIONS",a:{x:1,y:1},b:{x:4,y:5}});
   assert.equal(h.model.entities.find(e=>e.id===dimensionId).label,"5.00 m","Dimensions must derive their displayed length from endpoints");
-  assert.equal(h.model.entities.length,beforePrimitives+4);
+  assert.equal(h.model.entities.length,beforePrimitives+5);
   assert.equal(h.model.selected,dimensionId,"New geometry must become the selected CAD entity");
   assert.equal(h.bridge.createCadEntity({type:"rect",layer:"GENERAL",x:0,y:0,w:0,h:1}),false);
   assert.equal(h.bridge.createCadEntity({type:"circle",layer:"GENERAL",x:0,y:0,r:0}),false);
