@@ -262,3 +262,11 @@ A green CI build verifies only the checks configured in GitHub Actions and APK p
 - Added checks for empty obstacle lists, valid multi-row circle/rectangle formats, zero/negative dimensions, malformed numeric values and negative-clearance normalization.
 - This protects the input-validation boundary as well as the geometric placement checks. The test commit is [here](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/34612be75365094c322287fd07e92d9309933872).
 - CI verification remains pending; do not treat this source change as a verified APK.
+
+## Latest implementation (2026-11-20 — multi-roof access-corridor reservation)
+
+- Connected the saved access-corridor settings to the multi-roof PV optimizer. Left, right, top and bottom edge corridors are converted into reserved roof strips for each roof zone.
+- User-entered corridor rectangles are parsed and reserved as well. These corridors are treated separately from obstacle-clearance envelopes, so the configured obstacle clearance does not unexpectedly widen a fire/access route.
+- Added regression coverage for all four edge directions, custom corridor rectangles, invalid dimensions and invalid edge values; verifies modules do not intrude into reserved corridors.
+- Source commits: [optimizer integration](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/5c65c808051a9571a718ccff109c6261ba8df2ad) and [corridor regression tests](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/b8351b89be2da5282513d04c86c41e2249013cce).
+- This is geometric access reservation only. It does not certify code-required fire setbacks, walkway widths or site-specific authority requirements. CI and APK verification are pending.
