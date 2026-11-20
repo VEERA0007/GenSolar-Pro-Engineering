@@ -152,6 +152,12 @@ function createHarness(saveResult = true) {
   assert.ok(lineId&&h.model.entities.find(e=>e.id===lineId).type==="line");
   const circleId=h.bridge.createCadEntity({type:"circle",layer:"OBSTACLES",x:5,y:6,r:0.75});
   assert.ok(circleId&&h.model.entities.find(e=>e.id===circleId).r===0.75);
+  const polyId=h.bridge.createCadEntity({type:"poly",layer:"ROOF_ZONES",closed:true,points:[{x:0,y:0},{x:4,y:0},{x:4,y:3}]});
+  const poly=h.model.entities.find(e=>e.id===polyId);
+  assert.ok(polyId&&poly.type==="poly"&&poly.closed&&poly.points.length===3,"Native CAD must create a closed editable polygon");
+  assert.equal(h.bridge.createCadEntity({type:"poly",layer:"ROOF_ZONES",closed:true,points:[{x:0,y:0},{x:1,y:1}]}),false,"Closed polylines require at least three vertices");
+  assert.equal(h.bridge.createCadEntity({type:"poly",layer:"ROOF_ZONES",points:[{x:0,y:0},{x:0,y:0}]}),false,"Polyline segments must have non-zero length");
+  assert.equal(h.bridge.createCadEntity({type:"poly",layer:"ROOF_ZONES",points:Array.from({length:201},(_,i)=>({x:i,y:i+1}))}),false,"Polyline vertex count must be bounded");
   const dimensionId=h.bridge.createCadEntity({type:"dim",layer:"DIMENSIONS",a:{x:1,y:1},b:{x:4,y:5}});
   assert.equal(h.model.entities.find(e=>e.id===dimensionId).label,"5.00 m","Dimensions must derive their displayed length from endpoints");
   assert.equal(h.model.entities.length,beforePrimitives+4);
