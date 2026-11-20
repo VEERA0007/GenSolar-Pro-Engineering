@@ -1678,6 +1678,8 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
     var drawWidth by remember { mutableStateOf("2") }
     var drawHeight by remember { mutableStateOf("1") }
     var drawRadius by remember { mutableStateOf("0.5") }
+    var drawPolylinePoints by remember { mutableStateOf("0,0; 4,0; 4,3") }
+    var drawPolylineClosed by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Loading the active project CAD model…") }
     val area = (roofLength.toDoubleOrNull() ?: 0.0) * (roofWidth.toDoubleOrNull() ?: 0.0)
     val selected = snapshot.entities.firstOrNull { it.id == snapshot.selectedId }
@@ -1809,6 +1811,24 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
                     return
                 }
                 entity.put("x", x).put("y", y).put("r", radius)
+            }
+            "poly" -> {
+                val tokens = drawPolylinePoints.split(";").map { it.trim() }
+                val points = tokens.mapNotNull { token ->
+                    val pair = token.split(",")
+                    if (pair.size != 2) null else {
+                        val px = pair[0].trim().toDoubleOrNull()
+                        val py = pair[1].trim().toDoubleOrNull()
+                        if (px == null || py == null || !px.isFinite() || !py.isFinite() ||
+                            px !in -10000.0..10000.0 || py !in -10000.0..10000.0) null
+                        else JSONObject().put("x", px).put("y", py)
+                    }
+                }
+                if (points.size != tokens.size || points.size !in 2..200 || (drawPolylineClosed && points.size < 3)) {
+                    status = "Enter 2–200 valid x,y vertices; a closed polygon needs at least three."
+                    return
+                }
+                entity.put("points", org.json.JSONArray(points)).put("closed", drawPolylineClosed)
             }
             "line", "dim" -> {
                 if (first == null || second == null || !first.isFinite() || !second.isFinite() ||
@@ -1973,7 +1993,7 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
                 Text("05  NATIVE GEOMETRY TOOLS", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                 Text("Create editable primitives directly in the shared project drawing.", color = Color(0xFF60756E), fontSize = 11.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("rect" to "Rectangle", "line" to "Line", "circle" to "Circle", "dim" to "Dimension").forEach { (key, label) ->
+                    listOf("rect" to "Rectangle", "line" to "Line", "circle" to "Circle", "dim" to "Dimension", "poly" to "Polyline").forEach { (key, label) ->
                         FilterChip(selected = drawType == key, onClick = { drawType = key }, label = { Text(label, fontSize = 10.sp) })
                     }
                 }
@@ -1983,6 +2003,12 @@ private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onO
                 }
                 if (drawType == "circle") {
                     SurveyInput("Radius (m)", drawRadius, { drawRadius = it })
+                } else if (drawType == "poly") {
+                    SurveyInput("Vertices x,y; x,y; … (m)", drawPolylinePoints, { drawPolylinePoints = it })
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = drawPolylineClosed, onCheckedChange = { drawPolylineClosed = it })
+                        Text("Close polyline (polygon boundary)", color = Color(0xFF60756E), fontSize = 11.sp)
+                    }
                 } else {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         SurveyInput(if (drawType == "rect") "Width (m)" else "End ΔX (m)", drawWidth, { drawWidth = it }, Modifier.weight(1f))
