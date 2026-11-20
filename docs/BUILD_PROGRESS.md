@@ -302,3 +302,10 @@ A green CI build verifies only the checks configured in GitHub Actions and APK p
 - Commits: [native Compose polyline controls](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/28a267c477c020bcdb77caa2754e5a1113634906), [EPC bridge polyline support](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/e3542259b86a343983dcc703fe13c71c90f09784), [regression tests](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/a756fcd66780a946e08f74cca71b2a17d40ba18a), and [CI modernization guard](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/83a1e7349e42ab3ce20822aa885b5397847ac5e3).
 - This feature is committed but must not be counted as verified until the Android Actions workflow passes all checks and uploads a verified APK.
 - Overall feature completion remains 50.1% pending a full 14-workspace reassessment; this focused CAD slice alone does not justify changing the score.
+
+
+## Native CAD roof-boundary drafting integration (2026-11-21)
+
+- Added the ROOF layer to native CAD drawing tools so users can create closed polygon roof boundaries directly in the shared CAD model.
+- Existing EPC roof extraction recognizes closed ROOF polylines and uses their vertices for roof geometry. Native 2D/3D previews and DXF export already support polyline geometry.
+- CI modernization validation now guards the roof-layer availability. This is a geometry handoff foundation; roof holes, complex concave panel packing and code-specific setbacks remain to be completed.
