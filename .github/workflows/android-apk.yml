@@ -1576,6 +1576,30 @@ jobs:
           console.log("Protection screening passed: DC/AC equipment margins, adiabatic earth conductor, fault withstand and overflow/input guards");
           JS
           node /tmp/gensolar-protection.js
+      - name: Test cable sizing margins and finite calculation guards
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvCableDesign(")
+          end = source.index("\\nfunction cable(){", start)
+          Path("/tmp/gensolar-cable.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-cable.js <<'JS'
+          const assert = require("node:assert/strict");
+          const dc = pvCableDesign({mode:"dc",material:"cu",voltage:600,current:25,length:30,area:6,temp:70,limit:2});
+          assert.ok(dc.drop>0 && dc.requiredArea>0);
+          assert.equal(dc.voltageDropPass, dc.percent<=2);
+          assert.ok(Math.abs(dc.voltageDropMargin-(2-dc.percent))<1e-12);
+          const ac = pvCableDesign({mode:"3ph",material:"al",voltage:415,current:80,length:50,area:35,temp:90,limit:3,pf:.9,reactance:.08,baseAmpacity:120,ambientFactor:.94,groupFactor:.8,installationFactor:.9});
+          assert.ok(ac.reactanceDrop>0 && ac.deratedAmpacity<120);
+          assert.ok(Math.abs(ac.ampacityMargin-(ac.deratedAmpacity-80))<1e-12);
+          assert.equal(ac.ampacityPass,ac.deratedAmpacity>=80);
+          assert.throws(()=>pvCableDesign({mode:"dc",material:"cu",voltage:1e-300,current:1e300,length:1e300,area:1e-300,temp:70,limit:.1}),/finite engineering range/);
+          assert.throws(()=>pvCableDesign({mode:"dc",material:"cu",voltage:600,current:25,length:30,area:6,temp:70,limit:2,ambientFactor:Number.MIN_VALUE,groupFactor:Number.MIN_VALUE,installationFactor:Number.MIN_VALUE}),/finite engineering range/);
+          console.log("Cable sizing passed: DC and three-phase AC voltage drop, temperature correction, AC reactance, derated ampacity margins and overflow guards");
+          JS
+          node /tmp/gensolar-cable.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
