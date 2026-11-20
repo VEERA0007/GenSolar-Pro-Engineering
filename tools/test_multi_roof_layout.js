@@ -28,8 +28,9 @@ const rectBlocked=build([zones[0]],mod,{...base,target:100,obstacleRectangles:[{
 assert.ok(rectBlocked.length<build([zones[0]],mod,{...base,target:100}).length,"rectangular obstacle must reduce placements");
 for(const m of rectBlocked)assert.ok(!(m.x<6.25-1e-8&&m.x+m.w>3.75+1e-8&&m.y<6.25-1e-8&&m.y+m.h>3.75+1e-8),"placed module must clear inflated rectangular obstacle");
 console.log("Multi-roof PV layout passed: balanced allocation, roof setback, capacity limits, circular/rectangular obstacles and clearance.");\n
-const circleParserSource=source.match(/function parseObstacleCircles\\(raw\\)\\{[^\\n]+\\}/)?.[0];
-const rectangleParserSource=source.match(/function parseObstacleRectangles\\(raw\\)\\{[^\\n]+\\}/)?.[0];
+
+const circleParserSource=source.match(/function parseObstacleCircles\(raw\)\{[^\n]+\}/)?.[0];
+const rectangleParserSource=source.match(/function parseObstacleRectangles\(raw\)\{[^\n]+\}/)?.[0];
 assert.ok(circleParserSource&&rectangleParserSource,"saved obstacle parsers must exist");
 const parseCircles=new Function(circleParserSource+";return parseObstacleCircles;")();
 const parseRectangles=new Function(rectangleParserSource+";return parseObstacleRectangles;")();
