@@ -292,3 +292,13 @@ A green CI build verifies only the checks configured in GitHub Actions and APK p
 - Fixed the test-file line matching expressions after CI identified an escaped-newline syntax error. The corrected test source is now included in the latest run.
 - Regression expansion: [multi-roof corridor test commit](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/bd4818c6e84a3c2af15f3b15c43adb35a3356c95).
 - Awaiting the current Android CI run before treating this milestone as verified.
+
+
+## Latest implementation (2026-11-21 — native CAD polyline drafting)
+
+- Extended the native Compose CAD geometry tools to create editable open polylines and closed polygon boundaries from measured x,y vertex pairs in metres.
+- Added input validation for 2–200 vertices, finite coordinates, supported CAD coordinate bounds, non-zero consecutive segments and minimum three vertices for closed polygons.
+- Extended the controlled EPC bridge with matching geometry validation and offline project persistence; added regression tests for successful closed polygon creation and invalid vertex count/segments.
+- Commits: [native Compose polyline controls](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/28a267c477c020bcdb77caa2754e5a1113634906), [EPC bridge polyline support](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/e3542259b86a343983dcc703fe13c71c90f09784), [regression tests](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/a756fcd66780a946e08f74cca71b2a17d40ba18a), and [CI modernization guard](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/83a1e7349e42ab3ce20822aa885b5397847ac5e3).
+- This feature is committed but must not be counted as verified until the Android Actions workflow passes all checks and uploads a verified APK.
+- Overall feature completion remains 50.1% pending a full 14-workspace reassessment; this focused CAD slice alone does not justify changing the score.
