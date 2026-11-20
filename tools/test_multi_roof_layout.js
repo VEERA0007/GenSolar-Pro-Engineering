@@ -70,3 +70,11 @@ const extraReserved=buildAccessCorridors([zones[0]],"none",0,[{x:4,y:4,w:1,h:4}]
 const extraFit=build([zones[0]],mod,{...base,target:100,reservedRectangles:extraReserved});
 for(const m of extraFit)assert.ok(!(m.x<5-1e-8&&m.x+m.w>4+1e-8&&m.y<8-1e-8&&m.y+m.h>4+1e-8),"module must not overlap a manually reserved corridor");
 assert.throws(()=>buildAccessCorridors([zones[0]],"diagonal",1,[]),/Invalid access corridor edge/);
+
+const multiRoofEdge=buildAccessCorridors(zones,"left",1.5,[]);
+assert.equal(multiRoofEdge.length,2,"edge corridor must be generated independently for every roof");
+const multiRoofFit=build(zones,mod,{...base,reservedRectangles:multiRoofEdge});
+assert.ok(multiRoofFit.every(m=>m.zoneId==="ROOF-A"?m.x>=1.5-1e-8:m.x>=21.5-1e-8),"every roof must respect its own edge corridor");
+const siteCorridor=buildAccessCorridors(zones,"none",0,[{x:22,y:2,w:1,h:4}]);
+const siteCorridorFit=build(zones,mod,{...base,reservedRectangles:siteCorridor});
+assert.ok(siteCorridorFit.filter(m=>m.zoneId==="ROOF-B").every(m=>!(m.x<23-1e-8&&m.x+m.w>22+1e-8&&m.y<6-1e-8&&m.y+m.h>2+1e-8)),"site-coordinate custom corridor must only exclude intersecting modules on its roof");
