@@ -27,4 +27,20 @@ for(const m of circleBlocked){const qx=Math.max(m.x,Math.min(2.5,m.x+m.w)),qy=Ma
 const rectBlocked=build([zones[0]],mod,{...base,target:100,obstacleRectangles:[{x:4,y:4,w:2,h:2}],obstacleClearance:0.25});
 assert.ok(rectBlocked.length<build([zones[0]],mod,{...base,target:100}).length,"rectangular obstacle must reduce placements");
 for(const m of rectBlocked)assert.ok(!(m.x<6.25-1e-8&&m.x+m.w>3.75+1e-8&&m.y<6.25-1e-8&&m.y+m.h>3.75+1e-8),"placed module must clear inflated rectangular obstacle");
-console.log("Multi-roof PV layout passed: balanced allocation, roof setback, capacity limits, circular/rectangular obstacles and clearance.");
+console.log("Multi-roof PV layout passed: balanced allocation, roof setback, capacity limits, circular/rectangular obstacles and clearance.");\n
+const circleParserSource=source.match(/function parseObstacleCircles\\(raw\\)\\{[^\\n]+\\}/)?.[0];
+const rectangleParserSource=source.match(/function parseObstacleRectangles\\(raw\\)\\{[^\\n]+\\}/)?.[0];
+assert.ok(circleParserSource&&rectangleParserSource,"saved obstacle parsers must exist");
+const parseCircles=new Function(circleParserSource+";return parseObstacleCircles;")();
+const parseRectangles=new Function(rectangleParserSource+";return parseObstacleRectangles;")();
+assert.deepEqual(parseCircles(""),[]);
+assert.deepEqual(parseCircles("1,2,0.5; 3 4 1"),[{x:1,y:2,r:0.5},{x:3,y:4,r:1}]);
+assert.throws(()=>parseCircles("1,2,0"),/positive radius/);
+assert.throws(()=>parseCircles("1,2,abc"),/positive radius/);
+assert.deepEqual(parseRectangles(""),[]);
+assert.deepEqual(parseRectangles("1,2,3,4; 5 6 7 8"),[{x:1,y:2,w:3,h:4},{x:5,y:6,w:7,h:8}]);
+assert.throws(()=>parseRectangles("1,2,0,4"),/positive dimensions/);
+assert.throws(()=>parseRectangles("1,2,3"),/positive dimensions/);
+const zeroClearance=build([zones[0]],mod,{...base,target:100,obstacleRectangles:[{x:4,y:4,w:2,h:2}],obstacleClearance:0});
+const negativeClearance=build([zones[0]],mod,{...base,target:100,obstacleRectangles:[{x:4,y:4,w:2,h:2}],obstacleClearance:-2});
+assert.deepEqual(negativeClearance,zeroClearance,"negative clearance must normalize to zero");
