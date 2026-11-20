@@ -270,3 +270,10 @@ A green CI build verifies only the checks configured in GitHub Actions and APK p
 - Added regression coverage for all four edge directions, custom corridor rectangles, invalid dimensions and invalid edge values; verifies modules do not intrude into reserved corridors.
 - Source commits: [optimizer integration](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/5c65c808051a9571a718ccff109c6261ba8df2ad) and [corridor regression tests](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/b8351b89be2da5282513d04c86c41e2249013cce).
 - This is geometric access reservation only. It does not certify code-required fire setbacks, walkway widths or site-specific authority requirements. CI and APK verification are pending.
+
+## Native PV design follow-up (2026-11-20 — custom access corridors)
+
+- The native Compose PV Design screen now exposes manually drawn access-corridor rectangles in addition to edge and width controls, persists the draft locally, and passes the values into the detailed EPC layout workspace.
+- Added a modernization-validator guard so the native input, bridge handoff and corridor regression suite cannot be accidentally disconnected.
+- Source commits: [native PV controls](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/7a94b7f6a40e61e01fe5a44ec04f01d5764f4037) and [integration guard](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/4284eef7ff6e438e3df28bc2e71dc62e69b8a17f).
+- The current milestone is still under CI verification. The 55% feature-completion target is not yet certified; the displayed 50.1% baseline remains provisional until a complete 14-workspace audit.
