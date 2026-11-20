@@ -277,3 +277,10 @@ A green CI build verifies only the checks configured in GitHub Actions and APK p
 - Added a modernization-validator guard so the native input, bridge handoff and corridor regression suite cannot be accidentally disconnected.
 - Source commits: [native PV controls](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/7a94b7f6a40e61e01fe5a44ec04f01d5764f4037) and [integration guard](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/4284eef7ff6e438e3df28bc2e71dc62e69b8a17f).
 - The current milestone is still under CI verification. The 55% feature-completion target is not yet certified; the displayed 50.1% baseline remains provisional until a complete 14-workspace audit.
+
+## Regression hardening (2026-11-20 — multi-roof corridor geometry)
+
+- Expanded PV layout regression coverage to verify edge corridors are generated independently for both roof zones and custom site-coordinate corridor rectangles exclude only intersecting modules.
+- Fixed the test-file line matching expressions after CI identified an escaped-newline syntax error. The corrected test source is now included in the latest run.
+- Regression expansion: [multi-roof corridor test commit](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/bd4818c6e84a3c2af15f3b15c43adb35a3356c95).
+- Awaiting the current Android CI run before treating this milestone as verified.
