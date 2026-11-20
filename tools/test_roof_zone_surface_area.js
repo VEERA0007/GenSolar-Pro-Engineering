@@ -25,7 +25,7 @@ const highPitch=calculate({vertices:rectangle,pitch:80});
 assert.ok(highPitch.surfaceArea>pitched.surfaceArea);
 console.log("Roof zone plan and pitch-corrected surface area tests passed.");
 
-const parser=extract("function polygonArea(","function zoneGeometry(")+extract("function cross(","function zoneGeometry(")+extract("function onSegment(","function zoneGeometry(")+extract("function segmentsIntersect(","function parseZoneVertices(")+extract("function parseZoneVertices(","function zoneGeometry(");
+const parser=extract("function polygonArea(","function zoneGeometry(");
 const parseVertices=new Function(parser+";return parseZoneVertices;")();
 assert.equal(parseVertices("0,0; 10,0; 10,10; 0,10").length,4);
 assert.throws(()=>parseVertices("0,0; 10001,0; 10001,10; 0,10"),/±10000 m/);
