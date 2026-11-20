@@ -212,4 +212,14 @@ require('NativeDestination("dashboard", "Home"' in kotlin and
         "Primary app navigation must retain Home, Survey, PV Design and CAD / 3D")
 require('selected = destination' in kotlin and 'onNavigate(destination)' in kotlin,
         "Dashboard and More-menu navigation must update the native route and shared EPC workspace")
+
+# Multi-roof PV layout must reserve configured edge and manually drawn access corridors.
+require("buildAccessCorridors" in html and "reservedRectangles" in html and "parseCorridorRectangles(state.project.corridorRectangles)" in html,
+        "Multi-roof PV optimizer must reserve validated custom and edge access corridors")
+require("var corridorRectangles" in kotlin and '"corridorRectangles" to corridorRectangles' in kotlin and
+        'Additional corridors: x,y,width,height (m)' in kotlin,
+        "Native PV design must expose and pass custom access corridors to the EPC optimizer")
+require("access corridor builder and parser must exist" in (ROOT / "tools/test_multi_roof_layout.js").read_text(encoding="utf-8"),
+        "Access corridor regression coverage missing")
+
 print("Unified app integration checks passed: all 14 required EPC workspaces are discoverable and routed through the single native application shell.")
