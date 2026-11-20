@@ -859,6 +859,7 @@ private fun NativePvDesignScreen(
     var rectangles by remember { mutableStateOf(prefs.getString("obstacleRectangles", "") ?: "") }
     var corridorEdge by remember { mutableStateOf(prefs.getString("accessCorridorEdge", "left") ?: "left") }
     var corridorWidth by remember { mutableStateOf(prefs.getString("accessCorridorWidth", "0.6") ?: "0.6") }
+    var corridorRectangles by remember { mutableStateOf(prefs.getString("corridorRectangles", "") ?: "") }
     var result by remember { mutableStateOf("No PV layout generated in this session.") }
     var status by remember { mutableStateOf("Inputs are saved locally when you generate a layout.") }
     var cadSnapshot by remember { mutableStateOf(NativeCadSnapshot()) }
@@ -943,6 +944,7 @@ private fun NativePvDesignScreen(
                 SurveyInput("Obstacle clearance (m)", obstacleClearance, { obstacleClearance = it })
                 SurveyInput("Edge corridor (left / right / top / bottom / none)", corridorEdge, { corridorEdge = it })
                 SurveyInput("Corridor width (m)", corridorWidth, { corridorWidth = it })
+                SurveyInput("Additional corridors: x,y,width,height (m)", corridorRectangles, { corridorRectangles = it }, minLines = 2)
                 SurveyInput("Circular obstacles: x,y,radius (m)", circles, { circles = it }, minLines = 2)
                 SurveyInput("Rectangular obstacles: x,y,width,height (m)", rectangles, { rectangles = it }, minLines = 2)
             }
@@ -984,7 +986,8 @@ private fun NativePvDesignScreen(
                 "gap" to moduleGap, "perRow" to modulesPerRow, "sunAlt" to sunAltitude,
                 "areaFactor" to areaFactor, "obstacleClearance" to obstacleClearance,
                 "obstacleCircles" to circles, "obstacleRectangles" to rectangles,
-                "accessCorridorEdge" to corridorEdge.lowercase(), "accessCorridorWidth" to corridorWidth
+                "accessCorridorEdge" to corridorEdge.lowercase(), "accessCorridorWidth" to corridorWidth,
+                "corridorRectangles" to corridorRectangles
             )
             prefs.edit().apply { values.forEach { (key, value) -> putString(key, value) } }.apply()
             val payload = JSONObject(values).toString()
