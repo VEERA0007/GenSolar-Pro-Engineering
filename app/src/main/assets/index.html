@@ -361,7 +361,10 @@ function pvProtectionCoordination({isc,maxSeriesFuse,parallel,dcVoltage,dcIsolat
 const q={isc,maxSeriesFuse,parallel,dcVoltage,dcIsolatorCurrent,dcIsolatorVoltage,acKw,acVoltage,pf,eff,acBreakerCurrent,prospectiveFaultKa,breakerIcuKa,earthFaultCurrent,earthFaultTime,k,earthArea};
 if(!Object.values(q).every(x=>Number.isFinite(Number(x)))||!(isc>0&&maxSeriesFuse>0&&Number.isInteger(parallel)&&parallel>0&&dcVoltage>0&&dcIsolatorCurrent>0&&dcIsolatorVoltage>0&&acKw>0&&acVoltage>0&&pf>0&&pf<=1&&eff>0&&eff<=1&&acBreakerCurrent>0&&prospectiveFaultKa>=0&&breakerIcuKa>0&&earthFaultCurrent>0&&earthFaultTime>0&&k>0&&earthArea>0))throw new Error('Enter valid positive equipment ratings, fault values and earthing inputs.');
 const fuseMinimum=1.25*isc,dcCurrentMinimum=1.25*isc*parallel,acCurrent=acKw*1000/(Math.sqrt(3)*acVoltage*pf*eff),acBreakerMinimum=1.25*acCurrent,earthRequired=earthFaultCurrent*Math.sqrt(earthFaultTime)/k;
-return{fuseMinimum,fuseWithinModuleLimit:fuseMinimum<=maxSeriesFuse,dcCurrentMinimum,dcVoltage,dcIsolatorCurrentPass:dcIsolatorCurrent>=dcCurrentMinimum,dcIsolatorVoltagePass:dcIsolatorVoltage>=dcVoltage,acCurrent,acBreakerMinimum,acBreakerCurrentPass:acBreakerCurrent>=acBreakerMinimum,prospectiveFaultKa,breakerIcuPass:breakerIcuKa>=prospectiveFaultKa,earthRequired,earthPass:earthArea>=earthRequired};
+const derived={fuseMinimum,dcCurrentMinimum,acCurrent,acBreakerMinimum,earthRequired};
+if(!Object.values(derived).every(Number.isFinite)||Object.values(derived).some(x=>x<=0))throw new Error('Calculated protection requirement is outside the supported finite engineering range.');
+const margins={fuse:maxSeriesFuse-fuseMinimum,dcCurrent:dcIsolatorCurrent-dcCurrentMinimum,dcVoltage:dcIsolatorVoltage-dcVoltage,acCurrent:acBreakerCurrent-acBreakerMinimum,breakingCapacity:breakerIcuKa-prospectiveFaultKa,earthArea:earthArea-earthRequired};
+return{fuseMinimum,fuseWithinModuleLimit:margins.fuse>=0,dcCurrentMinimum,dcVoltage,dcIsolatorCurrentPass:margins.dcCurrent>=0,dcIsolatorVoltagePass:margins.dcVoltage>=0,acCurrent,acBreakerMinimum,acBreakerCurrentPass:margins.acCurrent>=0,prospectiveFaultKa,breakerIcuPass:margins.breakingCapacity>=0,earthRequired,earthPass:margins.earthArea>=0,margins};
 }
 function protection(){
 save();
