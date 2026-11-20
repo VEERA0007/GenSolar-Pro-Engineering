@@ -1,8 +1,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const source = fs.readFileSync("app/src/main/assets/index.html", "utf8");
-const fn = source.match(/function buildMultiRoofLayout\(zones,mod,options\)\{[^
-]+/)?.[0];
+const fn = source.match(/function buildMultiRoofLayout\(zones,mod,options\)\{[^\r\n]+/)?.[0];
 assert.ok(fn, "multi-roof layout function must exist");
 const rectCorners = (x,y,w,h) => [{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}];
 const inside = (p,poly) => {let hit=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if(((a.y>p.y)!==(b.y>p.y))&&(p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x))hit=!hit;}return hit;};
@@ -31,10 +30,8 @@ for(const m of rectBlocked)assert.ok(!(m.x<6.25-1e-8&&m.x+m.w>3.75+1e-8&&m.y<6.2
 console.log("Multi-roof PV layout passed: balanced allocation, roof setback, capacity limits, circular/rectangular obstacles and clearance.");
 
 
-const circleParserSource=source.match(/function parseObstacleCircles\(raw\)\{[^
-]+\}/)?.[0];
-const rectangleParserSource=source.match(/function parseObstacleRectangles\(raw\)\{[^
-]+\}/)?.[0];
+const circleParserSource=source.match(/function parseObstacleCircles\(raw\)\{[^\r\n]+\}/)?.[0];
+const rectangleParserSource=source.match(/function parseObstacleRectangles\(raw\)\{[^\r\n]+\}/)?.[0];
 assert.ok(circleParserSource&&rectangleParserSource,"saved obstacle parsers must exist");
 const parseCircles=new Function(circleParserSource+";return parseObstacleCircles;")();
 const parseRectangles=new Function(rectangleParserSource+";return parseObstacleRectangles;")();
@@ -50,10 +47,8 @@ const zeroClearance=build([zones[0]],mod,{...base,target:100,obstacleRectangles:
 const negativeClearance=build([zones[0]],mod,{...base,target:100,obstacleRectangles:[{x:4,y:4,w:2,h:2}],obstacleClearance:-2});
 assert.deepEqual(negativeClearance,zeroClearance,"negative clearance must normalize to zero");
 
-const accessBuilderSource=source.match(/function buildAccessCorridors\(zones,edge,width,additional\)\{[^
-]+\}/)?.[0];
-const corridorParserSource=source.match(/function parseCorridorRectangles\(raw\)\{[^
-]+\}/)?.[0];
+const accessBuilderSource=source.match(/function buildAccessCorridors\(zones,edge,width,additional\)\{[^\r\n]+\}/)?.[0];
+const corridorParserSource=source.match(/function parseCorridorRectangles\(raw\)\{[^\r\n]+\}/)?.[0];
 assert.ok(accessBuilderSource&&corridorParserSource,"access corridor builder and parser must exist");
 const buildAccessCorridors=new Function(accessBuilderSource+";return buildAccessCorridors;")();
 const parseCorridors=new Function(corridorParserSource+";return parseCorridorRectangles;")();
