@@ -40,10 +40,12 @@ class MeasurementHistoryTest {
 
     @Test
     fun filtersByCategoryAndCaseInsensitiveSearchWithoutReordering() {
+        val area = record(id = "area", category = "Area", title = "Circle pad", result = "28.27 m²")
         val room = record(id = "room", category = "Room", title = "Main hall", result = "20 m²")
         val roof = record(id = "roof", category = "Solar roof", title = "East roof", result = "12 panels")
         val gps = record(id = "gps", category = "GPS", title = "Site boundary", result = "125 m")
-        val records = listOf(room, roof, gps)
+        val records = listOf(area, room, roof, gps)
+        assertEquals(listOf(area), MeasurementHistoryCodec.filter(records, "Area", "CIRCLE"))
         assertEquals(listOf(gps), MeasurementHistoryCodec.filter(records, "All", "SITE"))
         assertEquals(listOf(roof), MeasurementHistoryCodec.filter(records, "Solar roof", "EAST"))
         assertEquals(emptyList<MeasurementRecord>(), MeasurementHistoryCodec.filter(records, "Room", "inverter"))
