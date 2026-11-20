@@ -78,3 +78,8 @@ assert.ok(multiRoofFit.every(m=>m.zoneId==="ROOF-A"?m.x>=1.5-1e-8:m.x>=21.5-1e-8
 const siteCorridor=buildAccessCorridors(zones,"none",0,[{x:22,y:2,w:1,h:4}]);
 const siteCorridorFit=build(zones,mod,{...base,reservedRectangles:siteCorridor});
 assert.ok(siteCorridorFit.filter(m=>m.zoneId==="ROOF-B").every(m=>!(m.x<23-1e-8&&m.x+m.w>22+1e-8&&m.y<6-1e-8&&m.y+m.h>2+1e-8)),"site-coordinate custom corridor must only exclude intersecting modules on its roof");
+
+const concaveRoof={id:"ROOF-CONCAVE",name:"Notched roof",vertices:[{x:0,y:0},{x:4,y:0},{x:4,y:6},{x:6,y:6},{x:6,y:0},{x:10,y:0},{x:10,y:10},{x:0,y:10}]};
+const wideModule={length:1000,width:8000};
+const concaveFit=build([concaveRoof],wideModule,{...base,target:10,orientation:"landscape",setback:0.5});
+assert.equal(concaveFit.length,0,"module rectangle must be rejected when all four corners are inside but its edge crosses a concave roof notch");
