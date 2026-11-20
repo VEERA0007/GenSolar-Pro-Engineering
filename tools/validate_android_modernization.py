@@ -153,6 +153,13 @@ require("getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)" in measurement
 require("validationError(record)" in measurement_data and "return null" in measurement_data, "Corrupt or invalid measurement history must not be overwritten by an append")
 require("val first = value.trimStart().firstOrNull()" in measurement_data and "first == '=' " in measurement_data or "first == '='" in measurement_data, "CSV export must neutralize spreadsheet formula-like cells")
 require(measurement_test.exists(), "Measurement history Kotlin regression tests missing")
+
+measurement_math = ROOT / "app/src/main/java/com/gensolar/engineering/MeasurementMath.kt"
+measurement_math_test = ROOT / "app/src/test/java/com/gensolar/engineering/MeasurementMathTest.kt"
+require(measurement_math.exists() and "fun rectangularPanelLayout(" in measurement_math.read_text(encoding="utf-8"), "Rectangular rooftop module-fit calculation missing")
+require(measurement_math_test.exists() and "rectangularPanelLayoutUsesBestOrientationAndAccountsForGaps" in measurement_math_test.read_text(encoding="utf-8") and "rectangularPanelLayoutAppliesUsableAreaAllowance" in measurement_math_test.read_text(encoding="utf-8"), "Rectangular rooftop layout regression tests missing")
+require("Module gap (m)" in measurement_ui and "LAYOUT ORIENTATION" in measurement_ui and "it.columns" in measurement_ui and "it.rows" in measurement_ui, "Rooftop estimator must display module gap, physical rows/columns and chosen orientation")
+
 require("gradle testDebugUnitTest --stacktrace" in (ROOT / ".github/workflows/android-apk.yml").read_text(encoding="utf-8"), "Measurement history tests must run in GitHub Actions")
 
 require("onExportFile = onExportFile" in kotlin and "MeasurementScreen(" in kotlin, "Measurement history export callback must be wired from the Android host to the Compose screen")
