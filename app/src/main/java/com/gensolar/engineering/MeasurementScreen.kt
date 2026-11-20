@@ -221,22 +221,22 @@ fun MeasurementScreen(
 
 @Composable private fun RoofTool(onSave:(String,String,String,String)->Unit) {
     var l by remember { mutableStateOf("20") }; var w by remember { mutableStateOf("10") }; var slope by remember { mutableStateOf("0") }
-    var usable by remember { mutableStateOf("75") }; var pl by remember { mutableStateOf("2.28") }; var pw by remember { mutableStateOf("1.13") }; var watts by remember { mutableStateOf("550") }
-    val a=l.toDoubleOrNull(); val b=w.toDoubleOrNull(); val s=slope.toDoubleOrNull(); val u=usable.toDoubleOrNull(); val x=pl.toDoubleOrNull(); val y=pw.toDoubleOrNull(); val p=watts.toIntOrNull()
-    val ok=a!=null&&b!=null&&s!=null&&u!=null&&x!=null&&y!=null&&p!=null&&a.isFinite()&&b.isFinite()&&s.isFinite()&&u.isFinite()&&x.isFinite()&&y.isFinite()&&a>0&&b>0&&s in 0.0..89.0&&u in 0.0..100.0&&x>0&&y>0&&p>0
+    var usable by remember { mutableStateOf("75") }; var pl by remember { mutableStateOf("2.28") }; var pw by remember { mutableStateOf("1.13") }; var gap by remember { mutableStateOf("0.02") }; var watts by remember { mutableStateOf("550") }
+    val a=l.toDoubleOrNull(); val b=w.toDoubleOrNull(); val s=slope.toDoubleOrNull(); val u=usable.toDoubleOrNull(); val x=pl.toDoubleOrNull(); val y=pw.toDoubleOrNull(); val g=gap.toDoubleOrNull(); val p=watts.toIntOrNull()
+    val ok=a!=null&&b!=null&&s!=null&&u!=null&&x!=null&&y!=null&&g!=null&&p!=null&&a.isFinite()&&b.isFinite()&&s.isFinite()&&u.isFinite()&&x.isFinite()&&y.isFinite()&&g.isFinite()&&a>0&&b>0&&s in 0.0..89.0&&u in 0.0..100.0&&x>0&&y>0&&g in 0.0..1.0&&p>0
     val area=if(ok) MeasurementMath.roofArea(a!!*b!!,s!!) else null
     val usableArea=(area ?: 0.0)*(u ?: 0.0)/100.0
-    val count=if(ok) MeasurementMath.panelCount(usableArea,x!!,y!!) else 0
+    val panelLayout=if(ok) runCatching { MeasurementMath.rectangularPanelLayout(a!!,b!!,x!!,y!!,u!!,g!!) }.getOrNull() else null\n    val count=panelLayout?.moduleCount ?: 0
     val capacity=if(ok) count*p!!/1000.0 else null
     val summary=if(ok) String.format(Locale.getDefault(),"%.2f m² roof; %d modules; %.2f kWp",area!!,count,capacity!!) else "Check roof and module inputs"
     ToolCard("Solar rooftop estimator","Rectangular roof estimate. Usable percentage is a planning allowance for setbacks, access and obstructions.") {
         Field("Roof length (m)",l,{l=it}); Field("Roof width (m)",w,{w=it}); Field("Slope (degrees)",slope,{slope=it})
-        Field("Usable area (%)",usable,{usable=it}); Field("Panel length (m)",pl,{pl=it}); Field("Panel width (m)",pw,{pw=it}); Field("Panel rating (W)",watts,{watts=it})
+        Field("Usable area (%)",usable,{usable=it}); Field("Panel length (m)",pl,{pl=it}); Field("Panel width (m)",pw,{pw=it}); Field("Module gap (m)",gap,{gap=it}); Field("Panel rating (W)",watts,{watts=it})
         Result("ROOF SURFACE",area?.let { String.format(Locale.getDefault(),"%.2f m² · %.1f sq.ft",it,it*10.7639) } ?: "Check inputs")
         Result("USABLE AREA",if(ok) String.format(Locale.getDefault(),"%.2f m²",usableArea) else "—")
-        Result("ESTIMATED MODULES",if(ok) "$count panels" else "—")
+        Result("ESTIMATED MODULES",panelLayout?.let { "$count panels · ${it.columns} columns × ${it.rows} rows" } ?: "—")\n        Result("LAYOUT ORIENTATION",panelLayout?.let { if (it.rotated) "Rotated module layout" else "Standard module layout" } ?: "—")
         Result("ESTIMATED DC CAPACITY",capacity?.let { String.format(Locale.getDefault(),"%.2f kWp",it) } ?: "—")
-        if(ok) SaveMeasurementButton("Solar roof","Rectangular rooftop PV estimate",summary,"Roof: "+l+" × "+w+" m; slope: "+slope+"°; usable allowance: "+usable+"%; module: "+pl+" × "+pw+" m at "+watts+" W",onSave)
+        if(ok) SaveMeasurementButton("Solar roof","Rectangular rooftop PV estimate",summary,"Roof: "+l+" × "+w+" m; slope: "+slope+"°; usable allowance: "+usable+"%; module: "+pl+" × "+pw+" m; module gap: "+gap+" m; layout: "+panelLayout?.columns+" columns × "+panelLayout?.rows+" rows; rotated: "+panelLayout?.rotated+"; rating: "+watts+" W",onSave)
     }
 }
 
