@@ -1657,7 +1657,7 @@ private fun NativeShadeScreen(browser: WebView, modifier: Modifier = Modifier, o
         Text("Preliminary geometric screening only. This multi-obstruction model is directional geometry, not bankable PVsyst-grade shade-loss simulation; diffuse shading, 3D mesh and module-level electrical mismatch remain outside this calculation.", color = Color(0xFF667A75), fontSize = 10.sp, lineHeight = 15.sp)
     }
 }
-private val allowedCadLayers = listOf("GENERAL", "WALLS", "OBSTACLES", "DIMENSIONS")
+private val allowedCadLayers = listOf("ROOF", "GENERAL", "WALLS", "OBSTACLES", "DIMENSIONS")
 
 @Composable
 private fun NativeCadScreen(browser: WebView, modifier: Modifier = Modifier, onOpenAdvanced: () -> Unit) {
