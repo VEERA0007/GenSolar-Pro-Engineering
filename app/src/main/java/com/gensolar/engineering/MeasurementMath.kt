@@ -43,11 +43,12 @@ object MeasurementMath {
         val scale = sqrt(usablePercent / 100.0)
         val effectiveLength = roofLength * scale
         val effectiveWidth = roofWidth * scale
-        fun fit(length: Double, width: Double): Triple<Int, Int, Int> {
-            if (length <= 0.0 || width <= 0.0) return Triple(0, 0, 0)
-            val columns = floor((length + gapMeters) / (width + gapMeters)).toInt().coerceAtLeast(0)
-            val rows = floor((effectiveWidth + gapMeters) / (length + gapMeters)).toInt().coerceAtLeast(0)
-            return Triple(columns * rows, columns, rows)
+        fun fit(panelAlongLength: Double, panelAlongWidth: Double): Triple<Int, Int, Int> {
+            if (effectiveLength <= 0.0 || effectiveWidth <= 0.0) return Triple(0, 0, 0)
+            val columns = floor((effectiveLength + gapMeters) / (panelAlongLength + gapMeters)).toInt().coerceAtLeast(0)
+            val rows = floor((effectiveWidth + gapMeters) / (panelAlongWidth + gapMeters)).toInt().coerceAtLeast(0)
+            val count = (columns.toLong() * rows.toLong()).coerceAtMost(1_000_000L).toInt()
+            return Triple(count, columns, rows)
         }
         val normal = fit(panelLength, panelWidth)
         val rotated = fit(panelWidth, panelLength)
