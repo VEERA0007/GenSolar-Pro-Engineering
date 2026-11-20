@@ -1547,6 +1547,35 @@ jobs:
         run: node tools/test_native_handover_bridge.js
       - name: Test native CAD editor bridge
         run: node tools/test_native_cad_editor_bridge.js
+      - name: Test protection coordination rating margins and finite calculations
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("app/src/main/assets/index.html").read_text(encoding="utf-8")
+          start = source.index("function pvProtectionCoordination(")
+          end = source.index("\\nfunction protection(){", start)
+          Path("/tmp/gensolar-protection.js").write_text(source[start:end], encoding="utf-8")
+          PY
+          cat >> /tmp/gensolar-protection.js <<'JS'
+          const assert = require("node:assert/strict");
+          const base = {isc:14,maxSeriesFuse:25,parallel:2,dcVoltage:1100,dcIsolatorCurrent:63,
+            dcIsolatorVoltage:1100,acKw:80,acVoltage:415,pf:.95,eff:.98,acBreakerCurrent:160,
+            prospectiveFaultKa:10,breakerIcuKa:25,earthFaultCurrent:1000,earthFaultTime:.2,k:143,earthArea:16};
+          const r=pvProtectionCoordination(base);
+          assert.ok(r.fuseWithinModuleLimit && r.dcIsolatorCurrentPass && r.dcIsolatorVoltagePass);
+          assert.ok(r.acBreakerCurrentPass && r.breakerIcuPass && r.earthPass);
+          assert.equal(r.margins.fuse,7.5);
+          assert.equal(r.margins.dcVoltage,0);
+          assert.ok(r.margins.earthArea>0);
+          const failed=pvProtectionCoordination({...base,earthArea:1,breakerIcuKa:5});
+          assert.equal(failed.earthPass,false);
+          assert.equal(failed.breakerIcuPass,false);
+          assert.ok(failed.margins.earthArea<0 && failed.margins.breakingCapacity<0);
+          assert.throws(()=>pvProtectionCoordination({...base,earthFaultCurrent:Number.MAX_VALUE,earthFaultTime:Number.MAX_VALUE,k:.01}),/finite engineering range/);
+          assert.throws(()=>pvProtectionCoordination({...base,parallel:1.5}),/valid positive equipment ratings/);
+          console.log("Protection screening passed: DC/AC equipment margins, adiabatic earth conductor, fault withstand and overflow/input guards");
+          JS
+          node /tmp/gensolar-protection.js
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
       - name: Verify APK
