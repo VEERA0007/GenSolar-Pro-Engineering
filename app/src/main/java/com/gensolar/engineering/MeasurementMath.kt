@@ -19,5 +19,17 @@ object MeasurementMath {
         require(usableArea>=0.0 && panelLength>0.0 && panelWidth>0.0)
         return floor(usableArea/(panelLength*panelWidth/0.78)).toInt().coerceAtLeast(0)
     }
+    fun rectangleArea(length: Double, width: Double): Double {
+        require(length.isFinite() && width.isFinite() && length > 0.0 && width > 0.0)
+        return length * width
+    }
+    fun circleArea(radius: Double): Double {
+        require(radius.isFinite() && radius > 0.0)
+        return Math.PI * radius * radius
+    }
+    fun triangleArea(base: Double, height: Double): Double {
+        require(base.isFinite() && height.isFinite() && base > 0.0 && height > 0.0)
+        return base * height / 2.0
+    }
     fun formatMeters(m: Double) = if (m>=1000) String.format("%.3f km",m/1000) else String.format("%.2f m · %.1f ft",m,m*3.280839895)
 }
