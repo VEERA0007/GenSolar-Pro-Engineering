@@ -1,3 +1,10 @@
+## Latest implementation (2026-11-20 — obstacle-aware multi-roof PV optimizer)
+
+- Connected the automatic multi-roof optimizer to the active project's surveyed circular and rectangular roof obstacles. It now rejects module footprints that intersect either obstacle type and applies the configured clearance distance before allocation across roof zones.
+- Replaced the test's previous obstacle stub (which always returned false) with real geometry regression cases for circular and rectangular obstacles, clearance envelopes, roof setbacks, balanced zone allocation and capacity shortfalls.
+- The native rooftop area calculator remains a preliminary rectangular estimator; obstacle-aware placement is performed by the detailed EPC/CAD multi-roof optimizer.
+- This feature is committed but remains pending GitHub Actions verification and APK artifact inspection.
+
 ## Latest implementation (2026-11-20 — rooftop module fit estimator)
 
 - Replaced the area-density panel estimate in the native rooftop calculator with a rectangular fit calculation. It checks both module orientations, applies a uniform usable-area allowance to the roof dimensions, and includes a configurable inter-module gap.
