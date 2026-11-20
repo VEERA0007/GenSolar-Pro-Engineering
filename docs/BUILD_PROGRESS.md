@@ -255,3 +255,10 @@ A green CI build verifies only the checks configured in GitHub Actions and APK p
 - Shade calculation inputs and result/profile snapshots are saved through the shared project bridge and included in project summaries. SharedPreferences retains native input drafts.
 - Added regression coverage for multiple obstruction aggregation, blocking intervals, day-profile sample integrity and invalid obstruction counts. CI runs the shade-engine tests explicitly.
 - CI verification of this commit is pending.
+
+## Latest implementation (2026-11-20 — obstacle-input regression hardening)
+
+- Expanded the multi-roof PV layout regression suite to exercise the same saved obstacle parsers used by the EPC interface.
+- Added checks for empty obstacle lists, valid multi-row circle/rectangle formats, zero/negative dimensions, malformed numeric values and negative-clearance normalization.
+- This protects the input-validation boundary as well as the geometric placement checks. The test commit is [here](https://github.com/VEERA0007/GenSolar-Pro-Engineering/commit/34612be75365094c322287fd07e92d9309933872).
+- CI verification remains pending; do not treat this source change as a verified APK.
