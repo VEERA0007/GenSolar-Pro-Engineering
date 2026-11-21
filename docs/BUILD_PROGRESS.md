@@ -1,3 +1,13 @@
+## Latest implementation (2026-11-21 — native manual PV module placement)
+
+- Added native Compose controls to choose a saved roof zone, enter project X/Y coordinates, place a module using the configured portrait/landscape dimensions, tap to select a manually placed module and remove that module.
+- The controlled EPC/CAD bridge validates finite coordinates and supported module dimensions, the selected roof polygon and edge setback, circular/rectangular obstacle clearances, edge/custom access corridors and overlap against existing module footprints. Changes are stored in the offline CAD layout with undo-aware save/rollback and appear in the native 2D/3D project preview and existing CAD export model.
+- Added bridge regression cases for valid placement, stable IDs, selection, deletion, overlaps, polygon boundary, edge setback, circular/rectangular obstacles, edge/custom corridors, invalid coordinates/dimensions, wrong zone IDs and persistence rollback. Extended the Android modernization validator to require the native controls, bridge transaction and CI regression test.
+- This slice is a coordinate-based manual placement workflow; touch-drag placement, polygon-aware rail/support design, shade/electrical revalidation and physical-device usability testing remain outstanding. Manual placement does not certify structural, fire-access or electrical compliance.
+- Source changes are committed separately. Do not count this feature as CI-verified until the complete Android Actions workflow, APK signature/package verification and artifact upload pass.
+- Latest observed runner issue: Builds #638 (attempts 1–3) and #639 failed before any job steps ran (runner ID zero, empty step lists, no downloadable logs or artifacts). This is a GitHub hosted-runner allocation/startup failure, not a reported Kotlin/JavaScript test failure. Recheck after the next source push.
+
+
 ## Latest implementation (2026-11-20 — native CAD geometry creation)
 
 - Added native Compose drawing tools for rectangles, lines, circles and dimension annotations. The user selects an editable layer and enters measured origin/extent values without opening the advanced WebView editor.
