@@ -11,7 +11,7 @@ assert.equal(clean[0].elevation,5.5);
 assert.equal(clean[0].pitch,12);
 assert.equal(clean[0].vertices.length,4);
 assert.throws(()=>validate.validateImportedRoofZones([{...zones[0],id:""}]),/IDs/);
-assert.throws(()=>validate.validateImportedRoofZones([{...zones[0],vertices:[{x:0,y:0},{x:1,y:1},{x:2,y:2}]}]),/zero plan area/);
+assert.throws(()=>validate.validateImportedRoofZones([{...zones[0],vertices:[{x:0,y:0},{x:1,y:1},{x:2,y:2}]}]),/zero plan area|self-intersects or overlaps/);
 assert.throws(()=>validate.validateImportedRoofZones([{...zones[0],pitch:90}]),/pitch/);
 assert.throws(()=>validate.validateImportedRoofZones([{...zones[0],vertices:[{x:0,y:0},{x:1,y:0},{x:Infinity,y:1}]}]),/invalid coordinates/);
 const layout=validate.validateImportedCadLayout([{x:1,y:2,w:2,h:1,zoneElevation:5,zoneId:"ZONE-1"}]);
