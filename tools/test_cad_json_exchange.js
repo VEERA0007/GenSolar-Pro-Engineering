@@ -2,7 +2,7 @@ const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const source=fs.readFileSync("app/src/main/assets/index.html","utf8");
 function extract(a,b){const i=source.indexOf(a),j=source.indexOf(b,i);assert.ok(i>=0&&j>i,"Missing "+a);return source.slice(i,j);}
-const helpers=extract("function validateImportedRoofZones(","function validateImportedUnderlay(");
+const helpers=extract("function validateSimpleRoofPolygon(","function validateImportedUnderlay(");
 const validate=new Function(helpers+";return {validateImportedRoofZones,validateImportedCadLayout};")();
 const zones=[{id:"ZONE-1",name:"Main RCC",type:"RCC",elevation:5.5,pitch:12,vertices:[{x:0,y:0},{x:20,y:0},{x:20,y:10},{x:0,y:10}]}];
 const clean=validate.validateImportedRoofZones(zones);
