@@ -863,6 +863,10 @@ private fun NativePvDesignScreen(
     var result by remember { mutableStateOf("No PV layout generated in this session.") }
     var status by remember { mutableStateOf("Inputs are saved locally when you generate a layout.") }
     var cadSnapshot by remember { mutableStateOf(NativeCadSnapshot()) }
+    var manualX by remember { mutableStateOf("1.0") }
+    var manualY by remember { mutableStateOf("1.0") }
+    var selectedRoofZoneId by remember { mutableStateOf("") }
+    var selectedManualModuleId by remember { mutableStateOf("") }
     val targetModules = ((capacity.toDoubleOrNull() ?: 0.0) * 1000.0 / (moduleWp.toDoubleOrNull() ?: 1.0)).let {
         if (it.isFinite() && it > 0) kotlin.math.ceil(it).toInt() else 0
     }
@@ -881,7 +885,16 @@ private fun NativePvDesignScreen(
                     ?: throw IllegalStateException("Project CAD snapshot was not returned.")
                 val json = JSONObject(response)
                 if (json.has("error")) status = json.optString("error")
-                else cadSnapshot = parseNativeCadSnapshot(json)
+                else {
+                    val snapshot = parseNativeCadSnapshot(json)
+                    cadSnapshot = snapshot
+                    if (snapshot.roofZones.none { it.id == selectedRoofZoneId }) {
+                        selectedRoofZoneId = snapshot.roofZones.firstOrNull()?.id.orEmpty()
+                    }
+                    if (snapshot.layout.none { it.id == selectedManualModuleId }) {
+                        selectedManualModuleId = ""
+                    }
+                }
             } catch (error: Exception) {
                 status = "Project preview unavailable: " + (error.message ?: "unknown response")
             }
@@ -1050,13 +1063,124 @@ private fun NativePvDesignScreen(
             }
         }
         Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("MANUAL PV MODULE PLACEMENT", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                Text("Place a module by project coordinates. The saved roof polygon, edge setback, obstacle clearance, access corridors and existing module footprints are checked before the change is committed.", color = Color(0xFF60756E), fontSize = 11.sp, lineHeight = 16.sp)
+                if (cadSnapshot.roofZones.isEmpty()) {
+                    Text("No surveyed roof zones found. A saved CAD roof outline is required for placement.", color = Color(0xFF9A5B16), fontSize = 11.sp)
+                } else {
+                    Text("SELECT ROOF ZONE", color = Color(0xFF60756E), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        cadSnapshot.roofZones.forEach { zone ->
+                            FilterChip(
+                                selected = selectedRoofZoneId == zone.id,
+                                onClick = { selectedRoofZoneId = zone.id },
+                                label = { Text(zone.name, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    SurveyInput("Module origin X (m)", manualX, { manualX = it }, Modifier.weight(1f))
+                    SurveyInput("Module origin Y (m)", manualY, { manualY = it }, Modifier.weight(1f))
+                }
+                Text(
+                    "Footprint follows the module dimensions above. Portrait uses module width on X; landscape uses module length on X.",
+                    color = Color(0xFF60756E), fontSize = 10.sp, lineHeight = 15.sp
+                )
+                Button(onClick = {
+                    val x = manualX.trim().toDoubleOrNull()?.takeIf { it.isFinite() }
+                    val y = manualY.trim().toDoubleOrNull()?.takeIf { it.isFinite() }
+                    val lengthMm = moduleLength.trim().toDoubleOrNull()?.takeIf { it.isFinite() }
+                    val widthMm = moduleWidth.trim().toDoubleOrNull()?.takeIf { it.isFinite() }
+                    if (x == null || y == null || lengthMm == null || widthMm == null || lengthMm <= 0.0 || widthMm <= 0.0) {
+                        status = "Enter finite X/Y coordinates and positive module dimensions."
+                        return@Button
+                    }
+                    val landscape = orientation.trim().equals("landscape", ignoreCase = true)
+                    val widthM = (if (landscape) lengthMm else widthMm) / 1000.0
+                    val heightM = (if (landscape) widthMm else lengthMm) / 1000.0
+                    val payload = JSONObject()
+                        .put("x", x)
+                        .put("y", y)
+                        .put("w", widthM)
+                        .put("h", heightM)
+                        .put("zoneId", selectedRoofZoneId)
+                        .put("orientation", if (landscape) "landscape" else "portrait")
+                        .toString()
+                    val script = "(function(){var b=window.GenSolarEpcBridge;if(!b||typeof b.addManualPvModule!=='function')return JSON.stringify({ok:false,error:'Manual PV placement bridge is unavailable.'});return JSON.stringify(b.addManualPvModule($payload));})()"
+                    browser.evaluateJavascript(script) { raw ->
+                        try {
+                            val response = org.json.JSONTokener(raw ?: "null").nextValue() as? String ?: "{}"
+                            val json = JSONObject(response)
+                            if (!json.optBoolean("ok")) {
+                                status = json.optString("error", "Manual PV placement was rejected.")
+                            } else {
+                                selectedManualModuleId = json.optString("id")
+                                status = "Manual module saved to the offline CAD/PV layout."
+                                refreshProjectLayout()
+                            }
+                        } catch (error: Exception) {
+                            status = "Manual placement response could not be read: " + (error.message ?: "unknown response")
+                        }
+                    }
+                }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Place module in project")
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        if (selectedManualModuleId.isBlank()) "Tap a manual module in the preview to select it."
+                        else "Selected module: $selectedManualModuleId",
+                        modifier = Modifier.weight(1f),
+                        color = Color(0xFF60756E),
+                        fontSize = 10.sp
+                    )
+                    androidx.compose.material3.OutlinedButton(
+                        enabled = selectedManualModuleId.isNotBlank(),
+                        onClick = {
+                            val id = JSONObject.quote(selectedManualModuleId)
+                            val script = "(function(){var b=window.GenSolarEpcBridge;return JSON.stringify({ok:!!(b&&b.deleteManualPvModule($id))});})()"
+                            browser.evaluateJavascript(script) { raw ->
+                                try {
+                                    val response = org.json.JSONTokener(raw ?: "null").nextValue() as? String ?: "{}"
+                                    if (JSONObject(response).optBoolean("ok")) {
+                                        selectedManualModuleId = ""
+                                        status = "Manual module removed from the saved layout."
+                                        refreshProjectLayout()
+                                    } else {
+                                        status = "Only a saved manual module can be removed here."
+                                    }
+                                } catch (error: Exception) {
+                                    status = "Module removal response could not be read: " + (error.message ?: "unknown response")
+                                }
+                            }
+                        }
+                    ) { Text("Remove") }
+                }
+            }
+        }
+
+        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
             Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 Text("LIVE PROJECT LAYOUT PREVIEW", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
                 Text("${cadSnapshot.roofZones.size} roof zones · ${cadSnapshot.layout.size} placed modules", color = BrandGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 layoutMetrics?.let { metrics ->
                     Text("${metrics.moduleCount} modules · ${String.format(Locale.US, "%.2f", metrics.dcCapacityKwp)} kWp · ${String.format(Locale.US, "%.2f", metrics.moduleAreaM2)} m² module footprint", color = Color(0xFF60756E), fontSize = 11.sp)
                 }
-                NativeCadPreview(cadSnapshot, Modifier.fillMaxWidth()) { _, _ -> }
+                NativeCadPreview(cadSnapshot, Modifier.fillMaxWidth()) { x, y ->
+                    val px = String.format(Locale.US, "%.6f", x)
+                    val py = String.format(Locale.US, "%.6f", y)
+                    val script = "(function(){var b=window.GenSolarEpcBridge;return JSON.stringify({id:b&&b.selectPvModuleAt?b.selectPvModuleAt($px,$py)||'':''});})()"
+                    browser.evaluateJavascript(script) { raw ->
+                        try {
+                            val response = org.json.JSONTokener(raw ?: "null").nextValue() as? String ?: "{}"
+                            selectedManualModuleId = JSONObject(response).optString("id")
+                            status = if (selectedManualModuleId.isBlank()) "No manual module at the selected point." else "Manual module selected."
+                        } catch (_: Exception) {
+                            status = "Module selection response could not be read."
+                        }
+                    }
+                }
                 androidx.compose.material3.OutlinedButton(onClick = { refreshProjectLayout() }, modifier = Modifier.fillMaxWidth()) {
                     Text("Refresh project preview")
                 }
@@ -2058,13 +2182,18 @@ private data class NativeCadModule(
     val y: Double,
     val width: Double,
     val height: Double,
-    val elevation: Double = 0.0
+    val elevation: Double = 0.0,
+    val id: String = "",
+    val zoneId: String = "",
+    val zoneName: String = "",
+    val placement: String = "automatic"
 )
 
 private data class NativeCadRoofZone(
     val name: String,
     val elevation: Double,
-    val vertices: List<NativeCadPoint>
+    val vertices: List<NativeCadPoint>,
+    val id: String = ""
 )
 
 private data class NativeCadSnapshot(
@@ -2125,7 +2254,17 @@ private fun parseNativeCadSnapshot(json: JSONObject): NativeCadSnapshot {
         val width = row.optDouble("w", Double.NaN)
         val height = row.optDouble("h", Double.NaN)
         if (x.isFinite() && y.isFinite() && width.isFinite() && height.isFinite() && width > 0 && height > 0) {
-            NativeCadModule(x, y, width, height, row.optDouble("zoneElevation", 0.0).takeIf { it.isFinite() } ?: 0.0)
+            NativeCadModule(
+                x = x,
+                y = y,
+                width = width,
+                height = height,
+                elevation = row.optDouble("zoneElevation", 0.0).takeIf { it.isFinite() } ?: 0.0,
+                id = row.optString("id"),
+                zoneId = row.optString("zoneId"),
+                zoneName = row.optString("zoneName"),
+                placement = row.optString("placement", "automatic")
+            )
         } else null
     }
     val zoneRows = json.optJSONArray("roofZones") ?: org.json.JSONArray()
@@ -2133,7 +2272,12 @@ private fun parseNativeCadSnapshot(json: JSONObject): NativeCadSnapshot {
         val row = zoneRows.optJSONObject(index) ?: return@mapNotNull null
         val vertices = row.optJSONArray("vertices") ?: org.json.JSONArray()
         val points = (0 until vertices.length()).mapNotNull { point(vertices.optJSONObject(it)) }
-        if (points.size >= 3) NativeCadRoofZone(row.optString("name", "Roof zone"), row.optDouble("elevation", 0.0).takeIf { it.isFinite() } ?: 0.0, points) else null
+        if (points.size >= 3) NativeCadRoofZone(
+            row.optString("name", "Roof zone"),
+            row.optDouble("elevation", 0.0).takeIf { it.isFinite() } ?: 0.0,
+            points,
+            row.optString("id")
+        ) else null
     }
     val hidden = json.optJSONArray("hiddenLayers") ?: org.json.JSONArray()
     val hiddenLayers = (0 until hidden.length()).map { hidden.optString(it) }.filter { it.isNotBlank() }.toSet()
@@ -2252,8 +2396,11 @@ private fun NativeCadPreview(
                 val topLeft = screen(NativeCadPoint(module.x, module.y + module.height))
                 val bottomRight = screen(NativeCadPoint(module.x + module.width, module.y))
                 val moduleSize = Size((bottomRight.x - topLeft.x).coerceAtLeast(0.5f), (bottomRight.y - topLeft.y).coerceAtLeast(0.5f))
-                drawRect(Color(0xFF2476B8).copy(alpha = 0.28f), topLeft, moduleSize)
-                drawRect(Color(0xFF2476B8), topLeft, moduleSize, style = Stroke(1.0f))
+                val manual = module.placement == "manual"
+                val moduleFill = if (manual) Color(0xFF15966B).copy(alpha = 0.30f) else Color(0xFF2476B8).copy(alpha = 0.28f)
+                val moduleStroke = if (manual) Color(0xFF087F5B) else Color(0xFF2476B8)
+                drawRect(moduleFill, topLeft, moduleSize)
+                drawRect(moduleStroke, topLeft, moduleSize, style = Stroke(1.0f))
             }
         }
         snapshot.entities.forEach { entity ->
